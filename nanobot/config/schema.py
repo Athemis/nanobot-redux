@@ -51,7 +51,8 @@ class MatrixConfig(BaseModel):
     enabled: bool = False
     homeserver: str = "https://matrix.org"
     access_token: str = ""
-    user_id: str = ""          # @bot:matrix.org
+    user_id: str = ""  # @bot:matrix.org
+    device_id: str = ""
     allow_from: list[str] = Field(default_factory=list)
 
 class ChannelsConfig(BaseModel):
