@@ -214,7 +214,10 @@ class AgentLoop:
                     {
                         "id": tc.id,
                         "type": "function",
-                        "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
+                        "function": {
+                            "name": tc.name,
+                            "arguments": json.dumps(tc.arguments, ensure_ascii=False),
+                        },
                     }
                     for tc in response.tool_calls
                 ]
