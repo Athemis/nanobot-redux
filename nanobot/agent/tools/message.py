@@ -78,10 +78,9 @@ class MessageTool(Tool):
 
         media_paths: list[str] = []
         for item in media or []:
-            if isinstance(item, str):
-                candidate = item.strip()
-                if candidate:
-                    media_paths.append(candidate)
+            candidate = item.strip()
+            if candidate:
+                media_paths.append(candidate)
 
         msg = OutboundMessage(
             channel=channel,
