@@ -28,7 +28,9 @@ class ExecTool(Tool):
             r"\brmdir\s+/s\b",               # rmdir /s
             (
                 r"(?im)(?:^|;\s*|&&\s*|\|\|\s*|\|\s*|\(\s*|\$\(\s*)\s*"
-                r"(?:(?:sudo|doas)\s+|cmd(?:\.exe)?\s+/c\s+|(?:/usr/bin/)?env\s+|"
+                r"(?:(?:sudo|doas)\s+|cmd(?:\.exe)?\s+/c\s+|"
+                r"(?:/usr/bin/)?env(?:\s+--?[a-z0-9][\w-]*)*"
+                r"(?:\s+[a-z_][a-z0-9_]*=[^\s\"']+)*\s+|"
                 r"(?:bash|sh|zsh|ksh|dash)(?:\.exe)?\s+-[^\s]*c\s+[\"']?\s*)*"
                 r"(?:[\w.:/\\-]+[/\\])?"
                 r"(?:mkfs(?:\.\w+)?|diskpart|format)\b(?!\s*=)"
@@ -37,7 +39,9 @@ class ExecTool(Tool):
             r">\s*/dev/sd",                  # write to disk
             (
                 r"(?im)(?:^|;\s*|&&\s*|\|\|\s*|\|\s*|\(\s*|\$\(\s*)\s*"
-                r"(?:(?:sudo|doas)\s+|cmd(?:\.exe)?\s+/c\s+|(?:/usr/bin/)?env\s+|"
+                r"(?:(?:sudo|doas)\s+|cmd(?:\.exe)?\s+/c\s+|"
+                r"(?:/usr/bin/)?env(?:\s+--?[a-z0-9][\w-]*)*"
+                r"(?:\s+[a-z_][a-z0-9_]*=[^\s\"']+)*\s+|"
                 r"(?:bash|sh|zsh|ksh|dash)(?:\.exe)?\s+-[^\s]*c\s+[\"']?\s*)*"
                 r"(?:[\w.:/\\-]+[/\\])?"
                 r"(?:shutdown(?:\.\w+)?|reboot|poweroff)\b(?!\s*=)"
