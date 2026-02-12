@@ -243,8 +243,10 @@ class DeleteFileTool(Tool):
 
     async def execute(self, path: str, **kwargs: Any) -> str:
         try:
+            # Keep lexical path (no resolve) so symlink entries can be deleted as links.
             file_path = Path(os.path.abspath(str(Path(path).expanduser())))
             if self._allowed_dir:
+                # Support both configured symlink workspace path (alias) and its real path.
                 allowed_alias = Path(os.path.abspath(str(self._allowed_dir.expanduser())))
                 allowed_resolved = allowed_alias.resolve()
 
@@ -253,11 +255,13 @@ class DeleteFileTool(Tool):
                 if not (in_alias or in_resolved):
                     return f"Error: Path {path} is outside allowed directory {self._allowed_dir}"
 
+                # Block escape via symlinked parent directories inside allowed_dir.
                 parent_resolved = file_path.parent.resolve()
                 if not parent_resolved.is_relative_to(allowed_resolved):
                     return f"Error: Path {path} is outside allowed directory {self._allowed_dir}"
 
             if not file_path.exists():
+                # Broken symlinks have exists() == False but are still valid unlink targets.
                 if not file_path.is_symlink():
                     return f"Error: File not found: {path}"
             if file_path.is_dir() and not file_path.is_symlink():
