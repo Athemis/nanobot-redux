@@ -19,6 +19,7 @@ class ExecTool(Tool):
         deny_patterns: list[str] | None = None,
         allow_patterns: list[str] | None = None,
         restrict_to_workspace: bool = False,
+        command_wrapper: str = "",
     ):
         """Configure execution timeout, command guards, and optional workspace restriction."""
         self.timeout = timeout
@@ -51,6 +52,7 @@ class ExecTool(Tool):
         ]
         self.allow_patterns = allow_patterns or []
         self.restrict_to_workspace = restrict_to_workspace
+        self.command_wrapper = command_wrapper
 
     @property
     def name(self) -> str:
@@ -84,9 +86,14 @@ class ExecTool(Tool):
         if guard_error:
             return guard_error
 
+        # Apply command wrapper if configured (e.g. bwrap, firejail).
+        actual_command = command
+        if self.command_wrapper:
+            actual_command = f"{self.command_wrapper} {command}"
+
         try:
             process = await asyncio.create_subprocess_shell(
-                command,
+                actual_command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
