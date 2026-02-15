@@ -47,7 +47,7 @@ class MessageTool(Tool):
                 "content": {"type": "string", "description": "The message content to send"},
                 "channel": {
                     "type": "string",
-                    "description": "Optional: target channel (telegram, discord, etc.)",
+                    "description": "Optional: target channel (for example, matrix or email)",
                 },
                 "chat_id": {"type": "string", "description": "Optional: target chat/user ID"},
                 "media": {

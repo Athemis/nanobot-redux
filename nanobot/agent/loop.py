@@ -324,7 +324,7 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
             content=final_content,
-            metadata=msg.metadata or {},  # Pass through for channel-specific needs (e.g. Slack thread_ts)
+            metadata=msg.metadata or {},  # Pass through for channel-specific metadata
         )
 
     async def _process_system_message(self, msg: InboundMessage) -> OutboundMessage | None:

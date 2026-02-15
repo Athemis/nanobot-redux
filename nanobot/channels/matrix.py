@@ -1132,7 +1132,7 @@ class MatrixChannel(BaseChannel):
         content_parts.extend(markers)
 
         # TODO: Optionally add audio transcription support for Matrix attachments,
-        # similar to Telegram's voice/audio flow, behind explicit config.
+        # behind explicit config.
 
         await self._start_typing_keepalive(room.room_id)
         try:

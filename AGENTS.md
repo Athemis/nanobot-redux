@@ -27,7 +27,6 @@ Context7 Library IDs for this project (use to skip library-matching):
 | Prompt Toolkit       | `/prompt-toolkit/python-prompt-toolkit` |
 | Pytest               | `/pytest-dev/pytest`                    |
 | Ruff                 | `/astral-sh/ruff`                       |
-| TypeScript           | `/microsoft/typescript`                 |
 | Matrix Nio           | `/matrix-nio/matrix-nio`                |
 | Matrix Specification | `/websites/spec_matrix`                 |
 
@@ -35,7 +34,6 @@ Context7 Library IDs for this project (use to skip library-matching):
 
 - `nanobot/` contains the Python app code (agent loop, tools, channels, providers, CLI, config, cron, heartbeat, session, skills).
 - `tests/` contains `pytest` suites plus `test_docker.sh` for container smoke testing.
-- `bridge/` contains the TypeScript bridge used for WhatsApp login/integration helpers (`src/` source).
 - `docs/` stores focused feature/configuration docs (for example web search setup).
 - `workspace/` is runtime workspace content (agent notes/memory) and is not core library code.
 - Root files include packaging/config (`pyproject.toml`), container setup (`Dockerfile`), and project docs (`README.md`, `SECURITY.md`).
@@ -54,7 +52,6 @@ Context7 Library IDs for this project (use to skip library-matching):
 - `source .venv/bin/activate && pytest`: run Python tests in the project virtual environment.
 - `ruff check .`: run lint checks.
 - `bash tests/test_docker.sh`: build image and run Docker smoke checks.
-- `cd bridge && npm install && npm run build`: build the TypeScript bridge.
 
 ## Coding Style & Naming Conventions
 
@@ -78,7 +75,7 @@ Context7 Library IDs for this project (use to skip library-matching):
 - Follow the Conventional Commits specification for all commit messages.
 - Mirror existing commit style: `feat:`, `fix:`, `docs:`, `refactor:`, and scoped forms like `feat(email): ...`.
 - Keep commit titles imperative and concise.
-- PRs should include: summary, rationale, test evidence (`pytest`, `ruff`, relevant bridge/docker commands), and linked issues.
+- PRs should include: summary, rationale, test evidence (`pytest`, `ruff`, relevant docker commands), and linked issues.
 - Update docs/config examples when changing CLI behavior, provider setup, or channel integration flows.
 
 ## Security & Configuration Tips

@@ -21,8 +21,6 @@ dependencies = [
     "litellm>=1.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    "websockets>=12.0",
-    "websocket-client>=1.6.0",
     "oauth-cli-kit>=0.1.1",
     "httpx[socks]>=0.25.0",
     "ddgs>=9.5",
@@ -30,15 +28,6 @@ dependencies = [
     "readability-lxml>=0.8.0",
     "rich>=13.0.0",
     "croniter>=2.0.0",
-    "dingtalk-stream>=0.4.0",
-    "python-telegram-bot[socks]>=21.0",
-    "lark-oapi>=1.0.0",
-    "socksio>=1.0.0",
-    "python-socketio>=5.11.0",
-    "msgpack>=1.0.8",
-    "slack-sdk>=3.26.0",
-    "qq-botpy>=1.0.0",
-    "python-socks[asyncio]>=2.4.0",
     "prompt-toolkit>=3.0.0",
     "mcp>=1.0.0",
     "json-repair>=0.30.0",
@@ -78,13 +67,9 @@ include = [
 [tool.hatch.build.targets.sdist]
 include = [
     "nanobot/",
-    "bridge/",
     "README.md",
     "LICENSE",
 ]
-
-[tool.hatch.build.targets.wheel.force-include]
-"bridge" = "nanobot/bridge"
 
 [tool.ruff]
 line-length = 100
