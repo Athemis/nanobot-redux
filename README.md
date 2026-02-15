@@ -502,6 +502,8 @@ nanobot cron remove <job_id>
 
 > [!TIP]
 > The `-v ~/.nanobot:/root/.nanobot` flag mounts your local config directory into the container, so your config and workspace persist across container restarts.
+>
+> The default `Dockerfile` uses a multi-stage Alpine build (`python:3.14-alpine`) and includes Matrix E2EE dependencies (`olm`, `olm-dev`). It also sets `CMAKE_POLICY_VERSION_MINIMUM=3.5` to keep `python-olm` builds working with Alpine 3.23's CMake 4.
 
 Build and run nanobot in a container:
 

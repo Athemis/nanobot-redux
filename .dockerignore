@@ -8,6 +8,14 @@ build/
 .git
 .env
 .assets
+.venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
 node_modules/
-bridge/dist/
 workspace/
+tests/
+docs/
+case/
+nanobot_logo.png
+nanobot_arch.png
