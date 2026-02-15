@@ -1,4 +1,4 @@
-from nanobot.config.loader import convert_keys, convert_to_camel
+from squidbot.config.loader import convert_keys, convert_to_camel
 
 
 def test_convert_keys_preserves_extra_headers_key_casing() -> None:
@@ -7,7 +7,7 @@ def test_convert_keys_preserves_extra_headers_key_casing() -> None:
             "openrouter": {
                 "extraHeaders": {
                     "HTTP-Referer": "https://example.com",
-                    "X-Title": "nanobot",
+                    "X-Title": "squidbot",
                 }
             }
         }
@@ -17,7 +17,7 @@ def test_convert_keys_preserves_extra_headers_key_casing() -> None:
 
     assert converted["providers"]["openrouter"]["extra_headers"] == {
         "HTTP-Referer": "https://example.com",
-        "X-Title": "nanobot",
+        "X-Title": "squidbot",
     }
 
 
@@ -44,7 +44,7 @@ def test_convert_keys_converts_provider_fields_but_preserves_header_entries() ->
                 "apiBase": "https://openrouter.ai/api/v1",
                 "extraHeaders": {
                     "HTTP-Referer": "https://example.com",
-                    "X-Title": "nanobot",
+                    "X-Title": "squidbot",
                 },
             }
         }
@@ -55,7 +55,7 @@ def test_convert_keys_converts_provider_fields_but_preserves_header_entries() ->
     assert converted["providers"]["openrouter"]["api_base"] == "https://openrouter.ai/api/v1"
     assert converted["providers"]["openrouter"]["extra_headers"] == {
         "HTTP-Referer": "https://example.com",
-        "X-Title": "nanobot",
+        "X-Title": "squidbot",
     }
 
 
@@ -66,7 +66,7 @@ def test_header_keys_survive_convert_round_trip() -> None:
                 "api_base": "https://openrouter.ai/api/v1",
                 "extra_headers": {
                     "HTTP-Referer": "https://example.com",
-                    "X-Title": "nanobot",
+                    "X-Title": "squidbot",
                 },
             }
         },
@@ -84,7 +84,7 @@ def test_header_keys_survive_convert_round_trip() -> None:
 def test_convert_keys_keeps_preserve_entry_keys_param_compatibility() -> None:
     data = {
         "HTTPReferer": {
-            "XTitle": "nanobot",
+            "XTitle": "squidbot",
         }
     }
 
@@ -92,6 +92,6 @@ def test_convert_keys_keeps_preserve_entry_keys_param_compatibility() -> None:
 
     assert converted == {
         "HTTPReferer": {
-            "x_title": "nanobot",
+            "x_title": "squidbot",
         }
     }

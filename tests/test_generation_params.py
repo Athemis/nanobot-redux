@@ -2,14 +2,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from nanobot.agent.loop import AgentLoop
-from nanobot.agent.subagent import SubagentManager
-from nanobot.bus.queue import MessageBus
-from nanobot.config.schema import AgentDefaults
-from nanobot.providers.base import LLMProvider, LLMResponse
-from nanobot.providers.litellm_provider import LiteLLMProvider
-from nanobot.providers.openai_codex_provider import OpenAICodexProvider
-from nanobot.session.manager import Session
+from squidbot.agent.loop import AgentLoop
+from squidbot.agent.subagent import SubagentManager
+from squidbot.bus.queue import MessageBus
+from squidbot.config.schema import AgentDefaults
+from squidbot.providers.base import LLMProvider, LLMResponse
+from squidbot.providers.litellm_provider import LiteLLMProvider
+from squidbot.providers.openai_codex_provider import OpenAICodexProvider
+from squidbot.session.manager import Session
 
 
 class _RecordingProvider(LLMProvider):
@@ -110,7 +110,7 @@ async def test_litellm_chat_uses_passed_generation_parameters(monkeypatch) -> No
         choice = SimpleNamespace(message=message, finish_reason="stop")
         return SimpleNamespace(choices=[choice], usage=None)
 
-    monkeypatch.setattr("nanobot.providers.litellm_provider.acompletion", _fake_acompletion)
+    monkeypatch.setattr("squidbot.providers.litellm_provider.acompletion", _fake_acompletion)
 
     provider = LiteLLMProvider(default_model="anthropic/claude-opus-4-5")
     result = await provider.chat(
@@ -143,11 +143,11 @@ async def test_codex_chat_uses_max_output_tokens_and_ignores_temperature(monkeyp
         return "ok", [], "stop"
 
     monkeypatch.setattr(
-        "nanobot.providers.openai_codex_provider.get_codex_token",
+        "squidbot.providers.openai_codex_provider.get_codex_token",
         lambda: SimpleNamespace(account_id="acc", access="tok"),
     )
     monkeypatch.setattr(
-        "nanobot.providers.openai_codex_provider._request_codex",
+        "squidbot.providers.openai_codex_provider._request_codex",
         _fake_request_codex,
     )
 

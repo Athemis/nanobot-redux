@@ -1,7 +1,7 @@
 import pytest
 
-from nanobot.agent.tools.message import MessageTool
-from nanobot.bus.events import OutboundMessage
+from squidbot.agent.tools.message import MessageTool
+from squidbot.bus.events import OutboundMessage
 
 
 @pytest.mark.asyncio

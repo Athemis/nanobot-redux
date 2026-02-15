@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from nanobot.agent.tools.filesystem import DeleteFileTool
-from nanobot.agent.tools.registry import ToolRegistry
+from squidbot.agent.tools.filesystem import DeleteFileTool
+from squidbot.agent.tools.registry import ToolRegistry
 
 
 @pytest.mark.asyncio

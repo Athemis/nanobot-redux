@@ -1,16 +1,16 @@
 <div align="center">
-  <img src="nanobot_logo.png" alt="nanobot" width="500">
-  <h1>nanobot: Ultra-Lightweight Personal AI Assistant</h1>
+  <img src="squidbot_logo.webp" alt="squidbot" width="500">
+  <h1>squidbot: Ultra-Lightweight Personal AI Assistant</h1>
   <p>
-    <a href="https://pypi.org/project/nanobot-ai/"><img src="https://img.shields.io/pypi/v/nanobot-ai" alt="PyPI"></a>
-    <a href="https://pepy.tech/project/nanobot-ai"><img src="https://static.pepy.tech/badge/nanobot-ai" alt="Downloads"></a>
+    <a href="https://pypi.org/project/squidbot-ai/"><img src="https://img.shields.io/pypi/v/squidbot-ai" alt="PyPI"></a>
+    <a href="https://pepy.tech/project/squidbot-ai"><img src="https://static.pepy.tech/badge/squidbot-ai" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
     <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white" alt="WeChat"></a>
   </p>
 </div>
 
-🐈 **nanobot** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw) 
+🦑 **squidbot** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw) 
 
 ⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
 
@@ -18,18 +18,18 @@
 
 ## 📢 News
 
-- **2026-02-14** 🔌 nanobot now supports MCP! See [MCP section](#mcp-model-context-protocol) for details.
-- **2026-02-13** 🎉 Released v0.1.3.post7 — includes security hardening and multiple improvements. All users are recommended to upgrade to the latest version. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post7) for more details.
-- **2026-02-12** 🧠 Redesigned memory system — Less code, more reliable. Join the [discussion](https://github.com/HKUDS/nanobot/discussions/566) about it!
+- **2026-02-14** 🔌 squidbot now supports MCP! See [MCP section](#mcp-model-context-protocol) for details.
+- **2026-02-13** 🎉 Released v0.1.3.post7 — includes security hardening and multiple improvements. All users are recommended to upgrade to the latest version. See [release notes](https://github.com/HKUDS/squidbot/releases/tag/v0.1.3.post7) for more details.
+- **2026-02-12** 🧠 Redesigned memory system — Less code, more reliable. Join the [discussion](https://github.com/HKUDS/squidbot/discussions/566) about it!
 - **2026-02-11** ✨ Enhanced CLI experience and added MiniMax support!
-- **2026-02-10** 🎉 Released v0.1.3.post6 with improvements! Check the updates [notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post6) and our [roadmap](https://github.com/HKUDS/nanobot/discussions/431).
+- **2026-02-10** 🎉 Released v0.1.3.post6 with improvements! Check the updates [notes](https://github.com/HKUDS/squidbot/releases/tag/v0.1.3.post6) and our [roadmap](https://github.com/HKUDS/squidbot/discussions/431).
 - **2026-02-08** 🔧 Refactored Providers—adding a new LLM provider now takes just 2 simple steps! Check [here](#providers).
-- **2026-02-07** 🚀 Released v0.1.3.post5 with Qwen support & several key improvements! Check [here](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post5) for details.
-- **2026-02-04** 🚀 Released v0.1.3.post4 with multi-provider & Docker support! Check [here](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post4) for details.
+- **2026-02-07** 🚀 Released v0.1.3.post5 with Qwen support & several key improvements! Check [here](https://github.com/HKUDS/squidbot/releases/tag/v0.1.3.post5) for details.
+- **2026-02-04** 🚀 Released v0.1.3.post4 with multi-provider & Docker support! Check [here](https://github.com/HKUDS/squidbot/releases/tag/v0.1.3.post4) for details.
 - **2026-02-03** ⚡ Integrated vLLM for local LLM support and improved natural language task scheduling!
-- **2026-02-02** 🎉 nanobot officially launched! Welcome to try 🐈 nanobot!
+- **2026-02-02** 🎉 squidbot officially launched! Welcome to try 🦑 squidbot!
 
-## Key Features of nanobot:
+## Key Features of squidbot:
 
 🪶 **Ultra-Lightweight**: Just ~4,000 lines of core agent code — 99% smaller than Clawdbot.
 
@@ -41,68 +41,147 @@
 
 ## 🏗️ Architecture
 
-<p align="center">
-  <img src="nanobot_arch.png" alt="nanobot architecture" width="800">
-</p>
+```mermaid
+flowchart LR
+    subgraph channels["Channels"]
+        cli["CLI (direct)"]
+        matrix["Matrix (Element)"]
+        email["Email (IMAP/SMTP)"]
+    end
 
-## ✨ Features
+    subgraph runtime["Runtime"]
+        bus["Message Bus"]
+        cm["ChannelManager\n(outbound dispatcher)"]
+        loop["Agent Loop"]
+        llm["LLM"]
+        tools["Tool Registry"]
+    end
 
-<table align="center">
-  <tr align="center">
-    <th><p align="center">📈 24/7 Real-Time Market Analysis</p></th>
-    <th><p align="center">🚀 Full-Stack Software Engineer</p></th>
-    <th><p align="center">📅 Smart Daily Routine Manager</p></th>
-    <th><p align="center">📚 Personal Knowledge Assistant</p></th>
-  </tr>
-  <tr>
-    <td align="center"><p align="center"><img src="case/search.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/code.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/scedule.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/memory.gif" width="180" height="400"></p></td>
-  </tr>
-  <tr>
-    <td align="center">Discovery • Insights • Trends</td>
-    <td align="center">Develop • Deploy • Scale</td>
-    <td align="center">Schedule • Automate • Organize</td>
-    <td align="center">Learn • Memory • Reasoning</td>
-  </tr>
-</table>
+    subgraph ctx["Context"]
+        mem["Memory"]
+        skills["Skills"]
+    end
+
+    subgraph toolsrc["Tool Sources"]
+        builtin["Built-in Tools\nfile, shell, web, cron, message, spawn"]
+        mcp["MCP Servers\nstdio / HTTP"]
+    end
+
+    matrix --> bus
+    email --> bus
+    bus <--> loop
+    bus --> cm
+    cm --> matrix
+    cm --> email
+
+    cli <--> loop
+
+    loop <--> llm
+    loop <-->|tool calls/results| tools
+
+    builtin --> tools
+    mcp --> tools
+
+    mem <--> loop
+    skills --> loop
+```
+
+### Runtime Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant CLI as CLI Command
+    participant C as Channel (Matrix/Email)
+    participant CM as ChannelManager
+    participant B as Message Bus
+    participant A as Agent Loop
+    participant L as LLM
+    participant T as Tool Registry
+    participant M as MCP Server
+
+    opt CLI direct mode
+        U->>CLI: squidbot agent -m "..."
+        CLI->>A: process_direct(...)
+    end
+
+    opt Gateway channel mode
+        U->>C: message
+        C->>B: InboundMessage
+        B->>A: consume_inbound()
+    end
+
+    A->>A: build context (history + memory + skills)
+    A->>L: chat(context + tools)
+    L-->>A: response / tool calls
+
+    loop tool-call loop
+        A->>T: execute(tool, args)
+        alt built-in tool
+            T-->>A: result
+        else MCP-provided tool
+            T->>M: call_tool(...)
+            M-->>T: result
+            T-->>A: result
+        end
+        opt message tool used
+            T->>B: publish_outbound(...)
+            CM->>B: consume_outbound()
+            CM->>C: channel.send(...)
+            C-->>U: intermediate message
+        end
+        A->>L: continue with tool result
+        L-->>A: next step / final answer
+    end
+
+    opt Gateway channel mode
+        A->>B: OutboundMessage
+        CM->>B: consume_outbound()
+        CM->>C: channel.send(...)
+        C-->>U: response
+    end
+
+    opt CLI direct mode
+        A-->>CLI: final response
+        CLI-->>U: print response
+    end
+```
 
 ## 📦 Install
 
 **Install from source** (latest features, recommended for development)
 
 ```bash
-git clone https://github.com/HKUDS/nanobot.git
-cd nanobot
+git clone https://github.com/Athemis/squidbot.git
+cd squidbot
 pip install -e .
 ```
 
 **Install with [uv](https://github.com/astral-sh/uv)** (stable, fast)
 
 ```bash
-uv tool install nanobot-ai
+uv tool install squidbot-ai
 ```
 
 **Install from PyPI** (stable)
 
 ```bash
-pip install nanobot-ai
+pip install squidbot-ai
 ```
 
 ## 🚀 Quick Start
 
 > [!TIP]
-> Set your API key in `~/.nanobot/config.json`.
+> Set your API key in `~/.squidbot/config.json`.
 > Get API keys: [OpenRouter](https://openrouter.ai/keys) (Global) · [DashScope](https://dashscope.console.aliyun.com) (Qwen) · [Brave Search](https://brave.com/search/api/) or [Tavily](https://tavily.com/) (optional, for web search). SearXNG is supported via a base URL.
 
 **1. Initialize**
 
 ```bash
-nanobot onboard
+squidbot onboard
 ```
 
-**2. Configure** (`~/.nanobot/config.json`)
+**2. Configure** (`~/.squidbot/config.json`)
 
 Add or merge these **two parts** into your config (other options have defaults).
 
@@ -128,7 +207,7 @@ Add or merge these **two parts** into your config (other options have defaults).
 }
 ```
 
-`nanobot onboard` seeds OpenRouter attribution headers by default; set `providers.openrouter.extraHeaders` to `{}` to opt out.
+`squidbot onboard` seeds OpenRouter attribution headers by default; set `providers.openrouter.extraHeaders` to `{}` to opt out.
 **Optional: Web search provider** — set `tools.web.search.provider` to `brave` (default), `duckduckgo`, `tavily`, or `searxng`. See [docs/web-search.md](docs/web-search.md) for full configuration.
 
 ```json
@@ -147,14 +226,14 @@ Add or merge these **two parts** into your config (other options have defaults).
 **3. Chat**
 
 ```bash
-nanobot agent
+squidbot agent
 ```
 
 That's it! You have a working AI assistant in 2 minutes.
 
 ## 💬 Chat Apps
 
-Talk to your nanobot through Matrix (Element) or Email — anytime, anywhere.
+Talk to your squidbot through Matrix (Element) or Email — anytime, anywhere.
 
 | Channel              | Setup                              |
 | -------------------- | ---------------------------------- |
@@ -174,7 +253,7 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
 **2. Get credentials**
 
 - You need:
-  - `userId` (example: `@nanobot:matrix.org`)
+  - `userId` (example: `@squidbot:matrix.org`)
   - `accessToken`
   - `deviceId` (recommended so sync tokens can be restored across restarts)
 - You can obtain these from your homeserver login API (`/_matrix/client/v3/login`) or from your client's advanced session settings.
@@ -187,9 +266,9 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
     "matrix": {
       "enabled": true,
       "homeserver": "https://matrix.org",
-      "userId": "@nanobot:matrix.org",
+      "userId": "@squidbot:matrix.org",
       "accessToken": "syt_xxx",
-      "deviceId": "NANOBOT01",
+      "deviceId": "SQUIDBOT01",
       "e2eeEnabled": true,
       "allowFrom": [],
       "groupPolicy": "open",
@@ -223,7 +302,7 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
 **4. Run**
 
 ```bash
-nanobot gateway
+squidbot gateway
 ```
 
 </details>
@@ -231,10 +310,10 @@ nanobot gateway
 <details>
 <summary><b>Email</b></summary>
 
-Give nanobot its own email account. It polls **IMAP** for incoming mail and replies via **SMTP** — like a personal email assistant.
+Give squidbot its own email account. It polls **IMAP** for incoming mail and replies via **SMTP** — like a personal email assistant.
 
 **1. Get credentials (Gmail example)**
-- Create a dedicated Gmail account for your bot (e.g. `my-nanobot@gmail.com`)
+- Create a dedicated Gmail account for your bot (e.g. `my-squidbot@gmail.com`)
 - Enable 2-Step Verification → Create an [App Password](https://myaccount.google.com/apppasswords)
 - Use this app password for both IMAP and SMTP
 
@@ -253,13 +332,13 @@ Give nanobot its own email account. It polls **IMAP** for incoming mail and repl
       "consentGranted": true,
       "imapHost": "imap.gmail.com",
       "imapPort": 993,
-      "imapUsername": "my-nanobot@gmail.com",
+      "imapUsername": "my-squidbot@gmail.com",
       "imapPassword": "your-app-password",
       "smtpHost": "smtp.gmail.com",
       "smtpPort": 587,
-      "smtpUsername": "my-nanobot@gmail.com",
+      "smtpUsername": "my-squidbot@gmail.com",
       "smtpPassword": "your-app-password",
-      "fromAddress": "my-nanobot@gmail.com",
+      "fromAddress": "my-squidbot@gmail.com",
       "allowFrom": ["your-real-email@gmail.com"]
     }
   }
@@ -270,25 +349,25 @@ Give nanobot its own email account. It polls **IMAP** for incoming mail and repl
 **3. Run**
 
 ```bash
-nanobot gateway
+squidbot gateway
 ```
 
 </details>
 
 ## 🌐 Agent Social Network
 
-🐈 nanobot is capable of linking to the agent social network (agent community). **Just send one message and your nanobot joins automatically!**
+🦑 squidbot is capable of linking to the agent social network (agent community). **Just send one message and your squidbot joins automatically!**
 
 | Platform | How to Join (send this message to your bot) |
 |----------|-------------|
 | [**Moltbook**](https://www.moltbook.com/) | `Read https://moltbook.com/skill.md and follow the instructions to join Moltbook` |
 | [**ClawdChat**](https://clawdchat.ai/) | `Read https://clawdchat.ai/skill.md and follow the instructions to join ClawdChat` |
 
-Simply send the command above to your nanobot (via CLI, Matrix, or Email), and it will handle the rest.
+Simply send the command above to your squidbot (via CLI, Matrix, or Email), and it will handle the rest.
 
 ## ⚙️ Configuration
 
-Config file: `~/.nanobot/config.json`
+Config file: `~/.squidbot/config.json`
 
 ### Providers
 
@@ -349,7 +428,7 @@ Run your own model with vLLM or any OpenAI-compatible server, then add to config
 vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 ```
 
-**2. Add to config** (partial — merge into `~/.nanobot/config.json`):
+**2. Add to config** (partial — merge into `~/.squidbot/config.json`):
 
 *Provider (key can be any non-empty string for local):*
 ```json
@@ -379,23 +458,23 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 <details>
 <summary><b>Adding a New Provider (Developer Guide)</b></summary>
 
-nanobot uses a **Provider Registry** (`nanobot/providers/registry.py`) as the single source of truth.
+squidbot uses a **Provider Registry** (`squidbot/providers/registry.py`) as the single source of truth.
 Adding a new provider only takes **2 steps** — no if-elif chains to touch.
 
-**Step 1.** Add a `ProviderSpec` entry to `PROVIDERS` in `nanobot/providers/registry.py`:
+**Step 1.** Add a `ProviderSpec` entry to `PROVIDERS` in `squidbot/providers/registry.py`:
 
 ```python
 ProviderSpec(
     name="myprovider",                   # config field name
     keywords=("myprovider", "mymodel"),  # model-name keywords for auto-matching
     env_key="MYPROVIDER_API_KEY",        # env var for LiteLLM
-    display_name="My Provider",          # shown in `nanobot status`
+    display_name="My Provider",          # shown in `squidbot status`
     litellm_prefix="myprovider",         # auto-prefix: model → myprovider/model
     skip_prefixes=("myprovider/",),      # don't double-prefix
 )
 ```
 
-**Step 2.** Add a field to `ProvidersConfig` in `nanobot/config/schema.py`:
+**Step 2.** Add a field to `ProvidersConfig` in `squidbot/config/schema.py`:
 
 ```python
 class ProvidersConfig(BaseModel):
@@ -403,7 +482,7 @@ class ProvidersConfig(BaseModel):
     myprovider: ProviderConfig = ProviderConfig()
 ```
 
-That's it! Environment variables, model prefixing, config matching, and `nanobot status` display will all work automatically.
+That's it! Environment variables, model prefixing, config matching, and `squidbot status` display will all work automatically.
 
 **Common `ProviderSpec` options:**
 
@@ -426,7 +505,7 @@ That's it! Environment variables, model prefixing, config matching, and `nanobot
 > [!TIP]
 > The config format is compatible with Claude Desktop / Cursor. You can copy MCP server configs directly from any MCP server's README.
 
-nanobot supports [MCP](https://modelcontextprotocol.io/) — connect external tool servers and use them as native agent tools.
+squidbot supports [MCP](https://modelcontextprotocol.io/) — connect external tool servers and use them as native agent tools.
 
 Add MCP servers to your `config.json`:
 
@@ -469,15 +548,15 @@ MCP tools are automatically discovered and registered on startup. The LLM can us
 
 | Command                               | Description                   |
 | ------------------------------------- | ----------------------------- |
-| `nanobot onboard`                     | Initialize config & workspace |
-| `nanobot agent -m "..."`              | Chat with the agent           |
-| `nanobot agent`                       | Interactive chat mode         |
-| `nanobot agent --no-markdown`         | Show plain-text replies       |
-| `nanobot agent --logs`                | Show runtime logs during chat |
-| `nanobot gateway`                     | Start the gateway             |
-| `nanobot status`                      | Show status                   |
-| `nanobot provider login openai-codex` | OAuth login for providers     |
-| `nanobot channels status`             | Show channel status           |
+| `squidbot onboard`                     | Initialize config & workspace |
+| `squidbot agent -m "..."`              | Chat with the agent           |
+| `squidbot agent`                       | Interactive chat mode         |
+| `squidbot agent --no-markdown`         | Show plain-text replies       |
+| `squidbot agent --logs`                | Show runtime logs during chat |
+| `squidbot gateway`                     | Start the gateway             |
+| `squidbot status`                      | Show status                   |
+| `squidbot provider login openai-codex` | OAuth login for providers     |
+| `squidbot channels status`             | Show channel status           |
 
 Interactive mode exits: `exit`, `quit`, `/exit`, `/quit`, `:q`, or `Ctrl+D`.
 
@@ -486,14 +565,14 @@ Interactive mode exits: `exit`, `quit`, `/exit`, `/quit`, `:q`, or `Ctrl+D`.
 
 ```bash
 # Add a job
-nanobot cron add --name "daily" --message "Good morning!" --cron "0 9 * * *"
-nanobot cron add --name "hourly" --message "Check status" --every 3600
+squidbot cron add --name "daily" --message "Good morning!" --cron "0 9 * * *"
+squidbot cron add --name "hourly" --message "Check status" --every 3600
 
 # List jobs
-nanobot cron list
+squidbot cron list
 
 # Remove a job
-nanobot cron remove <job_id>
+squidbot cron remove <job_id>
 ```
 
 </details>
@@ -501,34 +580,34 @@ nanobot cron remove <job_id>
 ## 🐳 Docker
 
 > [!TIP]
-> The `-v ~/.nanobot:/root/.nanobot` flag mounts your local config directory into the container, so your config and workspace persist across container restarts.
+> The `-v ~/.squidbot:/root/.squidbot` flag mounts your local config directory into the container, so your config and workspace persist across container restarts.
 >
 > The default `Dockerfile` uses a multi-stage Alpine build (`python:3.14-alpine`) and includes Matrix E2EE dependencies (`olm`, `olm-dev`). It also sets `CMAKE_POLICY_VERSION_MINIMUM=3.5` to keep `python-olm` builds working with Alpine 3.23's CMake 4.
 
-Build and run nanobot in a container:
+Build and run squidbot in a container:
 
 ```bash
 # Build the image
-docker build -t nanobot .
+docker build -t squidbot .
 
 # Initialize config (first time only)
-docker run -v ~/.nanobot:/root/.nanobot --rm nanobot onboard
+docker run -v ~/.squidbot:/root/.squidbot --rm squidbot onboard
 
 # Edit config on host to add API keys
-vim ~/.nanobot/config.json
+vim ~/.squidbot/config.json
 
 # Run gateway (connects to enabled channels, e.g. Matrix/Email)
-docker run -v ~/.nanobot:/root/.nanobot -p 18790:18790 nanobot gateway
+docker run -v ~/.squidbot:/root/.squidbot -p 18790:18790 squidbot gateway
 
 # Or run a single command
-docker run -v ~/.nanobot:/root/.nanobot --rm nanobot agent -m "Hello!"
-docker run -v ~/.nanobot:/root/.nanobot --rm nanobot status
+docker run -v ~/.squidbot:/root/.squidbot --rm squidbot agent -m "Hello!"
+docker run -v ~/.squidbot:/root/.squidbot --rm squidbot status
 ```
 
 ## 📁 Project Structure
 
 ```
-nanobot/
+squidbot/
 ├── agent/          # 🧠 Core agent logic
 │   ├── loop.py     #    Agent loop (LLM ↔ tool execution)
 │   ├── context.py  #    Prompt builder
@@ -551,7 +630,7 @@ nanobot/
 
 PRs welcome! The codebase is intentionally small and readable. 🤗
 
-**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
+**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/squidbot/pulls)!
 
 - [ ] **Multi-modal** — See and hear (images, voice, video)
 - [ ] **Long-term memory** — Never forget important context
@@ -561,27 +640,27 @@ PRs welcome! The codebase is intentionally small and readable. 🤗
 
 ### Contributors
 
-<a href="https://github.com/HKUDS/nanobot/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=HKUDS/nanobot&max=100&columns=12&updated=20260210" alt="Contributors" />
+<a href="https://github.com/HKUDS/squidbot/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=HKUDS/squidbot&max=100&columns=12&updated=20260210" alt="Contributors" />
 </a>
 
 ## ⭐ Star History
 
 <div align="center">
-  <a href="https://star-history.com/#HKUDS/nanobot&Date">
+  <a href="https://star-history.com/#HKUDS/squidbot&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/squidbot&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/squidbot&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/squidbot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
     </picture>
   </a>
 </div>
 
 <p align="center">
-  <em> Thanks for visiting ✨ nanobot!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
+  <em> Thanks for visiting ✨ squidbot!</em><br><br>
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.squidbot&style=for-the-badge&color=00d4ff" alt="Views">
 </p>
 
 <p align="center">
-  <sub>nanobot is for educational, research, and technical exchange purposes only</sub>
+  <sub>squidbot is for educational, research, and technical exchange purposes only</sub>
 </p>

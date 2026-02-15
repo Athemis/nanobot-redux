@@ -1,6 +1,6 @@
 # Available Tools
 
-This document describes the tools available to nanobot.
+This document describes the tools available to squidbot.
 
 ## File Operations
 
@@ -76,7 +76,7 @@ Config:
 - Brave key: `tools.web.search.apiKey` (or `BRAVE_API_KEY`)
 - Tavily key: `tools.web.search.tavilyApiKey` (or `TAVILY_API_KEY`)
 - SearXNG base URL: `tools.web.search.searxngBaseUrl` (or `SEARXNG_BASE_URL`)
-- `searxngBaseUrl` should be the server base URL (nanobot appends `/search`)
+- `searxngBaseUrl` should be the server base URL (squidbot appends `/search`)
 - `tools.web.search.fallbackToDuckduckgoOnMissingKey` (default: `true`)
 - DuckDuckGo does not require an API key.
 
@@ -118,30 +118,30 @@ Use for complex or time-consuming tasks that can run independently. The subagent
 
 ## Scheduled Reminders (Cron)
 
-Use the `exec` tool to create scheduled reminders with `nanobot cron add`:
+Use the `exec` tool to create scheduled reminders with `squidbot cron add`:
 
 ### Set a recurring reminder
 
 ```bash
 # Every day at 9am
-nanobot cron add --name "morning" --message "Good morning! ☀️" --cron "0 9 * * *"
+squidbot cron add --name "morning" --message "Good morning! ☀️" --cron "0 9 * * *"
 
 # Every 2 hours
-nanobot cron add --name "water" --message "Drink water! 💧" --every 7200
+squidbot cron add --name "water" --message "Drink water! 💧" --every 7200
 ```
 
 ### Set a one-time reminder
 
 ```bash
 # At a specific time (ISO format)
-nanobot cron add --name "meeting" --message "Meeting starts now!" --at "2025-01-31T15:00:00"
+squidbot cron add --name "meeting" --message "Meeting starts now!" --at "2025-01-31T15:00:00"
 ```
 
 ### Manage reminders
 
 ```bash
-nanobot cron list              # List all jobs
-nanobot cron remove <job_id>   # Remove a job
+squidbot cron list              # List all jobs
+squidbot cron remove <job_id>   # Remove a job
 ```
 
 ## Heartbeat Task Management
@@ -187,6 +187,6 @@ write_file(
 
 To add custom tools:
 
-1. Create a class that extends `Tool` in `nanobot/agent/tools/`
+1. Create a class that extends `Tool` in `squidbot/agent/tools/`
 2. Implement `name`, `description`, `parameters`, and `execute`
 3. Register it in `AgentLoop._register_default_tools()`

@@ -1,6 +1,6 @@
 import pytest
 
-from nanobot.agent.tools.shell import ExecTool
+from squidbot.agent.tools.shell import ExecTool
 
 BLOCKED_COMMANDS = [
     "mkfs.ext4 /dev/sda",

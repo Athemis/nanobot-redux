@@ -25,12 +25,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies first (cached layer)
 COPY pyproject.toml README.md LICENSE ./
-RUN mkdir -p nanobot && touch nanobot/__init__.py && \
+RUN mkdir -p squidbot && touch squidbot/__init__.py && \
     uv pip install --python /opt/venv/bin/python --no-cache . && \
-    rm -rf nanobot
+    rm -rf squidbot
 
 # Copy source and install package
-COPY nanobot/ nanobot/
+COPY squidbot/ squidbot/
 # Dependencies are already installed in the previous layer; install local package only.
 RUN uv pip install --python /opt/venv/bin/python --no-cache --no-deps .
 
@@ -56,10 +56,10 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 # Create config directory
-RUN mkdir -p /root/.nanobot
+RUN mkdir -p /root/.squidbot
 
 # Gateway default port
 EXPOSE 18790
 
-ENTRYPOINT ["nanobot"]
+ENTRYPOINT ["squidbot"]
 CMD ["status"]

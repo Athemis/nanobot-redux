@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from nanobot.session.manager import Session, SessionManager
+from squidbot.session.manager import Session, SessionManager
 
 # Test constants
 MEMORY_WINDOW = 50

@@ -4,8 +4,8 @@ from typing import Literal
 import httpx
 import pytest
 
-from nanobot.agent.tools.web import WebSearchTool
-from nanobot.config.schema import WebSearchConfig
+from squidbot.agent.tools.web import WebSearchTool
+from squidbot.config.schema import WebSearchConfig
 
 
 def _tool(config: WebSearchConfig, handler) -> WebSearchTool:
@@ -28,12 +28,12 @@ def _assert_tavily_request(request: httpx.Request) -> bool:
         (
             "brave",
             {"api_key": "brave-key"},
-            "nanobot",
+            "squidbot",
             1,
             lambda request: (
                 request.method == "GET"
                 and str(request.url)
-                == "https://api.search.brave.com/res/v1/web/search?q=nanobot&count=1"
+                == "https://api.search.brave.com/res/v1/web/search?q=squidbot&count=1"
                 and request.headers["X-Subscription-Token"] == "brave-key"
             ),
             httpx.Response(
@@ -42,15 +42,15 @@ def _assert_tavily_request(request: httpx.Request) -> bool:
                     "web": {
                         "results": [
                             {
-                                "title": "NanoBot",
-                                "url": "https://example.com/nanobot",
+                                "title": "Squidbot",
+                                "url": "https://example.com/squidbot",
                                 "description": "Ultra-lightweight assistant",
                             }
                         ]
                     }
                 },
             ),
-            ["Results for: nanobot", "1. NanoBot", "https://example.com/nanobot"],
+            ["Results for: squidbot", "1. Squidbot", "https://example.com/squidbot"],
         ),
         (
             "tavily",
@@ -75,25 +75,25 @@ def _assert_tavily_request(request: httpx.Request) -> bool:
         (
             "searxng",
             {"base_url": "https://searx.example"},
-            "nanobot",
+            "squidbot",
             1,
             lambda request: (
                 request.method == "GET"
-                and str(request.url) == "https://searx.example/search?q=nanobot&format=json"
+                and str(request.url) == "https://searx.example/search?q=squidbot&format=json"
             ),
             httpx.Response(
                 200,
                 json={
                     "results": [
                         {
-                            "title": "nanobot docs",
-                            "url": "https://example.com/nanobot",
+                            "title": "squidbot docs",
+                            "url": "https://example.com/squidbot",
                             "content": "Lightweight assistant docs",
                         }
                     ]
                 },
             ),
-            ["Results for: nanobot", "1. nanobot docs", "https://example.com/nanobot"],
+            ["Results for: squidbot", "1. squidbot docs", "https://example.com/squidbot"],
         ),
     ],
 )
@@ -180,7 +180,7 @@ async def test_web_search_missing_key_falls_back_to_duckduckgo(
                 }
             ]
 
-    monkeypatch.setattr("nanobot.agent.tools.web.DDGS", FakeDDGS, raising=False)
+    monkeypatch.setattr("squidbot.agent.tools.web.DDGS", FakeDDGS, raising=False)
 
     result = await WebSearchTool(config=config).execute(query="fallback", count=1)
     assert called
@@ -211,7 +211,7 @@ async def test_web_search_searxng_missing_base_url_falls_back_to_duckduckgo() ->
         config=WebSearchConfig(provider="searxng", base_url="", max_results=5)
     )
 
-    result = await tool.execute(query="nanobot", count=1)
+    result = await tool.execute(query="squidbot", count=1)
     assert "DuckDuckGo fallback" in result
     assert "SEARXNG_BASE_URL" in result
 
@@ -225,7 +225,7 @@ async def test_web_search_searxng_missing_base_url_no_fallback_returns_error() -
         )
     )
 
-    result = await tool.execute(query="nanobot", count=1)
+    result = await tool.execute(query="squidbot", count=1)
     assert result == "Error: SEARXNG_BASE_URL not configured"
 
 
@@ -237,7 +237,7 @@ async def test_web_search_searxng_uses_env_base_url(
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "GET"
-        assert str(request.url) == "https://searx.env/search?q=nanobot&format=json"
+        assert str(request.url) == "https://searx.env/search?q=squidbot&format=json"
         return httpx.Response(
             200,
             json={
@@ -252,7 +252,7 @@ async def test_web_search_searxng_uses_env_base_url(
         )
 
     config = WebSearchConfig(provider="searxng", base_url="", max_results=5)
-    result = await _tool(config, handler).execute(query="nanobot", count=1)
+    result = await _tool(config, handler).execute(query="squidbot", count=1)
     assert "1. env result" in result
 
 
@@ -266,20 +266,20 @@ async def test_web_search_register_custom_provider() -> None:
 
     tool._provider_dispatch["custom"] = _custom_provider
 
-    result = await tool.execute(query="nanobot", count=2)
-    assert result == "custom:nanobot:2"
+    result = await tool.execute(query="squidbot", count=2)
+    assert result == "custom:squidbot:2"
 
 
 @pytest.mark.asyncio
 async def test_web_search_duckduckgo_uses_injected_ddgs_factory() -> None:
     class FakeDDGS:
         def text(self, keywords: str, max_results: int):
-            assert keywords == "nanobot"
+            assert keywords == "squidbot"
             assert max_results == 1
             return [
                 {
-                    "title": "NanoBot result",
-                    "href": "https://example.com/nanobot",
+                    "title": "Squidbot result",
+                    "href": "https://example.com/squidbot",
                     "body": "Search content",
                 }
             ]
@@ -289,8 +289,8 @@ async def test_web_search_duckduckgo_uses_injected_ddgs_factory() -> None:
         ddgs_factory=lambda: FakeDDGS(),
     )
 
-    result = await tool.execute(query="nanobot", count=1)
-    assert "1. NanoBot result" in result
+    result = await tool.execute(query="squidbot", count=1)
+    assert "1. Squidbot result" in result
 
 
 @pytest.mark.asyncio
@@ -298,7 +298,7 @@ async def test_web_search_unknown_provider_returns_error() -> None:
     tool = WebSearchTool(
         config=WebSearchConfig(provider="google", max_results=5),
     )
-    result = await tool.execute(query="nanobot", count=1)
+    result = await tool.execute(query="squidbot", count=1)
     assert result == "Error: unknown search provider 'google'"
 
 
@@ -311,8 +311,8 @@ async def test_web_search_dispatch_dict_overwrites_builtin() -> None:
         config=WebSearchConfig(provider="brave", api_key="key", max_results=5),
     )
     tool._provider_dispatch["brave"] = _custom_brave
-    result = await tool.execute(query="nanobot", count=2)
-    assert result == "custom-brave:nanobot:2"
+    result = await tool.execute(query="squidbot", count=2)
+    assert result == "custom-brave:squidbot:2"
 
 
 @pytest.mark.asyncio
@@ -324,5 +324,5 @@ async def test_web_search_searxng_rejects_invalid_url() -> None:
             max_results=5,
         ),
     )
-    result = await tool.execute(query="nanobot", count=1)
+    result = await tool.execute(query="squidbot", count=1)
     assert "Error: invalid SearXNG URL" in result

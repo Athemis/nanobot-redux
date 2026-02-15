@@ -1,12 +1,12 @@
 import pytest
 
-from nanobot.cli.commands import (
+from squidbot.cli.commands import (
     OPENROUTER_DEFAULT_EXTRA_HEADERS,
     _make_provider,
     _resolve_runtime_extra_headers,
     _seed_openrouter_attribution_headers,
 )
-from nanobot.config.schema import Config
+from squidbot.config.schema import Config
 
 
 def test_do_not_override_intentionally_empty_openrouter_headers() -> None:
@@ -42,7 +42,7 @@ def test_make_provider_applies_openrouter_runtime_fallback(
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.setattr("nanobot.providers.litellm_provider.LiteLLMProvider", DummyProvider)
+    monkeypatch.setattr("squidbot.providers.litellm_provider.LiteLLMProvider", DummyProvider)
 
     config = Config()
     config.providers.openrouter.api_key = "sk-test"

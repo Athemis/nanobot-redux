@@ -1,9 +1,9 @@
 from typing import Any
 
-from nanobot.agent.tools.base import Tool
-from nanobot.agent.tools.registry import ToolRegistry
-from nanobot.agent.tools.web import WebSearchTool
-from nanobot.config.schema import WebSearchConfig
+from squidbot.agent.tools.base import Tool
+from squidbot.agent.tools.registry import ToolRegistry
+from squidbot.agent.tools.web import WebSearchTool
+from squidbot.config.schema import WebSearchConfig
 
 
 class SampleTool(Tool):
