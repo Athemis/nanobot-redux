@@ -6,6 +6,7 @@ from nanobot.agent.loop import AgentLoop
 from nanobot.agent.subagent import SubagentManager
 from nanobot.bus.queue import MessageBus
 from nanobot.config.schema import AgentDefaults
+from nanobot.providers import openai_codex_provider as codex_provider
 from nanobot.providers.base import LLMProvider, LLMResponse
 from nanobot.providers.litellm_provider import LiteLLMProvider
 from nanobot.providers.openai_codex_provider import OpenAICodexProvider
@@ -164,3 +165,80 @@ async def test_codex_chat_uses_max_output_tokens_and_ignores_temperature(monkeyp
     assert isinstance(body, dict)
     assert body["max_output_tokens"] == 777
     assert "temperature" not in body
+
+
+@pytest.mark.asyncio
+async def test_codex_chat_disables_ssl_verify_only_when_provider_configured(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    async def _fake_request_codex(
+        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+    ):
+        captured["verify"] = verify
+        return "ok", [], "stop"
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider.get_codex_token",
+        lambda: SimpleNamespace(account_id="acc", access="tok"),
+    )
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider._request_codex",
+        _fake_request_codex,
+    )
+
+    provider = OpenAICodexProvider(default_model="openai-codex/gpt-5.1-codex", ssl_verify=False)
+    response = await provider.chat(messages=[{"role": "user", "content": "hello"}])
+
+    assert response.content == "ok"
+    assert captured["verify"] is False
+
+
+@pytest.mark.asyncio
+async def test_codex_chat_no_longer_auto_retries_without_ssl_verify(monkeypatch) -> None:
+    calls: list[bool] = []
+
+    async def _fake_request_codex(
+        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+    ):
+        calls.append(verify)
+        raise RuntimeError("CERTIFICATE_VERIFY_FAILED")
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider.get_codex_token",
+        lambda: SimpleNamespace(account_id="acc", access="tok"),
+    )
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider._request_codex",
+        _fake_request_codex,
+    )
+
+    provider = OpenAICodexProvider(default_model="openai-codex/gpt-5.1-codex")
+    response = await provider.chat(messages=[{"role": "user", "content": "hello"}])
+
+    assert response.finish_reason == "error"
+    assert calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_error_event_includes_message(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {"type": "error", "message": "token expired"}
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    with pytest.raises(RuntimeError, match="Codex response failed: token expired"):
+        await codex_provider._consume_sse(object())
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_response_failed_uses_nested_error(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {
+            "type": "response.failed",
+            "response": {"error": {"message": "quota exceeded"}},
+        }
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    with pytest.raises(RuntimeError, match="Codex response failed: quota exceeded"):
+        await codex_provider._consume_sse(object())

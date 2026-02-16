@@ -91,6 +91,12 @@ class ProviderConfig(BaseModel):
     extra_headers: dict[str, str] | None = None  # Custom headers (e.g. APP-Code for AiHubMix)
 
 
+class OpenAICodexProviderConfig(ProviderConfig):
+    """OpenAI Codex provider configuration."""
+
+    ssl_verify: bool = True
+
+
 class ProvidersConfig(BaseModel):
     """Configuration for LLM providers."""
     custom: ProviderConfig = Field(default_factory=ProviderConfig)  # Any OpenAI-compatible endpoint
@@ -106,7 +112,9 @@ class ProvidersConfig(BaseModel):
     moonshot: ProviderConfig = Field(default_factory=ProviderConfig)
     minimax: ProviderConfig = Field(default_factory=ProviderConfig)
     aihubmix: ProviderConfig = Field(default_factory=ProviderConfig)  # AiHubMix API gateway
-    openai_codex: ProviderConfig = Field(default_factory=ProviderConfig)  # OpenAI Codex (OAuth)  # AiHubMix API gateway
+    openai_codex: OpenAICodexProviderConfig = Field(
+        default_factory=OpenAICodexProviderConfig
+    )  # OpenAI Codex (OAuth)
 
 
 class GatewayConfig(BaseModel):
@@ -177,19 +185,19 @@ class Config(BaseSettings):
         model_lower = (model or self.agents.defaults.model).lower()
 
         # Match by keyword (order follows PROVIDERS registry)
-        # Note: OAuth providers don't require api_key, so we check is_oauth flag
         for spec in PROVIDERS:
             p = getattr(self.providers, spec.name, None)
             if p and any(kw in model_lower for kw in spec.keywords):
-                # OAuth providers don't need api_key
                 if spec.is_oauth or p.api_key:
                     return p, spec.name
 
         # Fallback: gateways first, then others (follows registry order)
-        # OAuth providers are also valid fallbacks
+        # OAuth providers are NOT valid fallbacks — they require explicit model selection
         for spec in PROVIDERS:
+            if spec.is_oauth:
+                continue
             p = getattr(self.providers, spec.name, None)
-            if p and (spec.is_oauth or p.api_key):
+            if p and p.api_key:
                 return p, spec.name
         return None, None
 
