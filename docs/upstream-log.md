@@ -30,7 +30,7 @@ Changes integrated after the initial fork:
 
 | Upstream PR/Commit | Area | Why Adopted | Risk | Adopted | Verification |
 |---|---|---|---|---|---|
-| _No post-fork adoptions yet_ | - | - | - | - | - |
+| 1ce586e9f515ca537353331f726307844e1b4e2f | Codex Provider | Upstream fixes for PR HKUDS/nanobot#151 | low | 2026-02-16 | - |
 
 ### Template for New Adoptions
 
