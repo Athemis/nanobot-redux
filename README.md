@@ -75,52 +75,7 @@ graph LR
     style LLM fill:#ffcc80,stroke:#e65100,stroke-width:3px,color:#000
     style Tools fill:#ffab91,stroke:#bf360c,stroke-width:2px,color:#000
     style Response fill:#f8bbd0,stroke:#c2185b,stroke-width:2px,color:#000
-    style Memory fill:#e1bee7,stroke:#7b1fa2,stroke-width%%{init: {'flowchart': {'defaultRenderer': 'elk'}}}%%
-    graph LR
-        subgraph Channels["💬 Channels"]
-            Matrix[Matrix/Element]
-            Email[Email/IMAP-SMTP]
-        end
-    
-        subgraph AgentLoop["🔄 Agent Loop"]
-            Message[📨 Message]
-            LLM[🤖 LLM]
-            Tools[🛠️ Tools]
-            Response[💬 Response]
-        end
-    
-        subgraph Context["📚 Context"]
-            Memory[💾 Memory]
-            Skills[⚙️ Skills]
-        end
-    
-        Matrix --> Message
-        Email --> Message
-        Message --> LLM
-        LLM --> Tools
-        Tools --> Response
-        Response --> Matrix
-        Response --> Email
-        
-        Tools -.-> Memory
-        Tools -.-> Skills
-        LLM -.-> Memory
-        
-        style Channels fill:#e3f2fd,color:#000
-        style AgentLoop fill:#fff3e0,color:#000
-        style Context fill:#f3e5f5,color:#000
-        style Matrix fill:#b3e5fc,stroke:#1976d2,stroke-width:2px,color:#000
-        style Email fill:#b3e5fc,stroke:#1976d2,stroke-width:2px,color:#000
-        style Message fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
-        style LLM fill:#ffcc80,stroke:#e65100,stroke-width:3px,color:#000
-        style Tools fill:#ffab91,stroke:#bf360c,stroke-width:2px,color:#000
-        style Response fill:#f8bbd0,stroke:#c2185b,stroke-width:2px,color:#000
-        style Memory fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
-        style Skills fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
-        
-        linkStyle 0,1,2,3,4,5,6 stroke:#333,stroke-width:2px
-        linkStyle 7,8,9 stroke:#666,stroke-width:2px
-:2px,color:#000
+    style Memory fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
     style Skills fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
     
     linkStyle 0,1,2,3,4,5,6 stroke:#333,stroke-width:2px
