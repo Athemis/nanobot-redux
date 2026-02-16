@@ -28,6 +28,7 @@ class EmailConfig(BaseModel):
     smtp_password: str = ""
     smtp_use_tls: bool = True
     smtp_use_ssl: bool = False
+    tls_verify: bool = True  # Verify TLS certificates for IMAP/SMTP connections
     from_address: str = ""
 
     # Behavior

@@ -57,6 +57,9 @@ class EmailChannel(BaseChannel):
         self._last_message_id_by_chat: dict[str, str] = {}
         self._processed_uids: set[str] = set()  # Capped to prevent unbounded growth
         self._MAX_PROCESSED_UIDS = 100000
+        self._logged_insecure_tls_warning = False
+        self._verified_tls_context: ssl.SSLContext | None = None
+        self._insecure_tls_context: ssl.SSLContext | None = None
 
     async def start(self) -> None:
         """Start polling IMAP for inbound emails."""
@@ -116,6 +119,12 @@ class EmailChannel(BaseChannel):
         if not self.config.smtp_host:
             logger.warning("Email channel SMTP host not configured")
             return
+        if not self._smtp_transport_secure():
+            logger.error(
+                "Skip email send: insecure SMTP transport config "
+                "(smtp_use_ssl=false and smtp_use_tls=false)"
+            )
+            return
 
         to_addr = msg.chat_id.strip()
         if not to_addr:
@@ -164,15 +173,47 @@ class EmailChannel(BaseChannel):
         if missing:
             logger.error(f"Email channel not configured, missing: {', '.join(missing)}")
             return False
+        if not self._smtp_transport_secure():
+            logger.error(
+                "Email channel SMTP transport is insecure: both smtp_use_ssl and smtp_use_tls are false. "
+                "Refusing plaintext SMTP. Enable at least one of them."
+            )
+            return False
         return True
+
+    def _smtp_transport_secure(self) -> bool:
+        """Return True when SMTP transport is encrypted (implicit TLS or STARTTLS)."""
+        return bool(self.config.smtp_use_ssl or self.config.smtp_use_tls)
+
+    def _tls_context(self) -> ssl.SSLContext:
+        """Build TLS context based on channel configuration."""
+        if self.config.tls_verify:
+            if self._verified_tls_context is None:
+                self._verified_tls_context = ssl.create_default_context()
+            return self._verified_tls_context
+
+        if not self._logged_insecure_tls_warning:
+            logger.warning(
+                "Email TLS verification is disabled (channels.email.tlsVerify=false). "
+                "This increases MITM risk and may expose email credentials/content."
+            )
+            self._logged_insecure_tls_warning = True
+
+        if self._insecure_tls_context is None:
+            self._insecure_tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            self._insecure_tls_context.check_hostname = False
+            self._insecure_tls_context.verify_mode = ssl.CERT_NONE
+        return self._insecure_tls_context
 
     def _smtp_send(self, msg: EmailMessage) -> None:
         timeout = 30
+        tls_context = self._tls_context()
         if self.config.smtp_use_ssl:
             with smtplib.SMTP_SSL(
                 self.config.smtp_host,
                 self.config.smtp_port,
                 timeout=timeout,
+                context=tls_context,
             ) as smtp:
                 smtp.login(self.config.smtp_username, self.config.smtp_password)
                 smtp.send_message(msg)
@@ -180,7 +221,7 @@ class EmailChannel(BaseChannel):
 
         with smtplib.SMTP(self.config.smtp_host, self.config.smtp_port, timeout=timeout) as smtp:
             if self.config.smtp_use_tls:
-                smtp.starttls(context=ssl.create_default_context())
+                smtp.starttls(context=tls_context)
             smtp.login(self.config.smtp_username, self.config.smtp_password)
             smtp.send_message(msg)
 
@@ -231,7 +272,11 @@ class EmailChannel(BaseChannel):
         mailbox = self.config.imap_mailbox or "INBOX"
 
         if self.config.imap_use_ssl:
-            client = imaplib.IMAP4_SSL(self.config.imap_host, self.config.imap_port)
+            client = imaplib.IMAP4_SSL(
+                self.config.imap_host,
+                self.config.imap_port,
+                ssl_context=self._tls_context(),
+            )
         else:
             client = imaplib.IMAP4(self.config.imap_host, self.config.imap_port)
 

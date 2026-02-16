@@ -1,5 +1,7 @@
+import ssl
 from datetime import date
 from email.message import EmailMessage
+from typing import Callable
 
 import pytest
 
@@ -7,6 +9,41 @@ from nanobot.bus.events import OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.channels.email import EmailChannel
 from nanobot.config.schema import EmailConfig
+
+
+class _FakeSMTPClient:
+    def __init__(
+        self,
+        _host: str,
+        _port: int,
+        timeout: int = 30,
+        context: ssl.SSLContext | None = None,
+        on_init: Callable[[], None] | None = None,
+    ) -> None:
+        self.timeout = timeout
+        self.context = context
+        self.started_tls = False
+        self.starttls_context: ssl.SSLContext | None = None
+        self.logged_in = False
+        self.sent_messages: list[EmailMessage] = []
+        if on_init:
+            on_init()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def starttls(self, context=None):
+        self.started_tls = True
+        self.starttls_context = context
+
+    def login(self, _user: str, _pw: str):
+        self.logged_in = True
+
+    def send_message(self, msg: EmailMessage):
+        self.sent_messages.append(msg)
 
 
 def _make_config() -> EmailConfig:
@@ -66,7 +103,13 @@ def test_fetch_new_messages_parses_unseen_and_marks_seen(monkeypatch) -> None:
             return "BYE", [b""]
 
     fake = FakeIMAP()
-    monkeypatch.setattr("nanobot.channels.email.imaplib.IMAP4_SSL", lambda _h, _p: fake)
+    captured: dict[str, ssl.SSLContext | None] = {"ssl_context": None}
+
+    def _imap_factory(_host: str, _port: int, ssl_context: ssl.SSLContext | None = None):
+        captured["ssl_context"] = ssl_context
+        return fake
+
+    monkeypatch.setattr("nanobot.channels.email.imaplib.IMAP4_SSL", _imap_factory)
 
     channel = EmailChannel(_make_config(), MessageBus())
     items = channel._fetch_new_messages()
@@ -76,6 +119,9 @@ def test_fetch_new_messages_parses_unseen_and_marks_seen(monkeypatch) -> None:
     assert items[0]["subject"] == "Invoice"
     assert "Please pay" in items[0]["content"]
     assert fake.store_calls == [(b"1", "+FLAGS", "\\Seen")]
+    assert captured["ssl_context"] is not None
+    assert captured["ssl_context"].verify_mode == ssl.CERT_REQUIRED
+    assert captured["ssl_context"].check_hostname is True
 
     # Same UID should be deduped in-process.
     items_again = channel._fetch_new_messages()
@@ -114,32 +160,10 @@ async def test_start_returns_immediately_without_consent(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
-    class FakeSMTP:
-        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
-            self.timeout = timeout
-            self.started_tls = False
-            self.logged_in = False
-            self.sent_messages: list[EmailMessage] = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def starttls(self, context=None):
-            self.started_tls = True
-
-        def login(self, _user: str, _pw: str):
-            self.logged_in = True
-
-        def send_message(self, msg: EmailMessage):
-            self.sent_messages.append(msg)
-
-    fake_instances: list[FakeSMTP] = []
+    fake_instances: list[_FakeSMTPClient] = []
 
     def _smtp_factory(host: str, port: int, timeout: int = 30):
-        instance = FakeSMTP(host, port, timeout=timeout)
+        instance = _FakeSMTPClient(host, port, timeout=timeout)
         fake_instances.append(instance)
         return instance
 
@@ -160,6 +184,9 @@ async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
     assert len(fake_instances) == 1
     smtp = fake_instances[0]
     assert smtp.started_tls is True
+    assert smtp.starttls_context is not None
+    assert smtp.starttls_context.verify_mode == ssl.CERT_REQUIRED
+    assert smtp.starttls_context.check_hostname is True
     assert smtp.logged_in is True
     assert len(smtp.sent_messages) == 1
     sent = smtp.sent_messages[0]
@@ -170,29 +197,10 @@ async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_send_skips_when_auto_reply_disabled(monkeypatch) -> None:
-    class FakeSMTP:
-        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
-            self.sent_messages: list[EmailMessage] = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def starttls(self, context=None):
-            return None
-
-        def login(self, _user: str, _pw: str):
-            return None
-
-        def send_message(self, msg: EmailMessage):
-            self.sent_messages.append(msg)
-
-    fake_instances: list[FakeSMTP] = []
+    fake_instances: list[_FakeSMTPClient] = []
 
     def _smtp_factory(host: str, port: int, timeout: int = 30):
-        instance = FakeSMTP(host, port, timeout=timeout)
+        instance = _FakeSMTPClient(host, port, timeout=timeout)
         fake_instances.append(instance)
         return instance
 
@@ -224,30 +232,12 @@ async def test_send_skips_when_auto_reply_disabled(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_send_skips_when_consent_not_granted(monkeypatch) -> None:
-    class FakeSMTP:
-        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
-            self.sent_messages: list[EmailMessage] = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def starttls(self, context=None):
-            return None
-
-        def login(self, _user: str, _pw: str):
-            return None
-
-        def send_message(self, msg: EmailMessage):
-            self.sent_messages.append(msg)
-
-    called = {"smtp": False}
+    fake_instances: list[_FakeSMTPClient] = []
 
     def _smtp_factory(host: str, port: int, timeout: int = 30):
-        called["smtp"] = True
-        return FakeSMTP(host, port, timeout=timeout)
+        instance = _FakeSMTPClient(host, port, timeout=timeout)
+        fake_instances.append(instance)
+        return instance
 
     monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP", _smtp_factory)
 
@@ -262,7 +252,43 @@ async def test_send_skips_when_consent_not_granted(monkeypatch) -> None:
             metadata={"force_send": True},
         )
     )
-    assert called["smtp"] is False
+    assert fake_instances == []
+
+
+def test_validate_config_rejects_plaintext_smtp() -> None:
+    cfg = _make_config()
+    cfg.smtp_use_ssl = False
+    cfg.smtp_use_tls = False
+
+    channel = EmailChannel(cfg, MessageBus())
+    assert channel._validate_config() is False
+
+
+@pytest.mark.asyncio
+async def test_send_skips_when_smtp_tls_and_ssl_disabled(monkeypatch) -> None:
+    fake_instances: list[_FakeSMTPClient] = []
+
+    def _smtp_factory(host: str, port: int, timeout: int = 30):
+        instance = _FakeSMTPClient(host, port, timeout=timeout)
+        fake_instances.append(instance)
+        return instance
+
+    monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP", _smtp_factory)
+
+    cfg = _make_config()
+    cfg.smtp_use_ssl = False
+    cfg.smtp_use_tls = False
+    channel = EmailChannel(cfg, MessageBus())
+    await channel.send(
+        OutboundMessage(
+            channel="email",
+            chat_id="alice@example.com",
+            content="Should not send over plaintext SMTP.",
+            metadata={"force_send": True},
+        )
+    )
+
+    assert fake_instances == []
 
 
 def test_fetch_messages_between_dates_uses_imap_since_before_without_mark_seen(monkeypatch) -> None:
@@ -294,7 +320,13 @@ def test_fetch_messages_between_dates_uses_imap_since_before_without_mark_seen(m
             return "BYE", [b""]
 
     fake = FakeIMAP()
-    monkeypatch.setattr("nanobot.channels.email.imaplib.IMAP4_SSL", lambda _h, _p: fake)
+    captured: dict[str, ssl.SSLContext | None] = {"ssl_context": None}
+
+    def _imap_factory(_host: str, _port: int, ssl_context: ssl.SSLContext | None = None):
+        captured["ssl_context"] = ssl_context
+        return fake
+
+    monkeypatch.setattr("nanobot.channels.email.imaplib.IMAP4_SSL", _imap_factory)
 
     channel = EmailChannel(_make_config(), MessageBus())
     items = channel.fetch_messages_between_dates(
@@ -309,3 +341,69 @@ def test_fetch_messages_between_dates_uses_imap_since_before_without_mark_seen(m
     assert fake.search_args is not None
     assert fake.search_args[1:] == ("SINCE", "06-Feb-2026", "BEFORE", "07-Feb-2026")
     assert fake.store_calls == []
+    assert captured["ssl_context"] is not None
+    assert captured["ssl_context"].verify_mode == ssl.CERT_REQUIRED
+    assert captured["ssl_context"].check_hostname is True
+
+
+@pytest.mark.asyncio
+async def test_send_uses_smtp_ssl_with_verified_context_by_default(monkeypatch) -> None:
+    fake_instances: list[_FakeSMTPClient] = []
+
+    def _smtp_ssl_factory(
+        host: str,
+        port: int,
+        timeout: int = 30,
+        context: ssl.SSLContext | None = None,
+    ):
+        instance = _FakeSMTPClient(host, port, timeout=timeout, context=context)
+        fake_instances.append(instance)
+        return instance
+
+    monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP_SSL", _smtp_ssl_factory)
+
+    cfg = _make_config()
+    cfg.smtp_use_ssl = True
+    cfg.smtp_use_tls = False
+    channel = EmailChannel(cfg, MessageBus())
+    await channel.send(
+        OutboundMessage(
+            channel="email",
+            chat_id="alice@example.com",
+            content="Secure SMTP SSL test.",
+        )
+    )
+
+    assert len(fake_instances) == 1
+    smtp = fake_instances[0]
+    assert smtp.context is not None
+    assert smtp.context.verify_mode == ssl.CERT_REQUIRED
+    assert smtp.context.check_hostname is True
+    assert smtp.logged_in is True
+    assert len(smtp.sent_messages) == 1
+
+
+def test_tls_verify_false_uses_unverified_context_and_logs_once(monkeypatch) -> None:
+    warnings: list[str] = []
+
+    def _warn(msg: str, *args):
+        if args:
+            warnings.append(msg.format(*args))
+        else:
+            warnings.append(msg)
+
+    monkeypatch.setattr("nanobot.channels.email.logger.warning", _warn)
+
+    cfg = _make_config()
+    cfg.tls_verify = False
+    channel = EmailChannel(cfg, MessageBus())
+
+    context_one = channel._tls_context()
+    context_two = channel._tls_context()
+
+    assert context_one.verify_mode == ssl.CERT_NONE
+    assert context_one.check_hostname is False
+    assert context_two.verify_mode == ssl.CERT_NONE
+    assert context_two.check_hostname is False
+    assert len(warnings) == 1
+    assert "tlsverify=false" in warnings[0].lower()
