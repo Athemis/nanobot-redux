@@ -20,9 +20,13 @@ DEFAULT_ORIGINATOR = "nanobot"
 class OpenAICodexProvider(LLMProvider):
     """Use Codex OAuth to call the Responses API."""
 
-    def __init__(self, default_model: str = "openai-codex/gpt-5.1-codex"):
+    def __init__(
+        self, default_model: str = "openai-codex/gpt-5.2-codex", ssl_verify: bool = True
+    ):
         super().__init__(api_key=None, api_base=None)
         self.default_model = default_model
+        self.ssl_verify = ssl_verify
+        self._logged_insecure_ssl_warning = False
 
     async def chat(
         self,
@@ -56,15 +60,18 @@ class OpenAICodexProvider(LLMProvider):
             body["tools"] = _convert_tools(tools)
 
         url = DEFAULT_CODEX_URL
+        ssl_verify = self.ssl_verify
+        if not ssl_verify and not self._logged_insecure_ssl_warning:
+            logger.warning(
+                "providers.openaiCodex.sslVerify=false disables TLS certificate verification for Codex "
+                "requests. This increases MITM risk and can expose your OAuth bearer token."
+            )
+            self._logged_insecure_ssl_warning = True
 
         try:
-            try:
-                content, tool_calls, finish_reason = await _request_codex(url, headers, body, verify=True)
-            except Exception as e:
-                if "CERTIFICATE_VERIFY_FAILED" not in str(e):
-                    raise
-                logger.warning("SSL certificate verification failed for Codex API; retrying with verify=False")
-                content, tool_calls, finish_reason = await _request_codex(url, headers, body, verify=False)
+            content, tool_calls, finish_reason = await _request_codex(
+                url, headers, body, verify=ssl_verify
+            )
             return LLMResponse(
                 content=content,
                 tool_calls=tool_calls,

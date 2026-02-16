@@ -299,7 +299,7 @@ nanobot provider login openai-codex
 {
   "agents": {
     "defaults": {
-      "model": "openai-codex/gpt-5.1-codex"
+      "model": "openai-codex/gpt-5.2-codex"
     }
   }
 }
@@ -309,6 +309,18 @@ nanobot provider login openai-codex
 ```bash
 nanobot agent -m "Hello!"
 ```
+
+**Optional (corp proxy/VPN only): disable TLS cert verification explicitly**
+```json
+{
+  "providers": {
+    "openaiCodex": {
+      "sslVerify": false
+    }
+  }
+}
+```
+Use this **only when you trust your network** path. Disabling verification increases **MITM risk** and can expose your OAuth bearer token.
 
 > Docker users: use `docker run -it` for interactive OAuth login.
 

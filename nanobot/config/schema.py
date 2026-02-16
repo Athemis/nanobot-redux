@@ -91,6 +91,12 @@ class ProviderConfig(BaseModel):
     extra_headers: dict[str, str] | None = None  # Custom headers (e.g. APP-Code for AiHubMix)
 
 
+class OpenAICodexProviderConfig(ProviderConfig):
+    """OpenAI Codex provider configuration."""
+
+    ssl_verify: bool = True
+
+
 class ProvidersConfig(BaseModel):
     """Configuration for LLM providers."""
     custom: ProviderConfig = Field(default_factory=ProviderConfig)  # Any OpenAI-compatible endpoint
@@ -106,7 +112,9 @@ class ProvidersConfig(BaseModel):
     moonshot: ProviderConfig = Field(default_factory=ProviderConfig)
     minimax: ProviderConfig = Field(default_factory=ProviderConfig)
     aihubmix: ProviderConfig = Field(default_factory=ProviderConfig)  # AiHubMix API gateway
-    openai_codex: ProviderConfig = Field(default_factory=ProviderConfig)  # OpenAI Codex (OAuth)
+    openai_codex: OpenAICodexProviderConfig = Field(
+        default_factory=OpenAICodexProviderConfig
+    )  # OpenAI Codex (OAuth)
 
 
 class GatewayConfig(BaseModel):
