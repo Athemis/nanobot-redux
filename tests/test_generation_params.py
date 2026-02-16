@@ -6,6 +6,7 @@ from nanobot.agent.loop import AgentLoop
 from nanobot.agent.subagent import SubagentManager
 from nanobot.bus.queue import MessageBus
 from nanobot.config.schema import AgentDefaults
+from nanobot.providers import openai_codex_provider as codex_provider
 from nanobot.providers.base import LLMProvider, LLMResponse
 from nanobot.providers.litellm_provider import LiteLLMProvider
 from nanobot.providers.openai_codex_provider import OpenAICodexProvider
@@ -216,3 +217,28 @@ async def test_codex_chat_no_longer_auto_retries_without_ssl_verify(monkeypatch)
 
     assert response.finish_reason == "error"
     assert calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_error_event_includes_message(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {"type": "error", "message": "token expired"}
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    with pytest.raises(RuntimeError, match="Codex response failed: token expired"):
+        await codex_provider._consume_sse(object())
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_response_failed_uses_nested_error(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {
+            "type": "response.failed",
+            "response": {"error": {"message": "quota exceeded"}},
+        }
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    with pytest.raises(RuntimeError, match="Codex response failed: quota exceeded"):
+        await codex_provider._consume_sse(object())

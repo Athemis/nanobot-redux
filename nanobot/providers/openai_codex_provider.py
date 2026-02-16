@@ -302,7 +302,7 @@ async def _consume_sse(response: httpx.Response) -> tuple[str, list[ToolCallRequ
             status = (event.get("response") or {}).get("status")
             finish_reason = _map_finish_reason(status)
         elif event_type in {"error", "response.failed"}:
-            raise RuntimeError("Codex response failed")
+            raise RuntimeError(f"Codex response failed: {_extract_event_error_message(event)}")
 
     return content, tool_calls, finish_reason
 
@@ -312,6 +312,32 @@ _FINISH_REASON_MAP = {"completed": "stop", "incomplete": "length", "failed": "er
 
 def _map_finish_reason(status: str | None) -> str:
     return _FINISH_REASON_MAP.get(status or "completed", "stop")
+
+
+def _extract_event_error_message(event: dict[str, Any]) -> str:
+    top_level = event.get("message")
+    if isinstance(top_level, str) and top_level.strip():
+        return top_level.strip()
+
+    error_obj = event.get("error")
+    if isinstance(error_obj, str) and error_obj.strip():
+        return error_obj.strip()
+    if isinstance(error_obj, dict):
+        nested = error_obj.get("message")
+        if isinstance(nested, str) and nested.strip():
+            return nested.strip()
+
+    response_obj = event.get("response")
+    if isinstance(response_obj, dict):
+        response_error = response_obj.get("error")
+        if isinstance(response_error, str) and response_error.strip():
+            return response_error.strip()
+        if isinstance(response_error, dict):
+            nested = response_error.get("message")
+            if isinstance(nested, str) and nested.strip():
+                return nested.strip()
+
+    return "unknown error"
 
 
 def _friendly_error(status_code: int, raw: str) -> str:
