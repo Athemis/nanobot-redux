@@ -1,18 +1,16 @@
-<div align="center">
-  <img src="nanobot_redux_logo.webp" alt="nanobot redux" width="500">
-  <h1>nanobot redux: Ultra-Lightweight Personal AI Assistant</h1>
-  <p>
-    <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
-    <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-  </p>
-</div>
+![nanobot redux](nanobot_redux_logo.webp)
+
+# nanobot redux: Ultra-Lightweight Personal AI Assistant
+
+![Python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 🐈 **nanobot-redux** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw). It is an opinionated fork of [**nanobot**](https://github.com/HKUDS/nanobot) by HKUDS.
 > All credit for the original project goes to the HKUDS team and contributors.
 
 ⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
 
-📏 Real-time line count: **4,133 lines** (run `bash core_agent_lines.sh` to verify anytime)
+📏 Real-time line count: **3,851 lines** (run `bash core_agent_lines.sh` to verify anytime)
 
 ## 📍 Fork Baseline
 
@@ -34,9 +32,7 @@ This fork is based on **[HKUDS/nanobot v0.1.3.post7](https://github.com/HKUDS/na
 
 ## 🏗️ Architecture
 
-<p align="center">
-  <img src="docs/architecture.svg" alt="nanobot redux architecture" width="800">
-</p>
+![nanobot redux architecture](docs/architecture.svg)
 
 
 ## ✨ Features
