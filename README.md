@@ -1,14 +1,9 @@
-<div align="center">
-  <img src="squidbot_logo.webp" alt="squidbot" width="500">
-  <h1>squidbot: Ultra-Lightweight Personal AI Assistant</h1>
-  <p>
-    <a href="https://pypi.org/project/squidbot-ai/"><img src="https://img.shields.io/pypi/v/squidbot-ai" alt="PyPI"></a>
-    <a href="https://pepy.tech/project/squidbot-ai"><img src="https://static.pepy.tech/badge/squidbot-ai" alt="Downloads"></a>
-    <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
-    <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white" alt="WeChat"></a>
-  </p>
-</div>
+![squidbot](squidbot_logo.webp)
+
+# squidbot: Ultra-Lightweight Personal AI Assistant
+
+![Python >=3.11](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 🦑 **squidbot** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw) and based on [nanobot](https://github.com/HKUDS/nanobot).
 
