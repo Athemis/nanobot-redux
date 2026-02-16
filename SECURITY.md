@@ -237,7 +237,7 @@ Before deploying nanobot:
 
 ## Updates
 
-**Last Updated**: 2025-01-XX
+**Last Updated**: 2026-02-16
 
 For the latest security updates and announcements, check the repository's:
 - Security Advisories
