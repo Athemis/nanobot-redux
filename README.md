@@ -1,33 +1,26 @@
 <div align="center">
-  <img src="nanobot_logo.png" alt="nanobot" width="500">
-  <h1>nanobot: Ultra-Lightweight Personal AI Assistant</h1>
+  <img src="nanobot_redux_logo.webp" alt="nanobot redux" width="500">
+  <h1>nanobot redux: Ultra-Lightweight Personal AI Assistant</h1>
   <p>
-    <a href="https://pypi.org/project/nanobot-ai/"><img src="https://img.shields.io/pypi/v/nanobot-ai" alt="PyPI"></a>
-    <a href="https://pepy.tech/project/nanobot-ai"><img src="https://static.pepy.tech/badge/nanobot-ai" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white" alt="WeChat"></a>
   </p>
 </div>
 
-🐈 **nanobot** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw) 
+🐈 **nanobot-redux** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw). It is an opinionated fork of [**nanobot**](https://github.com/HKUDS/nanobot) by HKUDS.
+> All credit for the original project goes to the HKUDS team and contributors.
 
 ⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
 
 📏 Real-time line count: **4,133 lines** (run `bash core_agent_lines.sh` to verify anytime)
 
-## 📢 News
+## 📍 Fork Baseline
 
-- **2026-02-14** 🔌 nanobot now supports MCP! See [MCP section](#mcp-model-context-protocol) for details.
-- **2026-02-13** 🎉 Released v0.1.3.post7 — includes security hardening and multiple improvements. All users are recommended to upgrade to the latest version. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post7) for more details.
-- **2026-02-12** 🧠 Redesigned memory system — Less code, more reliable. Join the [discussion](https://github.com/HKUDS/nanobot/discussions/566) about it!
-- **2026-02-11** ✨ Enhanced CLI experience and added MiniMax support!
-- **2026-02-10** 🎉 Released v0.1.3.post6 with improvements! Check the updates [notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post6) and our [roadmap](https://github.com/HKUDS/nanobot/discussions/431).
-- **2026-02-08** 🔧 Refactored Providers—adding a new LLM provider now takes just 2 simple steps! Check [here](#providers).
-- **2026-02-07** 🚀 Released v0.1.3.post5 with Qwen support & several key improvements! Check [here](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post5) for details.
-- **2026-02-04** 🚀 Released v0.1.3.post4 with multi-provider & Docker support! Check [here](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post4) for details.
-- **2026-02-03** ⚡ Integrated vLLM for local LLM support and improved natural language task scheduling!
-- **2026-02-02** 🎉 nanobot officially launched! Welcome to try 🐈 nanobot!
+This fork is based on **[HKUDS/nanobot v0.1.3.post7](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post7)** which includes:
+- MCP (Model Context Protocol) support
+- Security hardening and multiple improvements
+- Matrix channel, OpenAI Codex OAuth, multi-provider web search (including SearXNG)
+- Enhanced tool safety (`delete_file` symlink protection, shell security hardening)
 
 ## Key Features of nanobot:
 
@@ -47,26 +40,15 @@
 
 ## ✨ Features
 
-<table align="center">
-  <tr align="center">
-    <th><p align="center">📈 24/7 Real-Time Market Analysis</p></th>
-    <th><p align="center">🚀 Full-Stack Software Engineer</p></th>
-    <th><p align="center">📅 Smart Daily Routine Manager</p></th>
-    <th><p align="center">📚 Personal Knowledge Assistant</p></th>
-  </tr>
-  <tr>
-    <td align="center"><p align="center"><img src="case/search.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/code.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/scedule.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/memory.gif" width="180" height="400"></p></td>
-  </tr>
-  <tr>
-    <td align="center">Discovery • Insights • Trends</td>
-    <td align="center">Develop • Deploy • Scale</td>
-    <td align="center">Schedule • Automate • Organize</td>
-    <td align="center">Learn • Memory • Reasoning</td>
-  </tr>
-</table>
+- 🔍 **Web Search** - Multi-provider support (Brave, Tavily, SearXNG, DuckDuckGo)
+- 🔌 **MCP Integration** - Model Context Protocol for extensible tools
+- 💬 **Multiple Channels** - Matrix (Element) and Email support
+- 🤖 **Multi-Provider LLMs** - OpenRouter, OpenAI, Anthropic, custom endpoints, vLLM
+- 📝 **File Operations** - Read, write, edit with workspace safety controls
+- 🌐 **Shell Commands** - Controlled execution with security hardening
+- 📅 **Cron Scheduling** - Natural language task scheduling
+- 🧠 **Memory System** - Persistent context and knowledge retention
+- 🔒 **Security First** - Workspace restrictions, symlink protection, shell validation
 
 ## 📦 Install
 
@@ -274,17 +256,6 @@ nanobot gateway
 ```
 
 </details>
-
-## 🌐 Agent Social Network
-
-🐈 nanobot is capable of linking to the agent social network (agent community). **Just send one message and your nanobot joins automatically!**
-
-| Platform | How to Join (send this message to your bot) |
-|----------|-------------|
-| [**Moltbook**](https://www.moltbook.com/) | `Read https://moltbook.com/skill.md and follow the instructions to join Moltbook` |
-| [**ClawdChat**](https://clawdchat.ai/) | `Read https://clawdchat.ai/skill.md and follow the instructions to join ClawdChat` |
-
-Simply send the command above to your nanobot (via CLI, Matrix, or Email), and it will handle the rest.
 
 ## ⚙️ Configuration
 
@@ -547,41 +518,53 @@ nanobot/
 └── cli/            # 🖥️ Commands
 ```
 
-## 🤝 Contribute & Roadmap
+## 🧭 About This Fork (nanobot redux)
 
-PRs welcome! The codebase is intentionally small and readable. 🤗
+**nanobot redux** is an **opinionated fork** of nanobot, maintained for my personal needs and workflows. I adopt upstream changes selectively and focus on features I can actually use and test.
 
-**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
+### What Stays Stable
 
-- [ ] **Multi-modal** — See and hear (images, voice, video)
-- [ ] **Long-term memory** — Never forget important context
-- [ ] **Better reasoning** — Multi-step planning and reflection
-- [ ] **More integrations** — Calendar and more
-- [ ] **Self-improvement** — Learn from feedback and mistakes
+I try to keep these compatible so I don't break my own setup:
 
-### Contributors
+- CLI stays `nanobot`
+- Python package stays `nanobot.*`
+- Config lives in `~/.nanobot/*`
 
-<a href="https://github.com/HKUDS/nanobot/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=HKUDS/nanobot&max=100&columns=12&updated=20260210" alt="Contributors" />
-</a>
+### Philosophy
 
-## ⭐ Star History
+- Keep channels stable, debuggable, and easy to self-host
+- Make sure providers work in real-world scenarios (local, VPN, corporate networks)
+- Treat web search as configurable plumbing—local and federated options matter
+- Only build tools I actually use regularly and want to support
+- Add safety guards on anything that touches sensitive files or runs commands
 
-<div align="center">
-  <a href="https://star-history.com/#HKUDS/nanobot&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
-    </picture>
-  </a>
-</div>
+### Contributions
 
-<p align="center">
-  <em> Thanks for visiting ✨ nanobot!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
-</p>
+Contributions are welcome! However, I'll only integrate features that I can personally use or at least test myself. For example, I won't add support for obscure chat platforms I can't validate. If you need something I can't test, feel free to maintain your own fork.
 
-<p align="center">
-  <sub>nanobot is for educational, research, and technical exchange purposes only</sub>
-</p>
+### Version & Release Info
+
+- Separate version line from upstream (starting at `0.2.0`)
+- I release when things feel stable, no fixed schedule
+- Upstream changes are adopted selectively based on my needs
+
+For technical details on upstream intake, adoption criteria, and release process:
+
+- [`docs/redux-manifest.md`](docs/redux-manifest.md) - Fork philosophy and priorities
+- [`docs/upstream-intake.md`](docs/upstream-intake.md) - How I evaluate upstream changes
+- [`docs/upstream-log.md`](docs/upstream-log.md) - History of adopted features
+- [`docs/release-template.md`](docs/release-template.md) - Release checklist
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
+- Development setup and testing
+- Coding style and conventions
+- Commit message format
+- Pull request process
+- What kinds of contributions are likely to be accepted
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
