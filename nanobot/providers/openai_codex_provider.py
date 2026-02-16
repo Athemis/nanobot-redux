@@ -23,6 +23,7 @@ class OpenAICodexProvider(LLMProvider):
     def __init__(
         self, default_model: str = "openai-codex/gpt-5.2-codex", ssl_verify: bool = True
     ):
+        """Configure default Codex model and TLS certificate verification behavior."""
         super().__init__(api_key=None, api_base=None)
         self.default_model = default_model
         self.ssl_verify = ssl_verify

@@ -71,6 +71,10 @@ Context7 Library IDs for this project (use to skip library-matching):
 - Follow Ruff settings in `pyproject.toml` (line length 100, rules `E,F,I,N,W`).
 - Keep features in the matching package (for example, channel logic in `nanobot/channels/`, provider logic in `nanobot/providers/`).
 - Prefer explicit, readable control flow over framework-style indirection or hidden magic.
+- Keep docstrings high-signal and lightweight: document public APIs and non-obvious behavior.
+- Do not add docstrings for trivial `name`/`description`/`parameters` properties or obvious magic methods.
+- Keep docstrings short (usually 1-2 sentences) and focus on side effects, security behavior, and invariants.
+- Avoid broad docstring-only churn; make docstring edits when they improve clarity for maintained code paths.
 
 ## Testing Guidelines
 

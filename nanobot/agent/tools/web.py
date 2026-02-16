@@ -84,6 +84,7 @@ class WebSearchTool(Tool):
         transport: httpx.AsyncBaseTransport | None = None,
         ddgs_factory: Callable[[], DDGS] | None = None,
     ):
+        """Initialize provider config, HTTP transport hooks, and provider dispatch map."""
         from nanobot.config.schema import WebSearchConfig
 
         self.config = config if config is not None else WebSearchConfig()
@@ -97,6 +98,7 @@ class WebSearchTool(Tool):
         }
 
     async def execute(self, query: str, count: int | None = None, **kwargs: Any) -> str:
+        """Run a web search via the configured provider and return formatted results."""
         provider = (self.config.provider or "brave").strip().lower()
         n = min(max(count or self.config.max_results, 1), 10)
 
@@ -223,6 +225,7 @@ class WebFetchTool(Tool):
     }
 
     def __init__(self, max_chars: int = 50000):
+        """Set the maximum output length for extracted page content."""
         self.max_chars = max_chars
 
     async def execute(
@@ -232,6 +235,7 @@ class WebFetchTool(Tool):
         max_chars: int | None = None,
         **kwargs: Any,
     ) -> str:
+        """Fetch one URL, extract readable content, and return a structured JSON payload."""
         from readability import Document
 
         if isinstance(kwargs.get("extractMode"), str):

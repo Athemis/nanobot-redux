@@ -60,6 +60,7 @@ class SessionManager:
     """
 
     def __init__(self, workspace: Path):
+        """Initialize session storage paths and an in-memory session cache."""
         self.workspace = workspace
         self.sessions_dir = ensure_dir(Path.home() / ".nanobot" / "sessions")
         self._cache: dict[str, Session] = {}

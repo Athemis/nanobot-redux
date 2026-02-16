@@ -50,6 +50,7 @@ class HeartbeatService:
         interval_s: int = DEFAULT_HEARTBEAT_INTERVAL_S,
         enabled: bool = True,
     ):
+        """Configure heartbeat workspace, callback, cadence, and enabled state."""
         self.workspace = workspace
         self.on_heartbeat = on_heartbeat
         self.interval_s = interval_s
@@ -59,6 +60,7 @@ class HeartbeatService:
 
     @property
     def heartbeat_file(self) -> Path:
+        """Return the `HEARTBEAT.md` path in the configured workspace."""
         return self.workspace / "HEARTBEAT.md"
 
     def _read_heartbeat_file(self) -> str | None:

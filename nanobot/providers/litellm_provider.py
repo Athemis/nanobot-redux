@@ -28,6 +28,7 @@ class LiteLLMProvider(LLMProvider):
         extra_headers: dict[str, str] | None = None,
         provider_name: str | None = None,
     ):
+        """Initialize gateway/provider detection and LiteLLM runtime configuration."""
         super().__init__(api_key, api_base)
         self.default_model = default_model
         self.extra_headers = extra_headers or {}

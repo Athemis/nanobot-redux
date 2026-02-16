@@ -15,6 +15,7 @@ class MessageTool(Tool):
         default_channel: str = "",
         default_chat_id: str = "",
     ):
+        """Initialize optional send callback plus default routing context."""
         self._send_callback = send_callback
         self._default_channel = default_channel
         self._default_chat_id = default_chat_id
@@ -67,6 +68,7 @@ class MessageTool(Tool):
         media: list[str] | None = None,
         **kwargs: Any,
     ) -> str:
+        """Send a message to the resolved channel/chat target with optional media paths."""
         channel = channel or self._default_channel
         chat_id = chat_id or self._default_chat_id
 

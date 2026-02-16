@@ -13,6 +13,7 @@ class MCPToolWrapper(Tool):
     """Wraps a single MCP server tool as a nanobot Tool."""
 
     def __init__(self, session, server_name: str, tool_def):
+        """Map one MCP tool definition to a namespaced nanobot tool wrapper."""
         self._session = session
         self._original_name = tool_def.name
         self._name = f"mcp_{server_name}_{tool_def.name}"
@@ -32,6 +33,7 @@ class MCPToolWrapper(Tool):
         return self._parameters
 
     async def execute(self, **kwargs: Any) -> str:
+        """Call the underlying MCP tool and flatten structured content into plain text."""
         from mcp import types
         result = await self._session.call_tool(self._original_name, arguments=kwargs)
         parts = []

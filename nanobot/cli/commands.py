@@ -149,6 +149,7 @@ async def _read_interactive_input_async() -> str:
 
 
 def version_callback(value: bool):
+    """Print version and exit when `--version`/`-v` is provided."""
     if value:
         console.print(f"{__logo__} nanobot v{__version__}")
         raise typer.Exit()

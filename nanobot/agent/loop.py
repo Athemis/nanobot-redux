@@ -64,6 +64,7 @@ class AgentLoop:
         session_manager: SessionManager | None = None,
         mcp_servers: dict | None = None,
     ):
+        """Wire core agent dependencies, runtime settings, and the tool registry."""
         from nanobot.config.schema import ExecToolConfig, WebSearchConfig
         self.bus = bus
         self.provider = provider

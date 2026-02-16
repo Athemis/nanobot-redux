@@ -17,6 +17,7 @@ class SpawnTool(Tool):
     """
 
     def __init__(self, manager: "SubagentManager"):
+        """Bind the tool to a subagent manager and initialize origin routing defaults."""
         self._manager = manager
         self._origin_channel = "cli"
         self._origin_chat_id = "direct"

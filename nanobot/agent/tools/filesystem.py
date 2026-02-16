@@ -21,6 +21,7 @@ class ReadFileTool(Tool):
     """Tool to read file contents."""
 
     def __init__(self, allowed_dir: Path | None = None):
+        """Optionally restrict readable paths to the configured directory subtree."""
         self._allowed_dir = allowed_dir
 
     @property
@@ -45,6 +46,7 @@ class ReadFileTool(Tool):
         }
 
     async def execute(self, path: str, **kwargs: Any) -> str:
+        """Read and return UTF-8 file content for `path` with basic safety checks."""
         try:
             file_path = _resolve_path(path, self._allowed_dir)
             if not file_path.exists():
@@ -64,6 +66,7 @@ class WriteFileTool(Tool):
     """Tool to write content to a file."""
 
     def __init__(self, allowed_dir: Path | None = None):
+        """Optionally restrict writable paths to the configured directory subtree."""
         self._allowed_dir = allowed_dir
 
     @property
@@ -92,6 +95,7 @@ class WriteFileTool(Tool):
         }
 
     async def execute(self, path: str, content: str, **kwargs: Any) -> str:
+        """Write UTF-8 `content` to `path`, creating parent directories when needed."""
         try:
             file_path = _resolve_path(path, self._allowed_dir)
             file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -107,6 +111,7 @@ class EditFileTool(Tool):
     """Tool to edit a file by replacing text."""
 
     def __init__(self, allowed_dir: Path | None = None):
+        """Optionally restrict editable paths to the configured directory subtree."""
         self._allowed_dir = allowed_dir
 
     @property
@@ -139,6 +144,7 @@ class EditFileTool(Tool):
         }
 
     async def execute(self, path: str, old_text: str, new_text: str, **kwargs: Any) -> str:
+        """Replace one exact `old_text` occurrence in `path` with `new_text`."""
         try:
             file_path = _resolve_path(path, self._allowed_dir)
             if not file_path.exists():
@@ -168,6 +174,7 @@ class ListDirTool(Tool):
     """Tool to list directory contents."""
 
     def __init__(self, allowed_dir: Path | None = None):
+        """Optionally restrict listed paths to the configured directory subtree."""
         self._allowed_dir = allowed_dir
 
     @property
@@ -192,6 +199,7 @@ class ListDirTool(Tool):
         }
 
     async def execute(self, path: str, **kwargs: Any) -> str:
+        """List directory entries for `path` with a simple file/dir marker prefix."""
         try:
             dir_path = _resolve_path(path, self._allowed_dir)
             if not dir_path.exists():
@@ -218,6 +226,7 @@ class DeleteFileTool(Tool):
     """Tool to delete a file."""
 
     def __init__(self, allowed_dir: Path | None = None):
+        """Optionally restrict deletion targets to the configured directory subtree."""
         self._allowed_dir = allowed_dir
 
     @property
@@ -242,6 +251,7 @@ class DeleteFileTool(Tool):
         }
 
     async def execute(self, path: str, **kwargs: Any) -> str:
+        """Delete a file or symlink at `path`, blocking workspace-escape attempts."""
         try:
             # Keep lexical path (no resolve) so symlink entries can be deleted as links.
             file_path = Path(os.path.abspath(str(Path(path).expanduser())))
