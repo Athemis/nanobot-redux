@@ -41,10 +41,12 @@ chmod 600 ~/.nanobot/config.json
 ```json
 {
   "channels": {
-    "telegram": {
+    "matrix": {
       "enabled": true,
-      "token": "YOUR_BOT_TOKEN",
-      "allowFrom": ["123456789", "987654321"]
+      "homeserver": "https://matrix.org",
+      "userId": "@nanobot:matrix.org",
+      "accessToken": "syt_xxx...",
+      "allowFrom": ["@user1:matrix.org", "@user2:matrix.org"]
     }
   }
 }
@@ -52,7 +54,7 @@ chmod 600 ~/.nanobot/config.json
 
 **Security Notes:**
 - Empty `allowFrom` list will **ALLOW ALL** users (open by default for personal use)
-- Get your Telegram user ID from `@userinfobot`
+- Use full Matrix user IDs (e.g., `@username:matrix.org`)
 - Review access logs regularly for unauthorized access attempts
 
 ### 3. Shell Command Execution
@@ -98,8 +100,10 @@ File operations have path traversal protection, but:
 pip install pip-audit
 pip-audit
 
-# Update to latest secure versions
-pip install --upgrade nanobot-ai
+# Update to latest versions
+cd /path/to/squidbot
+git pull
+pip install -e ".[dev]"
 ```
 
 **Important Notes:**
@@ -113,9 +117,9 @@ For production use:
 
 1. **Isolate the Environment**
    ```bash
-   # Run in a container or VM
-   docker run --rm -it python:3.11
-   pip install nanobot-ai
+   # Run in a container
+   docker build -t nanobot-redux .
+   docker run --rm -it nanobot-redux
    ```
 
 2. **Use a Dedicated User**
@@ -153,11 +157,11 @@ For production use:
 - Use separate API keys
 - Test with non-sensitive data
 - Enable verbose logging
-- Use a test Telegram bot
+- Use a test Matrix account
 
 **Production:**
 - Use dedicated API keys with spending limits
-- Restrict file system access
+- Restrict file system access with `tools.restrictToWorkspace`
 - Enable audit logging
 - Regular security reviews
 - Monitor for unusual activity
@@ -233,11 +237,12 @@ Before deploying nanobot:
 
 ## Updates
 
-**Last Updated**: 2026-02-03
+**Last Updated**: 2025-01-XX
 
-For the latest security updates and announcements, check:
-- GitHub Security Advisories: https://github.com/HKUDS/nanobot/security/advisories
-- Release Notes: https://github.com/HKUDS/nanobot/releases
+For the latest security updates and announcements, check the repository's:
+- Security Advisories
+- Release Notes
+- CHANGELOG
 
 ## License
 
