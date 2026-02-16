@@ -53,11 +53,11 @@ class EmailChannel(BaseChannel):
     def __init__(self, config: EmailConfig, bus: MessageBus):
         """
         Initialize the email channel and prepare internal state used for IMAP polling and SMTP sending.
-        
+
         Parameters:
             config (EmailConfig): Channel configuration including IMAP/SMTP settings and behavior flags.
             bus (MessageBus): Message bus used to dispatch inbound events and receive outbound messages.
-        
+
         Details:
             Sets up per-chat state for tracking the last seen subject and message-id, a bounded set for deduplicating processed IMAP UIDs, and cached SSL contexts and flags used for TLS handling.
         """
@@ -74,7 +74,7 @@ class EmailChannel(BaseChannel):
     async def start(self) -> None:
         """
         Begin polling IMAP for inbound email and dispatch received messages to the channel's message handler until stopped.
-        
+
         This method starts a polling loop that retrieves new messages, updates per-sender last-seen subject and message-id, and forwards each message to the channel's message handler. The loop runs until stop() clears the running flag, or startup checks (consent and configuration validation) prevent polling from starting.
         """
         if not self.config.consent_granted:
@@ -122,9 +122,9 @@ class EmailChannel(BaseChannel):
     async def send(self, msg: OutboundMessage) -> None:
         """
         Send an outbound email message using the channel's SMTP configuration.
-        
+
         This operation respects channel consent and auto-reply settings (unless metadata["force_send"] is truthy), validates that an SMTP host is configured and that the transport is secure, and constructs the email using the message's content and recipient. The outgoing message's subject is derived from the last known subject for the recipient unless overridden via metadata["subject"]. If a last message-id exists for the recipient, it is attached to the outgoing message using In-Reply-To and References headers. The function attempts to deliver the message via the configured SMTP transport and logs any delivery error before re-raising it.
-        
+
         Parameters:
             msg (OutboundMessage): Outbound message where
                 - chat_id is the recipient email address,
@@ -184,9 +184,9 @@ class EmailChannel(BaseChannel):
     def _validate_config(self) -> bool:
         """
         Validate that required IMAP/SMTP credentials are present and that SMTP transport is configured securely.
-        
+
         Logs an error and returns False if any required IMAP or SMTP credential is missing, or if neither SSL nor STARTTLS is enabled for SMTP.
-        
+
         Returns:
             bool: `True` if all required configuration fields are present and SMTP transport is secure, `False` otherwise.
         """
@@ -218,7 +218,7 @@ class EmailChannel(BaseChannel):
     def _smtp_transport_secure(self) -> bool:
         """
         Check whether SMTP will use an encrypted transport.
-        
+
         Returns:
             True if SMTP is configured for implicit SSL (smtp_use_ssl) or STARTTLS (smtp_use_tls), False otherwise.
         """
@@ -227,11 +227,11 @@ class EmailChannel(BaseChannel):
     def _tls_context(self) -> ssl.SSLContext:
         """
         Create and return an SSLContext configured according to the channel's TLS verification setting.
-        
+
         If tls_verify is true, returns a cached default (verified) SSLContext. If tls_verify is false,
         emits a one-time warning about increased MITM risk and returns a cached permissive SSLContext
         with hostname checking and certificate verification disabled.
-        
+
         Returns:
             ssl.SSLContext: An SSL/TLS context appropriate for the configured verification behavior.
         """
@@ -256,9 +256,9 @@ class EmailChannel(BaseChannel):
     def _smtp_send(self, msg: EmailMessage) -> None:
         """
         Send the provided EmailMessage using the channel's SMTP configuration and TLS settings.
-        
+
         This uses SMTP over SSL when `smtp_use_ssl` is enabled; otherwise it connects via plain SMTP and upgrades with STARTTLS if `smtp_use_tls` is enabled. Credentials from the channel configuration are used to authenticate and the channel's TLS context is applied. The operation uses a 30-second socket timeout.
-        
+
         Parameters:
             msg (EmailMessage): The email message to send.
         """
@@ -325,13 +325,13 @@ class EmailChannel(BaseChannel):
     ) -> list[dict[str, Any]]:
         """
         Fetch messages from the configured IMAP mailbox that match the provided search criteria.
-        
+
         Parameters:
             search_criteria (tuple[str, ...]): IMAP search tokens (e.g., ("UNSEEN",) or ("SINCE", "01-Jan-2024")).
             mark_seen (bool): If True, mark fetched messages as Seen on the server.
             dedupe (bool): If True, skip messages whose UID is already present in the channel's processed-UID set.
             limit (int): If greater than 0, restrict results to the last `limit` message IDs; if 0 or less, do not limit.
-        
+
         Returns:
             list[dict[str, Any]]: A list of parsed message dictionaries. Each dictionary contains:
                 - "sender" (str): Sender email address (lowercased).
