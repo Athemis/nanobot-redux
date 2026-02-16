@@ -23,16 +23,7 @@ from nanobot.config.schema import EmailConfig
 
 
 class EmailChannel(BaseChannel):
-    """
-    Email channel.
-
-    Inbound:
-    - Poll IMAP mailbox for unread messages.
-    - Convert each message into an inbound event.
-
-    Outbound:
-    - Send responses via SMTP back to the sender address.
-    """
+    """Email channel with IMAP polling for inbound and SMTP for outbound replies."""
 
     name = "email"
     _IMAP_MONTHS = (
@@ -51,16 +42,7 @@ class EmailChannel(BaseChannel):
     )
 
     def __init__(self, config: EmailConfig, bus: MessageBus):
-        """
-        Initialize the email channel and prepare internal state used for IMAP polling and SMTP sending.
-
-        Parameters:
-            config (EmailConfig): Channel configuration including IMAP/SMTP settings and behavior flags.
-            bus (MessageBus): Message bus used to dispatch inbound events and receive outbound messages.
-
-        Details:
-            Sets up per-chat state for tracking the last seen subject and message-id, a bounded set for deduplicating processed IMAP UIDs, and cached SSL contexts and flags used for TLS handling.
-        """
+        """Initialize channel state, UID dedupe tracking, and cached TLS contexts."""
         super().__init__(config, bus)
         self.config: EmailConfig = config
         self._last_subject_by_chat: dict[str, str] = {}
@@ -72,11 +54,7 @@ class EmailChannel(BaseChannel):
         self._insecure_tls_context: ssl.SSLContext | None = None
 
     async def start(self) -> None:
-        """
-        Begin polling IMAP for inbound email and dispatch received messages to the channel's message handler until stopped.
-
-        This method starts a polling loop that retrieves new messages, updates per-sender last-seen subject and message-id, and forwards each message to the channel's message handler. The loop runs until stop() clears the running flag, or startup checks (consent and configuration validation) prevent polling from starting.
-        """
+        """Start IMAP polling, parse inbound mail, and forward items to the message handler."""
         if not self.config.consent_granted:
             logger.warning(
                 "Email channel disabled: consent_granted is false. "
@@ -120,19 +98,7 @@ class EmailChannel(BaseChannel):
         self._running = False
 
     async def send(self, msg: OutboundMessage) -> None:
-        """
-        Send an outbound email message using the channel's SMTP configuration.
-
-        This operation respects channel consent and auto-reply settings (unless metadata["force_send"] is truthy), validates that an SMTP host is configured and that the transport is secure, and constructs the email using the message's content and recipient. The outgoing message's subject is derived from the last known subject for the recipient unless overridden via metadata["subject"]. If a last message-id exists for the recipient, it is attached to the outgoing message using In-Reply-To and References headers. The function attempts to deliver the message via the configured SMTP transport and logs any delivery error before re-raising it.
-
-        Parameters:
-            msg (OutboundMessage): Outbound message where
-                - chat_id is the recipient email address,
-                - content is the message body,
-                - metadata may include:
-                    - "force_send" (bool): bypass auto-reply gating,
-                    - "subject" (str): explicit subject override.
-        """
+        """Send one outbound email, honoring consent/auto-reply gates and secure SMTP settings."""
         if not self.config.consent_granted:
             logger.warning("Skip email send: consent_granted is false")
             return
@@ -182,14 +148,7 @@ class EmailChannel(BaseChannel):
             raise
 
     def _validate_config(self) -> bool:
-        """
-        Validate that required IMAP/SMTP credentials are present and that SMTP transport is configured securely.
-
-        Logs an error and returns False if any required IMAP or SMTP credential is missing, or if neither SSL nor STARTTLS is enabled for SMTP.
-
-        Returns:
-            bool: `True` if all required configuration fields are present and SMTP transport is secure, `False` otherwise.
-        """
+        """Return True when required IMAP/SMTP fields are present and SMTP transport is encrypted."""
         missing = []
         if not self.config.imap_host:
             missing.append("imap_host")
@@ -216,25 +175,11 @@ class EmailChannel(BaseChannel):
         return True
 
     def _smtp_transport_secure(self) -> bool:
-        """
-        Check whether SMTP will use an encrypted transport.
-
-        Returns:
-            True if SMTP is configured for implicit SSL (smtp_use_ssl) or STARTTLS (smtp_use_tls), False otherwise.
-        """
+        """Return True when SMTP uses SSL or STARTTLS."""
         return bool(self.config.smtp_use_ssl or self.config.smtp_use_tls)
 
     def _tls_context(self) -> ssl.SSLContext:
-        """
-        Create and return an SSLContext configured according to the channel's TLS verification setting.
-
-        If tls_verify is true, returns a cached default (verified) SSLContext. If tls_verify is false,
-        emits a one-time warning about increased MITM risk and returns a cached permissive SSLContext
-        with hostname checking and certificate verification disabled.
-
-        Returns:
-            ssl.SSLContext: An SSL/TLS context appropriate for the configured verification behavior.
-        """
+        """Return a cached TLS context based on `tls_verify`, with a one-time warning if disabled."""
         if self.config.tls_verify:
             if self._verified_tls_context is None:
                 self._verified_tls_context = ssl.create_default_context()
@@ -254,14 +199,7 @@ class EmailChannel(BaseChannel):
         return self._insecure_tls_context
 
     def _smtp_send(self, msg: EmailMessage) -> None:
-        """
-        Send the provided EmailMessage using the channel's SMTP configuration and TLS settings.
-
-        This uses SMTP over SSL when `smtp_use_ssl` is enabled; otherwise it connects via plain SMTP and upgrades with STARTTLS if `smtp_use_tls` is enabled. Credentials from the channel configuration are used to authenticate and the channel's TLS context is applied. The operation uses a 30-second socket timeout.
-
-        Parameters:
-            msg (EmailMessage): The email message to send.
-        """
+        """Send `msg` via SMTP_SSL or SMTP+STARTTLS using channel credentials."""
         timeout = 30
         tls_context = self._tls_context()
         if self.config.smtp_use_ssl:
@@ -296,11 +234,7 @@ class EmailChannel(BaseChannel):
         end_date: date,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
-        """
-        Fetch messages in [start_date, end_date) by IMAP date search.
-
-        This is used for historical summarization tasks (e.g. "yesterday").
-        """
+        """Fetch messages in the IMAP date range `[start_date, end_date)`."""
         if end_date <= start_date:
             return []
 
@@ -323,23 +257,7 @@ class EmailChannel(BaseChannel):
         dedupe: bool,
         limit: int,
     ) -> list[dict[str, Any]]:
-        """
-        Fetch messages from the configured IMAP mailbox that match the provided search criteria.
-
-        Parameters:
-            search_criteria (tuple[str, ...]): IMAP search tokens (e.g., ("UNSEEN",) or ("SINCE", "01-Jan-2024")).
-            mark_seen (bool): If True, mark fetched messages as Seen on the server.
-            dedupe (bool): If True, skip messages whose UID is already present in the channel's processed-UID set.
-            limit (int): If greater than 0, restrict results to the last `limit` message IDs; if 0 or less, do not limit.
-
-        Returns:
-            list[dict[str, Any]]: A list of parsed message dictionaries. Each dictionary contains:
-                - "sender" (str): Sender email address (lowercased).
-                - "subject" (str): Decoded Subject header (may be empty).
-                - "message_id" (str): Message-ID header value (may be empty).
-                - "content" (str): Human-readable content including header lines and the extracted body (truncated to config.max_body_chars).
-                - "metadata" (dict): Additional fields: "message_id", "subject", "date", "sender_email", and "uid".
-        """
+        """Fetch and parse IMAP messages for the given criteria, optional dedupe, and optional cap."""
         messages: list[dict[str, Any]] = []
         mailbox = self.config.imap_mailbox or "INBOX"
 
