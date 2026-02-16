@@ -37,6 +37,20 @@ def test_convert_keys_still_converts_non_header_keys() -> None:
     }
 
 
+def test_convert_keys_converts_openai_codex_ssl_verify() -> None:
+    data = {
+        "providers": {
+            "openaiCodex": {
+                "sslVerify": False,
+            }
+        }
+    }
+
+    converted = convert_keys(data)
+
+    assert converted["providers"]["openai_codex"]["ssl_verify"] is False
+
+
 def test_convert_keys_converts_provider_fields_but_preserves_header_entries() -> None:
     data = {
         "providers": {

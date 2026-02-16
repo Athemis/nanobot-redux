@@ -53,3 +53,24 @@ def test_make_provider_applies_openrouter_runtime_fallback(
 
     assert captured["provider_name"] == "openrouter"
     assert captured["extra_headers"] == OPENROUTER_DEFAULT_EXTRA_HEADERS
+
+
+def test_make_provider_passes_openai_codex_ssl_verify_from_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProvider:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider.OpenAICodexProvider", DummyProvider)
+
+    config = Config()
+    config.agents.defaults.model = "openai-codex/gpt-5.2-codex"
+    config.providers.openai_codex.ssl_verify = False
+
+    _make_provider(config)
+
+    assert captured["default_model"] == "openai-codex/gpt-5.2-codex"
+    assert captured["ssl_verify"] is False

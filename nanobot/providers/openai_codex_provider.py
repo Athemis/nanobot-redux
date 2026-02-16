@@ -8,6 +8,7 @@ import json
 from typing import Any, AsyncGenerator
 
 import httpx
+from loguru import logger
 from oauth_cli_kit import get_token as get_codex_token
 
 from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
@@ -19,9 +20,13 @@ DEFAULT_ORIGINATOR = "nanobot"
 class OpenAICodexProvider(LLMProvider):
     """Use Codex OAuth to call the Responses API."""
 
-    def __init__(self, default_model: str = "openai-codex/gpt-5.1-codex"):
+    def __init__(
+        self, default_model: str = "openai-codex/gpt-5.2-codex", ssl_verify: bool = True
+    ):
         super().__init__(api_key=None, api_base=None)
         self.default_model = default_model
+        self.ssl_verify = ssl_verify
+        self._logged_insecure_ssl_warning = False
 
     async def chat(
         self,
@@ -55,15 +60,18 @@ class OpenAICodexProvider(LLMProvider):
             body["tools"] = _convert_tools(tools)
 
         url = DEFAULT_CODEX_URL
+        ssl_verify = self.ssl_verify
+        if not ssl_verify and not self._logged_insecure_ssl_warning:
+            logger.warning(
+                "providers.openaiCodex.sslVerify=false disables TLS certificate verification for Codex "
+                "requests. This increases MITM risk and can expose your OAuth bearer token."
+            )
+            self._logged_insecure_ssl_warning = True
 
         try:
-            try:
-                content, tool_calls, finish_reason = await _request_codex(url, headers, body, verify=True)
-            except Exception as e:
-                # Certificate verification failed, downgrade to disable verification (security risk)
-                if "CERTIFICATE_VERIFY_FAILED" not in str(e):
-                    raise
-                content, tool_calls, finish_reason = await _request_codex(url, headers, body, verify=False)
+            content, tool_calls, finish_reason = await _request_codex(
+                url, headers, body, verify=ssl_verify
+            )
             return LLMResponse(
                 content=content,
                 tool_calls=tool_calls,
@@ -77,6 +85,7 @@ class OpenAICodexProvider(LLMProvider):
 
     def get_default_model(self) -> str:
         return self.default_model
+
 
 def _strip_model_prefix(model: str) -> str:
     if model.startswith("openai-codex/"):
@@ -95,6 +104,7 @@ def _build_headers(account_id: str, token: str) -> dict[str, str]:
         "content-type": "application/json",
     }
 
+
 async def _request_codex(
     url: str,
     headers: dict[str, str],
@@ -108,35 +118,24 @@ async def _request_codex(
                 raise RuntimeError(_friendly_error(response.status_code, text.decode("utf-8", "ignore")))
             return await _consume_sse(response)
 
+
 def _convert_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    # Nanobot tool definitions already use the OpenAI function schema.
+    """Convert OpenAI function-calling schema to Codex flat format."""
     converted: list[dict[str, Any]] = []
     for tool in tools:
-        fn = tool.get("function") if isinstance(tool, dict) and tool.get("type") == "function" else None
-        if fn and isinstance(fn, dict):
-            name = fn.get("name")
-            desc = fn.get("description")
-            params = fn.get("parameters")
-        else:
-            name = tool.get("name")
-            desc = tool.get("description")
-            params = tool.get("parameters")
-        if not isinstance(name, str) or not name:
-            # Skip invalid tools to avoid Codex rejection.
+        fn = (tool.get("function") or {}) if tool.get("type") == "function" else tool
+        name = fn.get("name")
+        if not name:
             continue
-        params = params or {}
-        if not isinstance(params, dict):
-            # Parameters must be a JSON Schema object.
-            params = {}
-        converted.append(
-            {
-                "type": "function",
-                "name": name,
-                "description": desc or "",
-                "parameters": params,
-            }
-        )
+        params = fn.get("parameters") or {}
+        converted.append({
+            "type": "function",
+            "name": name,
+            "description": fn.get("description") or "",
+            "parameters": params if isinstance(params, dict) else {},
+        })
     return converted
+
 
 def _convert_messages(messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
     system_prompt = ""
@@ -184,7 +183,7 @@ def _convert_messages(messages: list[dict[str, Any]]) -> tuple[str, list[dict[st
             continue
 
         if role == "tool":
-            call_id = _extract_call_id(msg.get("tool_call_id"))
+            call_id, _ = _split_tool_call_id(msg.get("tool_call_id"))
             output_text = content if isinstance(content, str) else json.dumps(content)
             input_items.append(
                 {
@@ -196,6 +195,7 @@ def _convert_messages(messages: list[dict[str, Any]]) -> tuple[str, list[dict[st
             continue
 
     return system_prompt, input_items
+
 
 def _convert_user_message(content: Any) -> dict[str, Any]:
     if isinstance(content, str):
@@ -216,12 +216,6 @@ def _convert_user_message(content: Any) -> dict[str, Any]:
     return {"role": "user", "content": [{"type": "input_text", "text": ""}]}
 
 
-def _extract_call_id(tool_call_id: Any) -> str:
-    if isinstance(tool_call_id, str) and tool_call_id:
-        return tool_call_id.split("|", 1)[0]
-    return "call_0"
-
-
 def _split_tool_call_id(tool_call_id: Any) -> tuple[str, str | None]:
     if isinstance(tool_call_id, str) and tool_call_id:
         if "|" in tool_call_id:
@@ -230,9 +224,11 @@ def _split_tool_call_id(tool_call_id: Any) -> tuple[str, str | None]:
         return tool_call_id, None
     return "call_0", None
 
+
 def _prompt_cache_key(messages: list[dict[str, Any]]) -> str:
     raw = json.dumps(messages, ensure_ascii=True, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
 
 async def _iter_sse(response: httpx.Response) -> AsyncGenerator[dict[str, Any], None]:
     buffer: list[str] = []
@@ -252,6 +248,7 @@ async def _iter_sse(response: httpx.Response) -> AsyncGenerator[dict[str, Any], 
                     continue
             continue
         buffer.append(line)
+
 
 async def _consume_sse(response: httpx.Response) -> tuple[str, list[ToolCallRequest], str]:
     content = ""
@@ -305,20 +302,43 @@ async def _consume_sse(response: httpx.Response) -> tuple[str, list[ToolCallRequ
             status = (event.get("response") or {}).get("status")
             finish_reason = _map_finish_reason(status)
         elif event_type in {"error", "response.failed"}:
-            raise RuntimeError("Codex response failed")
+            raise RuntimeError(f"Codex response failed: {_extract_event_error_message(event)}")
 
     return content, tool_calls, finish_reason
 
+
+_FINISH_REASON_MAP = {"completed": "stop", "incomplete": "length", "failed": "error", "cancelled": "error"}
+
+
 def _map_finish_reason(status: str | None) -> str:
-    if not status:
-        return "stop"
-    if status == "completed":
-        return "stop"
-    if status == "incomplete":
-        return "length"
-    if status in {"failed", "cancelled"}:
-        return "error"
-    return "stop"
+    return _FINISH_REASON_MAP.get(status or "completed", "stop")
+
+
+def _extract_event_error_message(event: dict[str, Any]) -> str:
+    top_level = event.get("message")
+    if isinstance(top_level, str) and top_level.strip():
+        return top_level.strip()
+
+    error_obj = event.get("error")
+    if isinstance(error_obj, str) and error_obj.strip():
+        return error_obj.strip()
+    if isinstance(error_obj, dict):
+        nested = error_obj.get("message")
+        if isinstance(nested, str) and nested.strip():
+            return nested.strip()
+
+    response_obj = event.get("response")
+    if isinstance(response_obj, dict):
+        response_error = response_obj.get("error")
+        if isinstance(response_error, str) and response_error.strip():
+            return response_error.strip()
+        if isinstance(response_error, dict):
+            nested = response_error.get("message")
+            if isinstance(nested, str) and nested.strip():
+                return nested.strip()
+
+    return "unknown error"
+
 
 def _friendly_error(status_code: int, raw: str) -> str:
     if status_code == 429:
