@@ -1,7 +1,6 @@
 import ssl
 from datetime import date
 from email.message import EmailMessage
-from typing import Callable
 
 import pytest
 
@@ -18,18 +17,17 @@ class _FakeSMTPClient:
         _port: int,
         timeout: int = 30,
         context: ssl.SSLContext | None = None,
-        on_init: Callable[[], None] | None = None,
     ) -> None:
         """
         Initialize the fake SMTP client used by tests.
-        
+
         Parameters:
             _host (str): SMTP server host (stored for reference; not used to connect).
             _port (int): SMTP server port (stored for reference; not used to connect).
             timeout (int): Socket/operation timeout in seconds.
             context (ssl.SSLContext | None): Optional TLS/SSL context to use for connections.
             on_init (Callable[[], None] | None): Optional callback invoked immediately after initialization.
-        
+
         The instance exposes these attributes for test assertions: `timeout`, `context`,
         `started_tls`, `starttls_context`, `logged_in`, and `sent_messages`.
         """
@@ -39,13 +37,11 @@ class _FakeSMTPClient:
         self.starttls_context: ssl.SSLContext | None = None
         self.logged_in = False
         self.sent_messages: list[EmailMessage] = []
-        if on_init:
-            on_init()
 
     def __enter__(self):
         """
         Enter the context manager and provide the fake SMTP client instance.
-        
+
         Returns:
             self: The fake SMTP client instance.
         """
@@ -54,7 +50,7 @@ class _FakeSMTPClient:
     def __exit__(self, exc_type, exc, tb):
         """
         Context manager exit that does not suppress exceptions.
-        
+
         @returns `False` to indicate any exception raised in the with-block should be propagated.
         """
         return False
@@ -62,7 +58,7 @@ class _FakeSMTPClient:
     def starttls(self, context=None):
         """
         Mark that a STARTTLS handshake has been performed and record the TLS context.
-        
+
         Parameters:
             context (ssl.SSLContext | None): The SSL context provided for STARTTLS; may be None if no context was supplied.
         """
@@ -72,11 +68,11 @@ class _FakeSMTPClient:
     def login(self, _user: str, _pw: str):
         """
         Mark the client as authenticated.
-        
+
         Parameters:
             _user (str): Ignored; present for API compatibility.
             _pw (str): Ignored; present for API compatibility.
-        
+
         Details:
             Sets the instance's `logged_in` flag to True.
         """
@@ -85,7 +81,7 @@ class _FakeSMTPClient:
     def send_message(self, msg: EmailMessage):
         """
         Record an outgoing EmailMessage for inspection by tests.
-        
+
         Parameters:
             msg (EmailMessage): The email message to append to this client's sent_messages list for later verification.
         """
@@ -95,7 +91,7 @@ class _FakeSMTPClient:
 def _make_config() -> EmailConfig:
     """
     Create a populated EmailConfig suitable for unit tests.
-    
+
     Returns:
         EmailConfig: Configuration with enabled and consent_granted set to True, IMAP pointing to imap.example.com:993 with username "bot@example.com", SMTP pointing to smtp.example.com:587 with the same credentials, and mark_seen set to True.
     """
@@ -128,6 +124,20 @@ def _make_raw_email(
     return msg.as_bytes()
 
 
+@pytest.fixture
+def smtp_factory(monkeypatch) -> list[_FakeSMTPClient]:
+    """Patch smtplib.SMTP and return created fake SMTP client instances."""
+    instances: list[_FakeSMTPClient] = []
+
+    def _factory(host: str, port: int, timeout: int = 30):
+        instance = _FakeSMTPClient(host, port, timeout=timeout)
+        instances.append(instance)
+        return instance
+
+    monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP", _factory)
+    return instances
+
+
 def test_fetch_new_messages_parses_unseen_and_marks_seen(monkeypatch) -> None:
     raw = _make_raw_email(subject="Invoice", body="Please pay")
 
@@ -154,7 +164,7 @@ def test_fetch_new_messages_parses_unseen_and_marks_seen(monkeypatch) -> None:
         def logout(self):
             """
             Simulate an IMAP logout response.
-            
+
             Returns:
                 tuple: A (response, data) tuple where `response` is the string "BYE" and `data` is a list containing an empty bytes object (i.e., [b""]).
             """
@@ -166,10 +176,10 @@ def test_fetch_new_messages_parses_unseen_and_marks_seen(monkeypatch) -> None:
     def _imap_factory(_host: str, _port: int, ssl_context: ssl.SSLContext | None = None):
         """
         Test IMAP connection factory that records the SSL context passed to it for inspection.
-        
+
         Parameters:
             ssl_context (ssl.SSLContext | None): The SSL context provided to the IMAP constructor; recorded in the enclosing `captured` mapping for test assertions.
-        
+
         Returns:
             fake: A preconstructed fake IMAP client used by tests.
         """
@@ -226,32 +236,7 @@ async def test_start_returns_immediately_without_consent(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
-    """
-    Ensure sending an outbound message uses SMTP with TLS and produces a reply email with correct headers.
-    
-    Verifies that an SMTP connection is established and upgraded to TLS using a context with certificate verification and hostname checking, that authentication occurs, and that the sent message includes a "Re:" prefixed Subject, the correct To address, and the original Message-ID in the In-Reply-To header.
-    """
-    fake_instances: list[_FakeSMTPClient] = []
-
-    def _smtp_factory(host: str, port: int, timeout: int = 30):
-        """
-        Factory used in tests to create and record a _FakeSMTPClient instance.
-        
-        Parameters:
-            host (str): SMTP server hostname passed to the fake client.
-            port (int): SMTP server port passed to the fake client.
-            timeout (int): Connection timeout in seconds passed to the fake client.
-        
-        Returns:
-            _FakeSMTPClient: The created fake SMTP client instance which is also appended to the module-level `fake_instances` list.
-        """
-        instance = _FakeSMTPClient(host, port, timeout=timeout)
-        fake_instances.append(instance)
-        return instance
-
-    monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP", _smtp_factory)
-
+async def test_send_uses_smtp_and_reply_subject(smtp_factory: list[_FakeSMTPClient]) -> None:
     channel = EmailChannel(_make_config(), MessageBus())
     channel._last_subject_by_chat["alice@example.com"] = "Invoice #42"
     channel._last_message_id_by_chat["alice@example.com"] = "<m1@example.com>"
@@ -264,8 +249,8 @@ async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
         )
     )
 
-    assert len(fake_instances) == 1
-    smtp = fake_instances[0]
+    assert len(smtp_factory) == 1
+    smtp = smtp_factory[0]
     assert smtp.started_tls is True
     assert smtp.starttls_context is not None
     assert smtp.starttls_context.verify_mode == ssl.CERT_REQUIRED
@@ -279,32 +264,7 @@ async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_send_skips_when_auto_reply_disabled(monkeypatch) -> None:
-    """
-    Verifies that sending is skipped when auto-reply is disabled, and that forcing a send overrides this.
-    
-    Asserts that no SMTP client is instantiated and no messages are sent when config.auto_reply_enabled is False, and that providing metadata{"force_send": True} causes one SMTP client to be created and one message to be sent.
-    """
-    fake_instances: list[_FakeSMTPClient] = []
-
-    def _smtp_factory(host: str, port: int, timeout: int = 30):
-        """
-        Factory used in tests to create and record a _FakeSMTPClient instance.
-        
-        Parameters:
-            host (str): SMTP server hostname passed to the fake client.
-            port (int): SMTP server port passed to the fake client.
-            timeout (int): Connection timeout in seconds passed to the fake client.
-        
-        Returns:
-            _FakeSMTPClient: The created fake SMTP client instance which is also appended to the module-level `fake_instances` list.
-        """
-        instance = _FakeSMTPClient(host, port, timeout=timeout)
-        fake_instances.append(instance)
-        return instance
-
-    monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP", _smtp_factory)
-
+async def test_send_skips_when_auto_reply_disabled(smtp_factory: list[_FakeSMTPClient]) -> None:
     cfg = _make_config()
     cfg.auto_reply_enabled = False
     channel = EmailChannel(cfg, MessageBus())
@@ -315,7 +275,7 @@ async def test_send_skips_when_auto_reply_disabled(monkeypatch) -> None:
             content="Should not send.",
         )
     )
-    assert fake_instances == []
+    assert smtp_factory == []
 
     await channel.send(
         OutboundMessage(
@@ -325,32 +285,12 @@ async def test_send_skips_when_auto_reply_disabled(monkeypatch) -> None:
             metadata={"force_send": True},
         )
     )
-    assert len(fake_instances) == 1
-    assert len(fake_instances[0].sent_messages) == 1
+    assert len(smtp_factory) == 1
+    assert len(smtp_factory[0].sent_messages) == 1
 
 
 @pytest.mark.asyncio
-async def test_send_skips_when_consent_not_granted(monkeypatch) -> None:
-    fake_instances: list[_FakeSMTPClient] = []
-
-    def _smtp_factory(host: str, port: int, timeout: int = 30):
-        """
-        Factory used in tests to create and record a _FakeSMTPClient instance.
-        
-        Parameters:
-            host (str): SMTP server hostname passed to the fake client.
-            port (int): SMTP server port passed to the fake client.
-            timeout (int): Connection timeout in seconds passed to the fake client.
-        
-        Returns:
-            _FakeSMTPClient: The created fake SMTP client instance which is also appended to the module-level `fake_instances` list.
-        """
-        instance = _FakeSMTPClient(host, port, timeout=timeout)
-        fake_instances.append(instance)
-        return instance
-
-    monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP", _smtp_factory)
-
+async def test_send_skips_when_consent_not_granted(smtp_factory: list[_FakeSMTPClient]) -> None:
     cfg = _make_config()
     cfg.consent_granted = False
     channel = EmailChannel(cfg, MessageBus())
@@ -362,7 +302,7 @@ async def test_send_skips_when_consent_not_granted(monkeypatch) -> None:
             metadata={"force_send": True},
         )
     )
-    assert fake_instances == []
+    assert smtp_factory == []
 
 
 def test_validate_config_rejects_plaintext_smtp() -> None:
@@ -375,27 +315,7 @@ def test_validate_config_rejects_plaintext_smtp() -> None:
 
 
 @pytest.mark.asyncio
-async def test_send_skips_when_smtp_tls_and_ssl_disabled(monkeypatch) -> None:
-    fake_instances: list[_FakeSMTPClient] = []
-
-    def _smtp_factory(host: str, port: int, timeout: int = 30):
-        """
-        Factory used in tests to create and record a _FakeSMTPClient instance.
-        
-        Parameters:
-            host (str): SMTP server hostname passed to the fake client.
-            port (int): SMTP server port passed to the fake client.
-            timeout (int): Connection timeout in seconds passed to the fake client.
-        
-        Returns:
-            _FakeSMTPClient: The created fake SMTP client instance which is also appended to the module-level `fake_instances` list.
-        """
-        instance = _FakeSMTPClient(host, port, timeout=timeout)
-        fake_instances.append(instance)
-        return instance
-
-    monkeypatch.setattr("nanobot.channels.email.smtplib.SMTP", _smtp_factory)
-
+async def test_send_skips_when_smtp_tls_and_ssl_disabled(smtp_factory: list[_FakeSMTPClient]) -> None:
     cfg = _make_config()
     cfg.smtp_use_ssl = False
     cfg.smtp_use_tls = False
@@ -409,7 +329,7 @@ async def test_send_skips_when_smtp_tls_and_ssl_disabled(monkeypatch) -> None:
         )
     )
 
-    assert fake_instances == []
+    assert smtp_factory == []
 
 
 def test_fetch_messages_between_dates_uses_imap_since_before_without_mark_seen(monkeypatch) -> None:
@@ -440,7 +360,7 @@ def test_fetch_messages_between_dates_uses_imap_since_before_without_mark_seen(m
         def logout(self):
             """
             Simulate an IMAP logout response.
-            
+
             Returns:
                 tuple: A (response, data) tuple where `response` is the string "BYE" and `data` is a list containing an empty bytes object (i.e., [b""]).
             """
@@ -452,10 +372,10 @@ def test_fetch_messages_between_dates_uses_imap_since_before_without_mark_seen(m
     def _imap_factory(_host: str, _port: int, ssl_context: ssl.SSLContext | None = None):
         """
         Test IMAP connection factory that records the SSL context passed to it for inspection.
-        
+
         Parameters:
             ssl_context (ssl.SSLContext | None): The SSL context provided to the IMAP constructor; recorded in the enclosing `captured` mapping for test assertions.
-        
+
         Returns:
             fake: A preconstructed fake IMAP client used by tests.
         """
@@ -494,13 +414,13 @@ async def test_send_uses_smtp_ssl_with_verified_context_by_default(monkeypatch) 
     ):
         """
         Create a test SMTP client and record it in the module-level `fake_instances` list.
-        
+
         Parameters:
             host (str): SMTP server hostname passed to the fake client.
             port (int): SMTP server port passed to the fake client.
             timeout (int): Connection timeout in seconds.
             context (ssl.SSLContext | None): Optional SSL context to use for the fake client.
-        
+
         Returns:
             _FakeSMTPClient: The created fake SMTP client instance.
         """
@@ -537,11 +457,11 @@ def test_tls_verify_false_uses_unverified_context_and_logs_once(monkeypatch) -> 
     def _warn(msg: str, *args):
         """
         Record a formatted warning message into the module-level warnings list.
-        
+
         Parameters:
             msg (str): Format string for the warning message.
             *args: Optional values to format into `msg` using `str.format`.
-        
+
         Notes:
             Appends the formatted (or raw) message to the `warnings` list defined in the surrounding scope.
         """
