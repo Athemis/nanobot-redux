@@ -36,6 +36,7 @@ class OpenAICodexProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
     ) -> LLMResponse:
+        """Send a chat request to Codex Responses API and normalize the result."""
         model = model or self.default_model
         system_prompt, input_items = _convert_messages(messages)
 
@@ -84,16 +85,19 @@ class OpenAICodexProvider(LLMProvider):
             )
 
     def get_default_model(self) -> str:
+        """Return the provider's default model name."""
         return self.default_model
 
 
 def _strip_model_prefix(model: str) -> str:
+    """Strip the `openai-codex/` prefix used in config model names."""
     if model.startswith("openai-codex/"):
         return model.split("/", 1)[1]
     return model
 
 
 def _build_headers(account_id: str, token: str) -> dict[str, str]:
+    """Build HTTP headers required by the Codex Responses endpoint."""
     return {
         "Authorization": f"Bearer {token}",
         "chatgpt-account-id": account_id,
@@ -111,6 +115,7 @@ async def _request_codex(
     body: dict[str, Any],
     verify: bool,
 ) -> tuple[str, list[ToolCallRequest], str]:
+    """Execute the streaming Codex request and parse its SSE response."""
     async with httpx.AsyncClient(timeout=60.0, verify=verify) as client:
         async with client.stream("POST", url, headers=headers, json=body) as response:
             if response.status_code != 200:
@@ -138,6 +143,7 @@ def _convert_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _convert_messages(messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+    """Convert OpenAI-style conversation history into Codex input items."""
     system_prompt = ""
     input_items: list[dict[str, Any]] = []
 
@@ -198,6 +204,7 @@ def _convert_messages(messages: list[dict[str, Any]]) -> tuple[str, list[dict[st
 
 
 def _convert_user_message(content: Any) -> dict[str, Any]:
+    """Convert a user content payload into Codex `input_text`/`input_image` format."""
     if isinstance(content, str):
         return {"role": "user", "content": [{"type": "input_text", "text": content}]}
     if isinstance(content, list):
@@ -217,6 +224,7 @@ def _convert_user_message(content: Any) -> dict[str, Any]:
 
 
 def _split_tool_call_id(tool_call_id: Any) -> tuple[str, str | None]:
+    """Split combined tool-call identifiers into `(call_id, item_id)`."""
     if isinstance(tool_call_id, str) and tool_call_id:
         if "|" in tool_call_id:
             call_id, item_id = tool_call_id.split("|", 1)
@@ -226,11 +234,13 @@ def _split_tool_call_id(tool_call_id: Any) -> tuple[str, str | None]:
 
 
 def _prompt_cache_key(messages: list[dict[str, Any]]) -> str:
+    """Generate a stable cache key from the message list."""
     raw = json.dumps(messages, ensure_ascii=True, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 async def _iter_sse(response: httpx.Response) -> AsyncGenerator[dict[str, Any], None]:
+    """Yield decoded JSON events from an SSE response stream."""
     buffer: list[str] = []
     async for line in response.aiter_lines():
         if line == "":
@@ -251,6 +261,7 @@ async def _iter_sse(response: httpx.Response) -> AsyncGenerator[dict[str, Any], 
 
 
 async def _consume_sse(response: httpx.Response) -> tuple[str, list[ToolCallRequest], str]:
+    """Aggregate text/tool events from Codex SSE into a final response tuple."""
     content = ""
     tool_calls: list[ToolCallRequest] = []
     tool_call_buffers: dict[str, dict[str, Any]] = {}
@@ -311,10 +322,12 @@ _FINISH_REASON_MAP = {"completed": "stop", "incomplete": "length", "failed": "er
 
 
 def _map_finish_reason(status: str | None) -> str:
+    """Map Codex completion status strings to internal finish reasons."""
     return _FINISH_REASON_MAP.get(status or "completed", "stop")
 
 
 def _extract_event_error_message(event: dict[str, Any]) -> str:
+    """Extract the best available error message from a Codex event payload."""
     top_level = event.get("message")
     if isinstance(top_level, str) and top_level.strip():
         return top_level.strip()
@@ -341,6 +354,7 @@ def _extract_event_error_message(event: dict[str, Any]) -> str:
 
 
 def _friendly_error(status_code: int, raw: str) -> str:
+    """Return a user-facing HTTP error message for Codex failures."""
     if status_code == 429:
         return "ChatGPT usage quota exceeded or rate limit triggered. Please try again later."
     return f"HTTP {status_code}: {raw}"
