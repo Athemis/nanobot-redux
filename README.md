@@ -4,6 +4,7 @@
 
 ![Python](https://img.shields.io/badge/python-%E2%89%A53.14-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+[![Tests](https://github.com/Athemis/nanobot-redux/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Athemis/nanobot-redux/actions/workflows/tests.yml)
 
 🐈 **nanobot-redux** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw). It is an opinionated fork of [**nanobot**](https://github.com/HKUDS/nanobot) by HKUDS.
 > All credit for the original project goes to the HKUDS team and contributors.
