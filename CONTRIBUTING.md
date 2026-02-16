@@ -28,8 +28,8 @@ If you need something I can't test, consider maintaining your own fork—that's 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/squidbot.git
-cd squidbot
+git clone https://github.com/Athemis/nanobot-redux.git
+cd nanobot-redux
 
 # Create and activate virtual environment
 python -m venv .venv
