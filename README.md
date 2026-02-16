@@ -223,6 +223,8 @@ Give nanobot its own email account. It polls **IMAP** for incoming mail and repl
 > - `consentGranted` must be `true` to allow mailbox access. This is a safety gate — set `false` to fully disable.
 > - `allowFrom`: Leave empty to accept emails from anyone, or restrict to specific senders.
 > - `smtpUseTls` and `smtpUseSsl` default to `true` / `false` respectively, which is correct for Gmail (port 587 + STARTTLS). No need to set them explicitly.
+> - At least one of `smtpUseTls` or `smtpUseSsl` must be enabled. nanobot refuses plaintext SMTP sends if both are `false`.
+> - `tlsVerify` defaults to `true` and should stay enabled. Set `false` only for trusted edge cases (for example corporate TLS interception with controlled network path).
 > - Set `"autoReplyEnabled": false` if you only want to read/analyze emails without sending automatic replies.
 
 ```json
@@ -239,6 +241,7 @@ Give nanobot its own email account. It polls **IMAP** for incoming mail and repl
       "smtpPort": 587,
       "smtpUsername": "my-nanobot@gmail.com",
       "smtpPassword": "your-app-password",
+      "tlsVerify": true,
       "fromAddress": "my-nanobot@gmail.com",
       "allowFrom": ["your-real-email@gmail.com"]
     }

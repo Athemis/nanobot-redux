@@ -90,6 +90,9 @@ File operations have path traversal protection, but:
 - All external API calls use HTTPS by default
 - Timeouts are configured to prevent hanging requests
 - Consider using a firewall to restrict outbound connections if needed
+- Email channel blocks plaintext SMTP sends (`smtpUseTls=false` and `smtpUseSsl=false`)
+- Email IMAP/SMTP TLS certificate verification is enabled by default (`channels.email.tlsVerify=true`)
+- If you disable `channels.email.tlsVerify`, nanobot logs a warning because MITM can expose mailbox credentials and content
 
 ### 6. Dependency Security
 
