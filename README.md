@@ -2,7 +2,7 @@
 
 # nanobot redux: Ultra-Lightweight Personal AI Assistant
 
-![Python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
+![Python](https://img.shields.io/badge/python-%E2%89%A53.14-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 🐈 **nanobot-redux** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw). It is an opinionated fork of [**nanobot**](https://github.com/HKUDS/nanobot) by HKUDS.

@@ -14,6 +14,7 @@ I try to keep these compatible so I don't break my own setup:
 
 - CLI stays `nanobot`
 - Python package stays `nanobot.*`
+- Python `3.14` is my baseline for runtime and CI so everything behaves consistently. Turned out that not all code from upstream or PRs were compatible with the upstream target of Python `3.11`.
 - Config lives in `~/.nanobot/*`
 
 ## Current Priorities
