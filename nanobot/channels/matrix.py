@@ -1,3 +1,5 @@
+"""Matrix channel implementation for inbound sync and outbound message/media delivery."""
+
 import asyncio
 import logging
 import mimetypes
@@ -238,6 +240,7 @@ class MatrixChannel(BaseChannel):
         restrict_to_workspace: bool = False,
         workspace: Path | None = None,
     ):
+        """Store Matrix client settings, task handles, and outbound media policy flags."""
         super().__init__(config, bus)
         self.client: AsyncClient | None = None
         self._sync_task: asyncio.Task | None = None
@@ -603,6 +606,7 @@ class MatrixChannel(BaseChannel):
         return None
 
     async def send(self, msg: OutboundMessage) -> None:
+        """Send message text and optional attachments to a Matrix room, then clear typing state."""
         if not self.client:
             return
 

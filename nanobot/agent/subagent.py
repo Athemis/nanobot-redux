@@ -47,6 +47,7 @@ class SubagentManager:
         exec_config: ExecToolConfig | None = None,
         restrict_to_workspace: bool = False,
     ):
+        """Store shared runtime dependencies and defaults for spawned subagents."""
         from nanobot.config.schema import ExecToolConfig
         self.provider = provider
         self.workspace = workspace

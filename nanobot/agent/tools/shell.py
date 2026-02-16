@@ -20,6 +20,7 @@ class ExecTool(Tool):
         allow_patterns: list[str] | None = None,
         restrict_to_workspace: bool = False,
     ):
+        """Configure execution timeout, command guards, and optional workspace restriction."""
         self.timeout = timeout
         self.working_dir = working_dir
         self.deny_patterns = deny_patterns or [
@@ -77,6 +78,7 @@ class ExecTool(Tool):
         }
 
     async def execute(self, command: str, working_dir: str | None = None, **kwargs: Any) -> str:
+        """Run a guarded shell command and return captured stdout/stderr text."""
         cwd = working_dir or self.working_dir or os.getcwd()
         guard_error = self._guard_command(command, cwd)
         if guard_error:

@@ -11,6 +11,7 @@ class CronTool(Tool):
     """Tool to schedule reminders and recurring tasks."""
 
     def __init__(self, cron_service: CronService):
+        """Initialize the tool with a cron backend and empty delivery context."""
         self._cron = cron_service
         self._channel = ""
         self._chat_id = ""
@@ -72,6 +73,7 @@ class CronTool(Tool):
         job_id: str | None = None,
         **kwargs: Any
     ) -> str:
+        """Dispatch cron actions (`add`, `list`, `remove`) and return a user-facing status."""
         if action == "add":
             return self._add_job(message, every_seconds, cron_expr, at)
         elif action == "list":

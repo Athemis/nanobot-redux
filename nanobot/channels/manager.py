@@ -23,6 +23,7 @@ class ChannelManager:
     """
 
     def __init__(self, config: Config, bus: MessageBus):
+        """Initialize channel registry from config and wire it to the shared message bus."""
         self.config = config
         self.bus = bus
         self.channels: dict[str, BaseChannel] = {}

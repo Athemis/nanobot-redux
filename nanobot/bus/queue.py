@@ -17,6 +17,7 @@ class MessageBus:
     """
 
     def __init__(self):
+        """Create inbound/outbound queues and subscriber state for dispatcher mode."""
         self.inbound: asyncio.Queue[InboundMessage] = asyncio.Queue()
         self.outbound: asyncio.Queue[OutboundMessage] = asyncio.Queue()
         self._outbound_subscribers: dict[str, list[Callable[[OutboundMessage], Awaitable[None]]]] = {}

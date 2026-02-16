@@ -13,6 +13,7 @@ class ToolRegistry:
     """
 
     def __init__(self):
+        """Initialize an empty in-memory registry keyed by tool name."""
         self._tools: dict[str, Tool] = {}
 
     def register(self, tool: Tool) -> None:
