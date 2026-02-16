@@ -30,7 +30,7 @@ Changes integrated after the initial fork:
 
 | Upstream PR/Commit | Area | Why Adopted | Risk | Adopted | Verification |
 |---|---|---|---|---|---|
-| _No post-fork adoptions yet_ | - | - | - | - | - |
+| [`a219a91`](https://github.com/HKUDS/nanobot/commit/a219a91bc5e41a311d7e48b752aa489039ccd281) | Skills loader | Adds compatibility with `openclaw`/ClawHub skill metadata frontmatter | low | 2026-02-16 | Manual check: `SkillsLoader._parse_nanobot_metadata` correctly reads `{"openclaw": {...}}` metadata |
 
 ### Template for New Adoptions
 
