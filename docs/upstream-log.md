@@ -39,6 +39,7 @@ Changes made in this fork that are not directly adopted from upstream:
 
 | Change | Area | Why | Risk | Added | Verification |
 |---|---|---|---|---|---|
+| OpenClaw skill metadata regression tests | Skills loader | Lock in fork behavior for `openclaw` metadata support and `nanobot` precedence when both keys exist | low | 2026-02-16 | `pytest tests/test_skills_loader.py` |
 | Codex TLS verification hardening | Codex Provider | Avoid silent TLS downgrade; require explicit `providers.openaiCodex.sslVerify=false` opt-in | low | 2026-02-16 | `pytest -q tests/test_config_loader_conversion.py tests/test_generation_params.py tests/test_onboard_openrouter_defaults.py` + `ruff check nanobot/config/schema.py nanobot/cli/commands.py nanobot/providers/openai_codex_provider.py tests/test_config_loader_conversion.py tests/test_generation_params.py tests/test_onboard_openrouter_defaults.py README.md` |
 | Codex SSE error diagnostics | Codex Provider | Surface provider error details from `error`/`response.failed` payloads instead of generic failure text | low | 2026-02-16 | `pytest -q tests/test_generation_params.py` + `ruff check nanobot/providers/openai_codex_provider.py tests/test_generation_params.py` |
 
