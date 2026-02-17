@@ -155,6 +155,25 @@ def test_convert_to_camel_preserves_mcp_env_var_names() -> None:
     assert env["MyCustomToken"] == "abc"
 
 
+def test_convert_to_camel_preserves_extra_headers_entry_names() -> None:
+    data = {
+        "providers": {
+            "openrouter": {
+                "extra_headers": {
+                    "X_Custom_Header": "value",
+                    "X_Trace_ID": "trace",
+                }
+            }
+        }
+    }
+
+    converted = convert_to_camel(data)
+    headers = converted["providers"]["openrouter"]["extraHeaders"]
+
+    assert headers["X_Custom_Header"] == "value"
+    assert headers["X_Trace_ID"] == "trace"
+
+
 def test_convert_keys_still_converts_non_env_keys_inside_mcp_servers() -> None:
     data = {
         "tools": {

@@ -80,6 +80,11 @@ def _is_mcp_env_map_path(path: tuple[str, ...]) -> bool:
     return len(path) == 4 and path[0] == "tools" and path[1] == "mcp_servers" and path[3] == "env"
 
 
+def _is_extra_headers_path(path: tuple[str, ...]) -> bool:
+    """Whether path points at an extra_headers map where entry keys are free-form."""
+    return bool(path) and path[-1] == "extra_headers"
+
+
 def convert_keys(data: Any, preserve_entry_keys: bool = False) -> Any:
     """Convert camelCase keys to snake_case for Pydantic."""
     return _convert_keys(data, preserve_entry_keys=preserve_entry_keys)
@@ -118,8 +123,8 @@ def convert_to_camel(data: Any) -> Any:
 def _convert_to_camel(data: Any, path: tuple[str, ...] = ()) -> Any:
     """Convert keys recursively while preserving selected free-form entry keys."""
     if isinstance(data, dict):
-        # Preserve env var names under tools.mcpServers.<name>.env on save.
-        if _is_mcp_env_map_path(path):
+        # Preserve free-form map entry keys (header names/env var names) on save.
+        if _is_mcp_env_map_path(path) or _is_extra_headers_path(path):
             return {k: _convert_to_camel(v, path + (k,)) for k, v in data.items()}
 
         converted: dict[str, Any] = {}
