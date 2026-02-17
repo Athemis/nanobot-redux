@@ -1,5 +1,6 @@
 """Tests for camelCase/snake_case config handling via Pydantic alias_generator."""
 
+from nanobot.config.loader import _migrate_config
 from nanobot.config.schema import Config
 
 
@@ -146,6 +147,25 @@ def test_model_dump_outputs_e2ee_enabled_with_correct_casing() -> None:
 
     assert "e2eeEnabled" in dumped["channels"]["matrix"]
     assert "e2EeEnabled" not in dumped["channels"]["matrix"]
+
+
+def test_migrate_config_moves_exec_restrict_to_workspace() -> None:
+    """Old configs stored restrictToWorkspace under tools.exec; migration lifts it to tools."""
+    data = {"tools": {"exec": {"restrictToWorkspace": True}}}
+
+    migrated = _migrate_config(data)
+
+    assert migrated["tools"]["restrictToWorkspace"] is True
+    assert "restrictToWorkspace" not in migrated["tools"]["exec"]
+
+
+def test_migrate_config_does_not_overwrite_existing_tools_restrict() -> None:
+    """If tools.restrictToWorkspace already exists, the exec value must not overwrite it."""
+    data = {"tools": {"restrictToWorkspace": False, "exec": {"restrictToWorkspace": True}}}
+
+    migrated = _migrate_config(data)
+
+    assert migrated["tools"]["restrictToWorkspace"] is False
 
 
 def test_round_trip_preserves_camel_case_structure() -> None:
