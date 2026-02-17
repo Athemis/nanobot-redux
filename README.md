@@ -480,6 +480,26 @@ MCP tools are automatically discovered and registered on startup. The LLM can us
 | `tools.restrictToWorkspace` | `false`          | When `true`, restricts **all** agent tools (shell, file read/write/edit, list) to the workspace directory. Prevents path traversal and out-of-scope access. |
 | `channels.*.allowFrom`      | `[]` (allow all) | Whitelist of user IDs. Empty = allow everyone; non-empty = only listed users can interact.                                                                  |
 
+Example: run `exec` commands through Bubblewrap (`bwrap`) on Linux/POSIX:
+
+```json
+{
+  "tools": {
+    "restrictToWorkspace": true,
+    "exec": {
+      "timeout": 60,
+      "commandWrapper": "bwrap --die-with-parent --new-session --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --setenv HOME /home/alice/.nanobot/workspace --bind /home/alice/.nanobot/workspace /home/alice/.nanobot/workspace --chdir /home/alice/.nanobot/workspace --"
+    }
+  }
+}
+```
+
+- `commandWrapper` is POSIX-oriented and applied as: `<commandWrapper> sh -lc '<original command>'`.
+- Keep the trailing `--` in the wrapper when required by your `bwrap` profile.
+- Replace `/home/alice/.nanobot/workspace` with your real workspace path.
+- `--tmpfs /tmp` fixes tools that require a writable temp directory.
+- `--setenv HOME ...` keeps caches/configs inside the workspace and avoids writing outside.
+
 ## CLI Reference
 
 | Command                               | Description                   |
