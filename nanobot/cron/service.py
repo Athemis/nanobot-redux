@@ -31,9 +31,9 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
     if schedule.kind == "cron" and schedule.expr:
         try:
             from zoneinfo import ZoneInfo
-
             from croniter import croniter
-            base_time = time.time()
+            # Use the caller-provided reference time for deterministic scheduling.
+            base_time = now_ms / 1000
             tz = ZoneInfo(schedule.tz) if schedule.tz else datetime.now().astimezone().tzinfo
             base_dt = datetime.fromtimestamp(base_time, tz=tz)
             cron = croniter(schedule.expr, base_dt)
