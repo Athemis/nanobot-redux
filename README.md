@@ -494,7 +494,7 @@ Example: run `exec` commands through Bubblewrap (`bwrap`) on Linux/POSIX:
 }
 ```
 
-- `commandWrapper` is POSIX-oriented and applied as: `<commandWrapper> sh -lc '<original command>'`.
+- `commandWrapper` is POSIX-oriented and applied as: `<commandWrapper> sh -c '<original command>'`.
 - Keep the trailing `--` in the wrapper when required by your `bwrap` profile.
 - Replace `/home/alice/.nanobot/workspace` with your real workspace path.
 - `--tmpfs /tmp` fixes tools that require a writable temp directory.

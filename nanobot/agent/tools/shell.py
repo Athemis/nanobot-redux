@@ -91,7 +91,8 @@ class ExecTool(Tool):
         # Wrap command execution for POSIX wrappers (e.g. bwrap, firejail).
         actual_command = command
         if self.command_wrapper:
-            actual_command = f"{self.command_wrapper} sh -lc {shlex.quote(command)}"
+            # Use `sh -c` (not login shell) to avoid profile loading side effects.
+            actual_command = f"{self.command_wrapper} sh -c {shlex.quote(command)}"
 
         try:
             process = await asyncio.create_subprocess_shell(

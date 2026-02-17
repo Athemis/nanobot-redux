@@ -105,7 +105,7 @@ async def test_execute_wraps_full_command_as_single_posix_payload(monkeypatch) -
     result = await tool.execute(command)
 
     assert result == "ok"
-    assert captured["command"] == f"{wrapper} sh -lc {shlex.quote(command)}"
+    assert captured["command"] == f"{wrapper} sh -c {shlex.quote(command)}"
 
 
 @pytest.mark.asyncio
