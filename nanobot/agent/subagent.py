@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from nanobot.agent.skills import SkillsLoader
 from nanobot.agent.tools.filesystem import (
     DeleteFileTool,
     EditFileTool,
@@ -15,7 +16,6 @@ from nanobot.agent.tools.filesystem import (
     ReadFileTool,
     WriteFileTool,
 )
-from nanobot.agent.skills import SkillsLoader
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.shell import ExecTool
 from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
