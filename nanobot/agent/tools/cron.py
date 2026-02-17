@@ -106,7 +106,7 @@ class CronTool(Tool):
             from zoneinfo import ZoneInfo
             try:
                 ZoneInfo(tz)
-            except (KeyError, Exception):
+            except (KeyError, ValueError):
                 return f"Error: unknown timezone '{tz}'"
 
         # Build schedule
