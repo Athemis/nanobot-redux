@@ -601,7 +601,7 @@ app.add_typer(cron_app, name="cron")
 def cron_list(
     all: bool = typer.Option(False, "--all", "-a", help="Include disabled jobs"),
 ):
-    """List scheduled jobs."""
+    """List scheduled jobs with timezone-aware schedule and next-run formatting."""
     from nanobot.config.loader import get_data_dir
     from nanobot.cron.service import CronService
 
@@ -661,7 +661,7 @@ def cron_add(
     to: str = typer.Option(None, "--to", help="Recipient for delivery"),
     channel: str = typer.Option(None, "--channel", help="Channel for delivery (e.g. 'matrix', 'email')"),
 ):
-    """Add a scheduled job."""
+    """Add a scheduled job, failing fast on invalid timezone/schedule input."""
     from nanobot.config.loader import get_data_dir
     from nanobot.cron.service import CronService
     from nanobot.cron.types import CronSchedule

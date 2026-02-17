@@ -5,6 +5,7 @@ from nanobot.cron.types import CronSchedule
 
 
 def test_add_job_rejects_unknown_timezone(tmp_path) -> None:
+    """Reject invalid IANA tz names and avoid persisting dead cron jobs."""
     service = CronService(tmp_path / "cron" / "jobs.json")
 
     with pytest.raises(ValueError, match="unknown timezone 'America/Vancovuer'"):
@@ -18,6 +19,7 @@ def test_add_job_rejects_unknown_timezone(tmp_path) -> None:
 
 
 def test_add_job_accepts_valid_timezone(tmp_path) -> None:
+    """Accept valid IANA tz names and compute an initial next run."""
     service = CronService(tmp_path / "cron" / "jobs.json")
 
     job = service.add_job(

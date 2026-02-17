@@ -95,6 +95,7 @@ class CronTool(Tool):
         tz: str | None,
         at: str | None,
     ) -> str:
+        """Create a job from tool arguments and return a user-facing status message."""
         if not message:
             return "Error: message is required for add"
         if not self._channel or not self._chat_id:
@@ -138,6 +139,7 @@ class CronTool(Tool):
         return f"Created job '{job.name}' (id: {job.id})"
 
     def _list_jobs(self) -> str:
+        """Return a compact human-readable list of scheduled jobs."""
         jobs = self._cron.list_jobs()
         if not jobs:
             return "No scheduled jobs."
@@ -145,6 +147,7 @@ class CronTool(Tool):
         return "Scheduled jobs:\n" + "\n".join(lines)
 
     def _remove_job(self, job_id: str | None) -> str:
+        """Remove a job by ID and return a success/error status string."""
         if not job_id:
             return "Error: job_id is required for remove"
         if self._cron.remove_job(job_id):

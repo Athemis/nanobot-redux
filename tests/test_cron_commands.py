@@ -6,6 +6,7 @@ runner = CliRunner()
 
 
 def test_cron_add_rejects_invalid_timezone(monkeypatch, tmp_path) -> None:
+    """CLI should fail immediately for unknown cron timezones and not write jobs."""
     monkeypatch.setattr("nanobot.config.loader.get_data_dir", lambda: tmp_path)
 
     result = runner.invoke(

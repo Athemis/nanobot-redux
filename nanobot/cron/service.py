@@ -14,11 +14,12 @@ from nanobot.cron.types import CronJob, CronJobState, CronPayload, CronSchedule,
 
 
 def _now_ms() -> int:
+    """Return current UNIX time in milliseconds."""
     return int(time.time() * 1000)
 
 
 def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
-    """Compute next run time in ms."""
+    """Compute next run time in ms, or ``None`` when schedule resolution fails."""
     if schedule.kind == "at":
         return schedule.at_ms if schedule.at_ms and schedule.at_ms > now_ms else None
 
@@ -47,7 +48,7 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
 
 
 def _validate_schedule_for_add(schedule: CronSchedule) -> None:
-    """Validate schedule fields that would otherwise create non-runnable jobs."""
+    """Reject unsupported or invalid schedule/timezone combinations at add-time."""
     if schedule.tz and schedule.kind != "cron":
         raise ValueError("tz can only be used with cron schedules")
 
@@ -285,7 +286,11 @@ class CronService:
         to: str | None = None,
         delete_after_run: bool = False,
     ) -> CronJob:
-        """Add a new job."""
+        """Add a new job and compute first run time.
+
+        Raises:
+            ValueError: If schedule data is invalid, including unknown cron timezones.
+        """
         store = self._load_store()
         _validate_schedule_for_add(schedule)
         now = _now_ms()
