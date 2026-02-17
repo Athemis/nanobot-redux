@@ -16,22 +16,27 @@ Use the `cron` tool to schedule reminders or recurring tasks.
 ## Examples
 
 Fixed reminder:
-```
+```python
 cron(action="add", message="Time to take a break!", every_seconds=1200)
 ```
 
 Dynamic task (agent executes each time):
-```
+```python
 cron(action="add", message="Check HKUDS/nanobot GitHub stars and report", every_seconds=600)
 ```
 
 One-time scheduled task (compute ISO datetime from current time):
-```
+```python
 cron(action="add", message="Remind me about the meeting", at="<ISO datetime>")
 ```
 
-List/remove:
+Timezone-aware cron:
+```python
+cron(action="add", message="Morning standup", cron_expr="0 9 * * 1-5", tz="America/Vancouver")
 ```
+
+List/remove:
+```python
 cron(action="list")
 cron(action="remove", job_id="abc123")
 ```
@@ -44,4 +49,9 @@ cron(action="remove", job_id="abc123")
 | every hour | every_seconds: 3600 |
 | every day at 8am | cron_expr: "0 8 * * *" |
 | weekdays at 5pm | cron_expr: "0 17 * * 1-5" |
+| 9am Vancouver time daily | cron_expr: "0 9 * * *", tz: "America/Vancouver" |
 | at a specific time | at: ISO datetime string (compute from current time) |
+
+## Timezone
+
+Use `tz` with `cron_expr` to schedule in a specific IANA timezone. Without `tz`, the server's local timezone is used.

@@ -32,6 +32,7 @@ Changes integrated after the initial fork:
 |---|---|---|---|---|---|
 | HKUDS/nanobot@a219a91bc5e41a311d7e48b752aa489039ccd281 | Skills loader | Adds compatibility with `openclaw`/ClawHub skill metadata frontmatter | low | 2026-02-16 | `pytest tests/test_skills_loader.py` |
 | HKUDS/nanobot@1ce586e9f515ca537353331f726307844e1b4e2f | Codex Provider | Upstream fixes for PR HKUDS/nanobot#151 | low | 2026-02-16 | - |
+| [#744](https://github.com/HKUDS/nanobot/pull/744) + [6bae6a6](https://github.com/HKUDS/nanobot/commit/6bae6a617f7130e0a1021811b8cd8b379c2c0820) | Cron scheduling | Preserves timezone-aware cron semantics end-to-end (`--tz` propagation + deterministic next-run computation), fixes timezone display edge cases, and adds timezone validation/docs | low | 2026-02-17 | `ruff check nanobot/agent/tools/cron.py nanobot/cli/commands.py nanobot/cron/service.py` |
 
 ## Redux-Specific Changes
 
