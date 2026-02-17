@@ -4,10 +4,17 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings
 
 
-class EmailConfig(BaseModel):
+class Base(BaseModel):
+    """Base model that accepts both camelCase and snake_case config keys."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+class EmailConfig(Base):
     """Email channel configuration (IMAP inbound + SMTP outbound)."""
 
     enabled: bool = False
@@ -42,7 +49,7 @@ class EmailConfig(BaseModel):
     allow_from: list[str] = Field(default_factory=list)  # Allowed sender email addresses
 
 
-class MatrixConfig(BaseModel):
+class MatrixConfig(Base):
     """Matrix (Element) channel configuration."""
     enabled: bool = False
     homeserver: str = "https://matrix.org"
@@ -50,7 +57,7 @@ class MatrixConfig(BaseModel):
     user_id: str = ""  # @bot:matrix.org
     device_id: str = ""
     # Enable Matrix E2EE support (encryption + encrypted room handling).
-    e2ee_enabled: bool = True
+    e2ee_enabled: bool = Field(True, alias="e2eeEnabled")
     # Max seconds to wait for sync_forever to stop gracefully before cancellation fallback.
     sync_stop_grace_seconds: int = 2
     # Max attachment size accepted for Matrix media handling (inbound + outbound).
@@ -60,14 +67,14 @@ class MatrixConfig(BaseModel):
     group_allow_from: list[str] = Field(default_factory=list)
     allow_room_mentions: bool = False
 
-class ChannelsConfig(BaseModel):
+class ChannelsConfig(Base):
     """Configuration for chat channels."""
 
     email: EmailConfig = Field(default_factory=EmailConfig)
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
 
 
-class AgentDefaults(BaseModel):
+class AgentDefaults(Base):
     """Default agent configuration."""
 
     workspace: str = "~/.nanobot/workspace"
@@ -78,13 +85,13 @@ class AgentDefaults(BaseModel):
     memory_window: int = 50
 
 
-class AgentsConfig(BaseModel):
+class AgentsConfig(Base):
     """Agent configuration."""
 
     defaults: AgentDefaults = Field(default_factory=AgentDefaults)
 
 
-class ProviderConfig(BaseModel):
+class ProviderConfig(Base):
     """LLM provider configuration."""
 
     api_key: str = ""
@@ -98,7 +105,7 @@ class OpenAICodexProviderConfig(ProviderConfig):
     ssl_verify: bool = True
 
 
-class ProvidersConfig(BaseModel):
+class ProvidersConfig(Base):
     """Configuration for LLM providers."""
     custom: ProviderConfig = Field(default_factory=ProviderConfig)  # Any OpenAI-compatible endpoint
     anthropic: ProviderConfig = Field(default_factory=ProviderConfig)
@@ -118,14 +125,14 @@ class ProvidersConfig(BaseModel):
     )  # OpenAI Codex (OAuth)
 
 
-class GatewayConfig(BaseModel):
+class GatewayConfig(Base):
     """Gateway/server configuration."""
 
     host: str = "0.0.0.0"
     port: int = 18790
 
 
-class WebSearchConfig(BaseModel):
+class WebSearchConfig(Base):
     """Web search tool configuration."""
     provider: str = ""             # brave, tavily, searxng, duckduckgo (empty = brave)
     api_key: str = ""             # API key for the selected provider
@@ -134,19 +141,19 @@ class WebSearchConfig(BaseModel):
     max_results: int = 5
 
 
-class WebToolsConfig(BaseModel):
+class WebToolsConfig(Base):
     """Web tools configuration."""
 
     search: WebSearchConfig = Field(default_factory=WebSearchConfig)
 
 
-class ExecToolConfig(BaseModel):
+class ExecToolConfig(Base):
     """Shell exec tool configuration."""
 
     timeout: int = 60
 
 
-class MCPServerConfig(BaseModel):
+class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
     command: str = ""  # Stdio: command to run (e.g. "npx")
     args: list[str] = Field(default_factory=list)  # Stdio: command arguments
@@ -154,7 +161,7 @@ class MCPServerConfig(BaseModel):
     url: str = ""  # HTTP: streamable HTTP endpoint URL
 
 
-class ToolsConfig(BaseModel):
+class ToolsConfig(Base):
     """Tools configuration."""
 
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)

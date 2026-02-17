@@ -1,43 +1,35 @@
-from nanobot.config.loader import convert_keys, convert_to_camel
+"""Tests for camelCase/snake_case config handling via Pydantic alias_generator."""
+
+from nanobot.config.loader import _migrate_config
+from nanobot.config.schema import Config
 
 
-def test_convert_keys_preserves_extra_headers_key_casing() -> None:
-    data = {
-        "providers": {
-            "openrouter": {
-                "extraHeaders": {
-                    "HTTP-Referer": "https://example.com",
-                    "X-Title": "nanobot",
-                }
-            }
-        }
-    }
-
-    converted = convert_keys(data)
-
-    assert converted["providers"]["openrouter"]["extra_headers"] == {
-        "HTTP-Referer": "https://example.com",
-        "X-Title": "nanobot",
-    }
-
-
-def test_convert_keys_still_converts_non_header_keys() -> None:
+def test_model_validate_accepts_camel_case_top_level_tool_keys() -> None:
     data = {
         "tools": {
             "restrictToWorkspace": True,
         }
     }
 
-    converted = convert_keys(data)
+    config = Config.model_validate(data)
 
-    assert converted == {
+    assert config.tools.restrict_to_workspace is True
+
+
+def test_model_validate_accepts_snake_case_keys() -> None:
+    """populate_by_name=True means snake_case is also accepted."""
+    data = {
         "tools": {
             "restrict_to_workspace": True,
         }
     }
 
+    config = Config.model_validate(data)
 
-def test_convert_keys_converts_openai_codex_ssl_verify() -> None:
+    assert config.tools.restrict_to_workspace is True
+
+
+def test_model_validate_maps_openai_codex_ssl_verify() -> None:
     data = {
         "providers": {
             "openaiCodex": {
@@ -46,12 +38,12 @@ def test_convert_keys_converts_openai_codex_ssl_verify() -> None:
         }
     }
 
-    converted = convert_keys(data)
+    config = Config.model_validate(data)
 
-    assert converted["providers"]["openai_codex"]["ssl_verify"] is False
+    assert config.providers.openai_codex.ssl_verify is False
 
 
-def test_convert_keys_converts_provider_fields_but_preserves_header_entries() -> None:
+def test_model_validate_maps_provider_fields_and_preserves_header_entry_keys() -> None:
     data = {
         "providers": {
             "openrouter": {
@@ -64,54 +56,17 @@ def test_convert_keys_converts_provider_fields_but_preserves_header_entries() ->
         }
     }
 
-    converted = convert_keys(data)
+    config = Config.model_validate(data)
 
-    assert converted["providers"]["openrouter"]["api_base"] == "https://openrouter.ai/api/v1"
-    assert converted["providers"]["openrouter"]["extra_headers"] == {
+    assert config.providers.openrouter.api_base == "https://openrouter.ai/api/v1"
+    assert config.providers.openrouter.extra_headers == {
         "HTTP-Referer": "https://example.com",
         "X-Title": "nanobot",
     }
 
 
-def test_header_keys_survive_convert_round_trip() -> None:
-    snake_data = {
-        "providers": {
-            "openrouter": {
-                "api_base": "https://openrouter.ai/api/v1",
-                "extra_headers": {
-                    "HTTP-Referer": "https://example.com",
-                    "X-Title": "nanobot",
-                },
-            }
-        },
-        "tools": {
-            "restrict_to_workspace": True,
-        },
-    }
-
-    camel = convert_to_camel(snake_data)
-    round_tripped = convert_keys(camel)
-
-    assert round_tripped == snake_data
-
-
-def test_convert_keys_keeps_preserve_entry_keys_param_compatibility() -> None:
-    data = {
-        "HTTPReferer": {
-            "XTitle": "nanobot",
-        }
-    }
-
-    converted = convert_keys(data, preserve_entry_keys=True)
-
-    assert converted == {
-        "HTTPReferer": {
-            "x_title": "nanobot",
-        }
-    }
-
-
-def test_convert_keys_preserves_mcp_env_var_names() -> None:
+def test_model_validate_preserves_mcp_env_var_names() -> None:
+    """env dict keys (e.g. OPENAI_API_KEY) must not be snake_case-converted."""
     data = {
         "tools": {
             "mcpServers": {
@@ -126,40 +81,40 @@ def test_convert_keys_preserves_mcp_env_var_names() -> None:
         }
     }
 
-    converted = convert_keys(data)
-    env = converted["tools"]["mcp_servers"]["demo"]["env"]
+    config = Config.model_validate(data)
+    env = config.tools.mcp_servers["demo"].env
 
     assert env["OPENAI_API_KEY"] == "test_key"
     assert env["MyCustomToken"] == "abc"
 
 
-def test_convert_to_camel_preserves_mcp_env_var_names() -> None:
+def test_model_dump_by_alias_outputs_camel_case() -> None:
     data = {
         "tools": {
-            "mcp_servers": {
+            "restrictToWorkspace": True,
+            "mcpServers": {
                 "demo": {
                     "command": "npx",
-                    "env": {
-                        "OPENAI_API_KEY": "test_key",
-                        "MyCustomToken": "abc",
-                    },
+                    "env": {"OPENAI_API_KEY": "test_key"},
                 }
-            }
+            },
         }
     }
 
-    converted = convert_to_camel(data)
-    env = converted["tools"]["mcpServers"]["demo"]["env"]
+    config = Config.model_validate(data)
+    dumped = config.model_dump(by_alias=True)
 
-    assert env["OPENAI_API_KEY"] == "test_key"
-    assert env["MyCustomToken"] == "abc"
+    assert dumped["tools"]["restrictToWorkspace"] is True
+    assert "mcpServers" in dumped["tools"]
+    assert dumped["tools"]["mcpServers"]["demo"]["env"]["OPENAI_API_KEY"] == "test_key"
 
 
-def test_convert_to_camel_preserves_extra_headers_entry_names() -> None:
+def test_model_dump_by_alias_preserves_extra_headers_entry_names() -> None:
+    """extra_headers dict keys must survive the round-trip unchanged."""
     data = {
         "providers": {
             "openrouter": {
-                "extra_headers": {
+                "extraHeaders": {
                     "X_Custom_Header": "value",
                     "X_Trace_ID": "trace",
                 }
@@ -167,28 +122,71 @@ def test_convert_to_camel_preserves_extra_headers_entry_names() -> None:
         }
     }
 
-    converted = convert_to_camel(data)
-    headers = converted["providers"]["openrouter"]["extraHeaders"]
+    config = Config.model_validate(data)
+    dumped = config.model_dump(by_alias=True)
+    headers = dumped["providers"]["openrouter"]["extraHeaders"]
 
     assert headers["X_Custom_Header"] == "value"
     assert headers["X_Trace_ID"] == "trace"
 
 
-def test_convert_keys_still_converts_non_env_keys_inside_mcp_servers() -> None:
+def test_model_validate_accepts_e2ee_enabled_with_correct_casing() -> None:
+    """e2ee_enabled has alias 'e2eeEnabled'; to_camel() would wrongly produce 'e2EeEnabled'."""
+    data = {"channels": {"matrix": {"e2eeEnabled": False}}}
+
+    config = Config.model_validate(data)
+
+    assert config.channels.matrix.e2ee_enabled is False
+
+
+def test_model_dump_outputs_e2ee_enabled_with_correct_casing() -> None:
+    data = {"channels": {"matrix": {"e2eeEnabled": False}}}
+
+    config = Config.model_validate(data)
+    dumped = config.model_dump(by_alias=True)
+
+    assert "e2eeEnabled" in dumped["channels"]["matrix"]
+    assert "e2EeEnabled" not in dumped["channels"]["matrix"]
+
+
+def test_migrate_config_moves_exec_restrict_to_workspace() -> None:
+    """Old configs stored restrictToWorkspace under tools.exec; migration lifts it to tools."""
+    data = {"tools": {"exec": {"restrictToWorkspace": True}}}
+
+    migrated = _migrate_config(data)
+
+    assert migrated["tools"]["restrictToWorkspace"] is True
+    assert "restrictToWorkspace" not in migrated["tools"]["exec"]
+
+
+def test_migrate_config_does_not_overwrite_existing_tools_restrict() -> None:
+    """If tools.restrictToWorkspace already exists, the exec value must not overwrite it."""
+    data = {"tools": {"restrictToWorkspace": False, "exec": {"restrictToWorkspace": True}}}
+
+    migrated = _migrate_config(data)
+
+    assert migrated["tools"]["restrictToWorkspace"] is False
+
+
+def test_round_trip_preserves_camel_case_structure() -> None:
+    """Load camelCase JSON → dump by_alias=True → same camelCase shape."""
     data = {
+        "providers": {
+            "openrouter": {
+                "apiBase": "https://openrouter.ai/api/v1",
+                "extraHeaders": {
+                    "HTTP-Referer": "https://example.com",
+                },
+            }
+        },
         "tools": {
             "restrictToWorkspace": True,
-            "mcpServers": {
-                "demo": {
-                    "extraHeaders": {"XCustom": "v"},
-                }
-            },
-        }
+        },
     }
 
-    converted = convert_keys(data)
-    tools = converted["tools"]
+    config = Config.model_validate(data)
+    dumped = config.model_dump(by_alias=True)
 
-    assert "restrict_to_workspace" in tools
-    assert "mcp_servers" in tools
-    assert "extra_headers" in tools["mcp_servers"]["demo"]
+    assert dumped["providers"]["openrouter"]["apiBase"] == "https://openrouter.ai/api/v1"
+    assert dumped["providers"]["openrouter"]["extraHeaders"]["HTTP-Referer"] == "https://example.com"
+    assert dumped["tools"]["restrictToWorkspace"] is True
