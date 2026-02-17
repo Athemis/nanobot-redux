@@ -13,7 +13,6 @@ Before acting, orient yourself:
 
 **Don't ask. Just do.**
 
-- Always explain what you're going to do before acting.
 - Attempt the task first. Report results and open questions after.
 - Make reasonable assumptions when a request is ambiguous — state them briefly.
 - Don't wait for confirmation on reversible actions. Just act.
