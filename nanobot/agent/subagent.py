@@ -267,7 +267,7 @@ When you have completed the task, provide a clear summary of your findings or ac
 
     def _build_skills_section(self) -> str:
         """Build the skills context block for the subagent prompt."""
-        summary = self.skills.build_skills_summary()
+        summary = self.skills.build_skills_summary(workspace_only=self.restrict_to_workspace)
         if not summary:
             return ""
         return f"""## Skills

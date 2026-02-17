@@ -26,6 +26,32 @@ def test_get_always_skills_supports_openclaw_metadata(tmp_path: Path) -> None:
     assert always_skills == ["openclaw-skill"]
 
 
+def test_build_skills_summary_workspace_only_excludes_builtin(tmp_path: Path) -> None:
+    workspace = tmp_path / "ws"
+    builtin = tmp_path / "builtin"
+    _write_skill(workspace, "ws-skill", "{}")
+    _write_skill(builtin, "builtin-skill", "{}")
+    loader = SkillsLoader(workspace, builtin_skills_dir=builtin)
+
+    summary = loader.build_skills_summary(workspace_only=True)
+
+    assert "ws-skill" in summary
+    assert "builtin-skill" not in summary
+
+
+def test_build_skills_summary_includes_builtin_by_default(tmp_path: Path) -> None:
+    workspace = tmp_path / "ws"
+    builtin = tmp_path / "builtin"
+    _write_skill(workspace, "ws-skill", "{}")
+    _write_skill(builtin, "builtin-skill", "{}")
+    loader = SkillsLoader(workspace, builtin_skills_dir=builtin)
+
+    summary = loader.build_skills_summary()
+
+    assert "ws-skill" in summary
+    assert "builtin-skill" in summary
+
+
 def test_get_always_skills_prefers_nanobot_metadata_over_openclaw(tmp_path: Path) -> None:
     _write_skill(
         tmp_path,
