@@ -2,10 +2,12 @@ from types import SimpleNamespace
 
 import pytest
 
+import nanobot.agent.subagent as subagent_module
 from nanobot.agent.loop import AgentLoop
 from nanobot.agent.subagent import SubagentManager
+from nanobot.agent.tools.shell import ExecTool
 from nanobot.bus.queue import MessageBus
-from nanobot.config.schema import AgentDefaults
+from nanobot.config.schema import AgentDefaults, ExecToolConfig
 from nanobot.providers import openai_codex_provider as codex_provider
 from nanobot.providers.base import LLMProvider, LLMResponse
 from nanobot.providers.litellm_provider import LiteLLMProvider
@@ -99,6 +101,52 @@ async def test_subagent_forwards_generation_parameters(tmp_path) -> None:
     call = provider.calls[0]
     assert call["max_tokens"] == 2222
     assert call["temperature"] == 0.15
+
+
+def test_agent_loop_wires_command_wrapper_into_exec_tool(tmp_path) -> None:
+    provider = _RecordingProvider()
+    wrapper = "bwrap --ro-bind / / --dev /dev --proc /proc --"
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=provider,
+        workspace=tmp_path,
+        exec_config=ExecToolConfig(command_wrapper=wrapper),
+        session_manager=_InMemorySessions(),
+    )
+
+    exec_tool = loop.tools.get("exec")
+    assert isinstance(exec_tool, ExecTool)
+    assert exec_tool.command_wrapper == wrapper
+
+
+@pytest.mark.asyncio
+async def test_subagent_wires_command_wrapper_into_exec_tool(tmp_path, monkeypatch) -> None:
+    provider = _RecordingProvider()
+    wrapper = "bwrap --ro-bind / / --dev /dev --proc /proc --"
+    manager = SubagentManager(
+        provider=provider,
+        workspace=tmp_path,
+        bus=MessageBus(),
+        exec_config=ExecToolConfig(command_wrapper=wrapper),
+    )
+
+    captured: dict[str, str] = {}
+    original_init = subagent_module.ExecTool.__init__
+
+    def _patched_init(self, *args, **kwargs) -> None:
+        captured["command_wrapper"] = kwargs.get("command_wrapper", "")
+        original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(subagent_module.ExecTool, "__init__", _patched_init)
+
+    await manager._run_subagent(
+        task_id="task-cmdwrap",
+        task="echo wrapper wiring",
+        label="wrapper wiring",
+        origin={"channel": "cli", "chat_id": "direct"},
+    )
+
+    assert captured["command_wrapper"] == wrapper
 
 
 @pytest.mark.asyncio

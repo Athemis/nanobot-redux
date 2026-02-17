@@ -3,6 +3,7 @@
 import asyncio
 import os
 import re
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ class ExecTool(Tool):
         restrict_to_workspace: bool = False,
         command_wrapper: str = "",
     ):
-        """Configure execution timeout, command guards, and optional workspace restriction."""
+        """Configure timeout, guardrails, and an optional POSIX command wrapper."""
         self.timeout = timeout
         self.working_dir = working_dir
         self.deny_patterns = deny_patterns or [
@@ -52,7 +53,7 @@ class ExecTool(Tool):
         ]
         self.allow_patterns = allow_patterns or []
         self.restrict_to_workspace = restrict_to_workspace
-        self.command_wrapper = command_wrapper
+        self.command_wrapper = command_wrapper.strip()
 
     @property
     def name(self) -> str:
@@ -82,14 +83,15 @@ class ExecTool(Tool):
     async def execute(self, command: str, working_dir: str | None = None, **kwargs: Any) -> str:
         """Run a guarded shell command and return captured stdout/stderr text."""
         cwd = working_dir or self.working_dir or os.getcwd()
+        # Guard the raw user command before wrapper expansion.
         guard_error = self._guard_command(command, cwd)
         if guard_error:
             return guard_error
 
-        # Apply command wrapper if configured (e.g. bwrap, firejail).
+        # Wrap command execution for POSIX wrappers (e.g. bwrap, firejail).
         actual_command = command
         if self.command_wrapper:
-            actual_command = f"{self.command_wrapper} {command}"
+            actual_command = f"{self.command_wrapper} sh -lc {shlex.quote(command)}"
 
         try:
             process = await asyncio.create_subprocess_shell(
