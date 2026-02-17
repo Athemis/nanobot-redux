@@ -99,24 +99,17 @@ class SkillsLoader:
 
         return "\n\n---\n\n".join(parts) if parts else ""
 
-    def build_skills_summary(self, workspace_only: bool = False) -> str:
+    def build_skills_summary(self) -> str:
         """
         Build a summary of all skills (name, description, path, availability).
 
         This is used for progressive loading - the agent can read the full
         skill content using read_file when needed.
 
-        Args:
-            workspace_only: If True, omit built-in skills whose paths are
-                outside the workspace.  Use this when the agent's read_file
-                tool is restricted to the workspace directory.
-
         Returns:
             XML-formatted skills summary.
         """
         all_skills = self.list_skills(filter_unavailable=False)
-        if workspace_only:
-            all_skills = [s for s in all_skills if s["source"] == "workspace"]
         if not all_skills:
             return ""
 

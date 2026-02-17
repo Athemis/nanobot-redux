@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
-from nanobot.agent.skills import SkillsLoader
+from nanobot.agent.skills import BUILTIN_SKILLS_DIR, SkillsLoader
 from nanobot.agent.tools.filesystem import (
     DeleteFileTool,
     EditFileTool,
@@ -115,7 +115,8 @@ class SubagentManager:
             # Build subagent tools (no message tool, no spawn tool)
             tools = ToolRegistry()
             allowed_dir = self.workspace if self.restrict_to_workspace else None
-            tools.register(ReadFileTool(allowed_dir=allowed_dir))
+            skill_dirs = [BUILTIN_SKILLS_DIR] if self.restrict_to_workspace else None
+            tools.register(ReadFileTool(allowed_dir=allowed_dir, extra_allowed_dirs=skill_dirs))
             tools.register(WriteFileTool(allowed_dir=allowed_dir))
             tools.register(EditFileTool(allowed_dir=allowed_dir))
             tools.register(DeleteFileTool(allowed_dir=allowed_dir))
@@ -267,7 +268,7 @@ When you have completed the task, provide a clear summary of your findings or ac
 
     def _build_skills_section(self) -> str:
         """Build the skills context block for the subagent prompt."""
-        summary = self.skills.build_skills_summary(workspace_only=self.restrict_to_workspace)
+        summary = self.skills.build_skills_summary()
         if not summary:
             return ""
         return f"""## Skills
