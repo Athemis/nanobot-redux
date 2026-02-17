@@ -53,7 +53,7 @@ class SpawnTool(Tool):
                     "description": (
                         "Self-contained task description for the subagent. "
                         "Include all needed context: goal, file paths, expected output format, "
-                        "and any relevant skill SKILL.md path (e.g. 'use github skill at /workspace/skills/github/SKILL.md')."
+                        "and any relevant skill SKILL.md path (e.g. use the path shown in the skills list)."
                     ),
                 },
                 "label": {
