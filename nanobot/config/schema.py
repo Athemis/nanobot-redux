@@ -57,7 +57,7 @@ class MatrixConfig(Base):
     user_id: str = ""  # @bot:matrix.org
     device_id: str = ""
     # Enable Matrix E2EE support (encryption + encrypted room handling).
-    e2ee_enabled: bool = True
+    e2ee_enabled: bool = Field(True, alias="e2eeEnabled")
     # Max seconds to wait for sync_forever to stop gracefully before cancellation fallback.
     sync_stop_grace_seconds: int = 2
     # Max attachment size accepted for Matrix media handling (inbound + outbound).

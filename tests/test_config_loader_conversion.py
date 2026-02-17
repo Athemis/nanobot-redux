@@ -129,6 +129,25 @@ def test_model_dump_by_alias_preserves_extra_headers_entry_names() -> None:
     assert headers["X_Trace_ID"] == "trace"
 
 
+def test_model_validate_accepts_e2ee_enabled_with_correct_casing() -> None:
+    """e2ee_enabled has alias 'e2eeEnabled'; to_camel() would wrongly produce 'e2EeEnabled'."""
+    data = {"channels": {"matrix": {"e2eeEnabled": False}}}
+
+    config = Config.model_validate(data)
+
+    assert config.channels.matrix.e2ee_enabled is False
+
+
+def test_model_dump_outputs_e2ee_enabled_with_correct_casing() -> None:
+    data = {"channels": {"matrix": {"e2eeEnabled": False}}}
+
+    config = Config.model_validate(data)
+    dumped = config.model_dump(by_alias=True)
+
+    assert "e2eeEnabled" in dumped["channels"]["matrix"]
+    assert "e2EeEnabled" not in dumped["channels"]["matrix"]
+
+
 def test_round_trip_preserves_camel_case_structure() -> None:
     """Load camelCase JSON → dump by_alias=True → same camelCase shape."""
     data = {
