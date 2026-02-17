@@ -35,8 +35,12 @@ class SpawnTool(Tool):
     def description(self) -> str:
         return (
             "Spawn a subagent to handle a task in the background. "
-            "Use this for complex or time-consuming tasks that can run independently. "
-            "The subagent will complete the task and report back when done."
+            "Use for complex, time-consuming, or parallelizable tasks. "
+            "The subagent has no access to the current conversation, so the task string must be "
+            "fully self-contained: include all file paths, relevant context, and — if a skill applies — "
+            "its SKILL.md path so the subagent can read it. "
+            "Multiple subagents can be spawned at once for parallel work. "
+            "Results are reported back when complete."
         )
 
     @property
@@ -46,7 +50,11 @@ class SpawnTool(Tool):
             "properties": {
                 "task": {
                     "type": "string",
-                    "description": "The task for the subagent to complete",
+                    "description": (
+                        "Self-contained task description for the subagent. "
+                        "Include all needed context: goal, file paths, expected output format, "
+                        "and any relevant skill SKILL.md path (e.g. 'use github skill at /workspace/skills/github/SKILL.md')."
+                    ),
                 },
                 "label": {
                     "type": "string",

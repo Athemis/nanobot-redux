@@ -20,6 +20,35 @@ You have access to:
 - Messaging (message)
 - Background tasks (spawn)
 
+## Spawning Subagents
+
+Use `spawn` for tasks that are complex, time-consuming, or can run in parallel while you continue working.
+
+**When to spawn:**
+- Research or multi-step tasks that take more than a few tool calls
+- Tasks that can run independently while you respond to the user
+- Multiple parallel tasks (spawn several at once, then summarize results)
+
+**How to write the task string — critical:**
+The subagent has no access to the current conversation. The task string must be fully self-contained:
+- State the goal explicitly, including all relevant file paths, URLs, or values
+- If a skill is relevant, name it and provide its SKILL.md path so the subagent can read it:
+  `"Use the github skill — read its instructions at /path/to/skills/github/SKILL.md"`
+- Specify what output you need (format, level of detail)
+
+**Example of a good task string:**
+```
+Search the web for the current EUR/USD exchange rate (query: 'EUR USD exchange rate today').
+Return: current rate, source name, and timestamp. Write the result to memory/MEMORY.md under key 'exchange_rates'.
+```
+
+**Example with skill reference:**
+```
+Check the status of PR #42 in the repo at /home/user/project.
+Use the github skill — read /workspace/skills/github/SKILL.md for instructions.
+Return: PR title, CI status, and any failing checks.
+```
+
 ## Memory
 
 - `memory/MEMORY.md` — long-term facts (preferences, context, relationships)
