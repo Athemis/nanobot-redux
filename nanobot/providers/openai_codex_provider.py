@@ -28,6 +28,7 @@ class OpenAICodexProvider(LLMProvider):
         self.default_model = default_model
         self.ssl_verify = ssl_verify
         self._logged_insecure_ssl_warning = False
+        self._logged_max_tokens_compat_note = False
 
     async def chat(
         self,
@@ -43,6 +44,12 @@ class OpenAICodexProvider(LLMProvider):
 
         token = await asyncio.to_thread(get_codex_token)
         headers = _build_headers(token.account_id, token.access)
+        if not self._logged_max_tokens_compat_note:
+            logger.info(
+                "Codex compatibility mode: omitting token-limit fields "
+                "(`max_tokens`/`max_output_tokens`) from request payload."
+            )
+            self._logged_max_tokens_compat_note = True
 
         body: dict[str, Any] = {
             "model": _strip_model_prefix(model),
@@ -50,7 +57,6 @@ class OpenAICodexProvider(LLMProvider):
             "stream": True,
             "instructions": system_prompt,
             "input": input_items,
-            "max_output_tokens": max_tokens,
             "text": {"verbosity": "medium"},
             "include": ["reasoning.encrypted_content"],
             "prompt_cache_key": _prompt_cache_key(messages),

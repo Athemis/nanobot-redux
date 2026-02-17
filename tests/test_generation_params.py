@@ -131,7 +131,7 @@ def test_agent_defaults_max_tokens_default_is_4096() -> None:
 
 
 @pytest.mark.asyncio
-async def test_codex_chat_uses_max_output_tokens_and_ignores_temperature(monkeypatch) -> None:
+async def test_codex_chat_omits_token_limit_fields_and_ignores_temperature(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
     async def _fake_request_codex(
@@ -163,7 +163,8 @@ async def test_codex_chat_uses_max_output_tokens_and_ignores_temperature(monkeyp
     assert captured["verify"] is True
     body = captured["body"]
     assert isinstance(body, dict)
-    assert body["max_output_tokens"] == 777
+    assert "max_tokens" not in body
+    assert "max_output_tokens" not in body
     assert "temperature" not in body
 
 
