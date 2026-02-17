@@ -93,6 +93,11 @@ class MessageTool(Tool):
 
         try:
             await self._send_callback(msg)
-            return f"Message sent to {channel}:{chat_id}"
+            if media_paths:
+                label = "attachment" if len(media_paths) == 1 else "attachments"
+                media_info = f" with {len(media_paths)} {label}"
+            else:
+                media_info = ""
+            return f"Message sent to {channel}:{chat_id}{media_info}"
         except Exception as e:
             return f"Error sending message: {str(e)}"
