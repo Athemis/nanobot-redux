@@ -229,12 +229,16 @@ To recall past events, grep {workspace_path}/memory/HISTORY.md"""
         Returns:
             Updated message list.
         """
-        msg: dict[str, Any] = {"role": "assistant", "content": content or ""}
+        msg: dict[str, Any] = {"role": "assistant"}
+
+        # Some LLM backends reject empty assistant text blocks, so omit content when empty.
+        if content is not None and content != "":
+            msg["content"] = content
 
         if tool_calls:
             msg["tool_calls"] = tool_calls
 
-        # Thinking models reject history without this
+        # Include reasoning content when provided (required by some thinking models).
         if reasoning_content:
             msg["reasoning_content"] = reasoning_content
 
