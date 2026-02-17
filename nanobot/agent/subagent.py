@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from nanobot.agent.skills import BUILTIN_SKILLS_DIR, SkillsLoader
 from nanobot.agent.tools.filesystem import (
     DeleteFileTool,
     EditFileTool,
@@ -58,6 +59,7 @@ class SubagentManager:
         self.web_search_config = web_search_config
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
+        self.skills = SkillsLoader(workspace)
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
 
     async def spawn(
@@ -113,7 +115,8 @@ class SubagentManager:
             # Build subagent tools (no message tool, no spawn tool)
             tools = ToolRegistry()
             allowed_dir = self.workspace if self.restrict_to_workspace else None
-            tools.register(ReadFileTool(allowed_dir=allowed_dir))
+            skill_dirs = [BUILTIN_SKILLS_DIR] if self.restrict_to_workspace else None
+            tools.register(ReadFileTool(allowed_dir=allowed_dir, extra_allowed_dirs=skill_dirs))
             tools.register(WriteFileTool(allowed_dir=allowed_dir))
             tools.register(EditFileTool(allowed_dir=allowed_dir))
             tools.register(DeleteFileTool(allowed_dir=allowed_dir))
@@ -259,9 +262,22 @@ You are a subagent spawned by the main agent to complete a specific task.
 
 ## Workspace
 Your workspace is at: {self.workspace}
-Skills are available at: {self.workspace}/skills/ (read SKILL.md files as needed)
 
+{self._build_skills_section()}
 When you have completed the task, provide a clear summary of your findings or actions."""
+
+    def _build_skills_section(self) -> str:
+        """Build the skills context block for the subagent prompt."""
+        summary = self.skills.build_skills_summary()
+        if not summary:
+            return ""
+        return f"""## Skills
+
+When the current task matches a skill's description, read its SKILL.md immediately using the read_file tool before proceeding.
+
+{summary}
+
+"""
 
     def get_running_count(self) -> int:
         """Return the number of currently running subagents."""

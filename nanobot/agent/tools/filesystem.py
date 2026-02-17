@@ -7,22 +7,30 @@ from typing import Any
 from nanobot.agent.tools.base import Tool
 
 
-def _resolve_path(path: str, allowed_dir: Path | None = None) -> Path:
+def _resolve_path(
+    path: str,
+    allowed_dir: Path | None = None,
+    extra_allowed_dirs: list[Path] | None = None,
+) -> Path:
     """Resolve path and optionally enforce directory restriction."""
     resolved = Path(path).expanduser().resolve()
     if allowed_dir:
-        allowed_resolved = allowed_dir.resolve()
-        if not resolved.is_relative_to(allowed_resolved):
-            raise PermissionError(f"Path {path} is outside allowed directory {allowed_dir}")
+        if resolved.is_relative_to(allowed_dir.resolve()):
+            return resolved
+        for extra in extra_allowed_dirs or []:
+            if resolved.is_relative_to(extra.resolve()):
+                return resolved
+        raise PermissionError(f"Path {path} is outside allowed directory {allowed_dir}")
     return resolved
 
 
 class ReadFileTool(Tool):
     """Tool to read file contents."""
 
-    def __init__(self, allowed_dir: Path | None = None):
+    def __init__(self, allowed_dir: Path | None = None, extra_allowed_dirs: list[Path] | None = None):
         """Optionally restrict readable paths to the configured directory subtree."""
         self._allowed_dir = allowed_dir
+        self._extra_allowed_dirs = extra_allowed_dirs or []
 
     @property
     def name(self) -> str:
@@ -48,7 +56,7 @@ class ReadFileTool(Tool):
     async def execute(self, path: str, **kwargs: Any) -> str:
         """Read and return UTF-8 file content for `path` with basic safety checks."""
         try:
-            file_path = _resolve_path(path, self._allowed_dir)
+            file_path = _resolve_path(path, self._allowed_dir, self._extra_allowed_dirs)
             if not file_path.exists():
                 return f"Error: File not found: {path}"
             if not file_path.is_file():
