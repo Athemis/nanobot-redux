@@ -114,7 +114,27 @@ Spawn a subagent to handle a task in the background.
 spawn(task: str, label: str = None) -> str
 ```
 
-Use for complex or time-consuming tasks that can run independently. The subagent will complete the task and report back when done.
+Use for complex, time-consuming, or parallelizable tasks. Multiple subagents can be spawned at once for parallel work.
+
+**The task string must be fully self-contained.** The subagent has no access to the current conversation — include everything it needs:
+- The goal, explicitly stated
+- All relevant file paths, URLs, or parameter values
+- Expected output format or where to write results
+- If a skill is relevant: its name and SKILL.md path
+
+**Example — web research:**
+```
+Search the web for the current EUR/USD exchange rate (query: 'EUR USD exchange rate today').
+Return: current rate, source name, and timestamp.
+Write the result to memory/MEMORY.md under key 'exchange_rates'.
+```
+
+**Example — with skill reference:**
+```
+Check the status of PR #42 in the repo at /home/user/project.
+Use the github skill — read /workspace/skills/github/SKILL.md for instructions.
+Return: PR title, CI status, and any failing checks.
+```
 
 ## Scheduled Reminders (Cron)
 
