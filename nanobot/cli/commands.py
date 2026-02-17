@@ -620,8 +620,8 @@ def cron_list(
     table.add_column("Schedule")
     table.add_column("Status")
     table.add_column("Next Run")
-    from datetime import datetime
     import time
+    from datetime import datetime
     from zoneinfo import ZoneInfo
     for job in jobs:
         # Format schedule
