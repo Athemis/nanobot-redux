@@ -34,6 +34,7 @@ Changes integrated after the initial fork:
 | HKUDS/nanobot@1ce586e9f515ca537353331f726307844e1b4e2f                                                                                          | Codex Provider  | Upstream fixes for PR HKUDS/nanobot#151                                                                                                                                            | low  | 2026-02-16 | -                                                                                                               |
 | [#744](https://github.com/HKUDS/nanobot/pull/744) + [6bae6a6](https://github.com/HKUDS/nanobot/commit/6bae6a617f7130e0a1021811b8cd8b379c2c0820) | Cron scheduling | Preserves timezone-aware cron semantics end-to-end (`--tz` propagation + deterministic next-run computation), fixes timezone display edge cases, and adds timezone validation/docs | low  | 2026-02-17 | `ruff check nanobot/agent/tools/cron.py nanobot/cli/commands.py nanobot/cron/service.py`                        |
 | [#747](https://github.com/HKUDS/nanobot/pull/747) (partial)                                                                                     | Message tool    | Keep upstream attachment count feedback in `message` tool responses while preserving redux media-path sanitization; Telegram channel changes intentionally excluded                | low  | 2026-02-17 | `ruff check nanobot/agent/tools/message.py tests/test_message_tool.py` + `pytest -q tests/test_message_tool.py` |
+| [#759](https://github.com/HKUDS/nanobot/pull/759)                                                                                               | Config loader   | Fixes `HKUDS/nanobot#703` by preserving MCP `env` map entry names (`OPENAI_API_KEY`, etc.) during snake/camel conversion without broad config refactors                           | low  | 2026-02-17 | `ruff check nanobot/config/loader.py tests/test_config_loader_conversion.py tests/test_tool_validation.py` + `pytest -q tests/test_config_loader_conversion.py tests/test_tool_validation.py` |
 
 ## Redux-Specific Changes
 
@@ -67,9 +68,9 @@ When adopting something new, add a row like this:
 
 Changes that look interesting but aren't ready to adopt yet:
 
-| Upstream PR/Commit              | Area | Why Deferred | Revisit When |
-| ------------------------------- | ---- | ------------ | ------------ |
-| _No deferred changes currently_ | -    | -            | -            |
+| Upstream PR/Commit                                        | Area          | Why Deferred                                                                 | Revisit When                                                                                |
+| --------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [#766](https://github.com/HKUDS/nanobot/pull/766)         | Config loader | Alternative architectural fix for `#703`; larger alias/refactor surface than adopted `#759` targeted patch | Upstream converges on this approach and we need broader config normalization changes safely |
 
 ### Example Deferred Entry
 
