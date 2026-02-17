@@ -33,7 +33,7 @@ edit_file(path: str, old_text: str, new_text: str) -> str
 Delete a file or symbolic link.
 
 ```
-edit_file(path: str) -> str
+delete_file(path: str) -> str
 ```
 
 ### list_dir
