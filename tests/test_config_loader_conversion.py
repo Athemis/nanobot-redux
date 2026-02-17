@@ -109,3 +109,86 @@ def test_convert_keys_keeps_preserve_entry_keys_param_compatibility() -> None:
             "x_title": "nanobot",
         }
     }
+
+
+def test_convert_keys_preserves_mcp_env_var_names() -> None:
+    data = {
+        "tools": {
+            "mcpServers": {
+                "demo": {
+                    "command": "npx",
+                    "env": {
+                        "OPENAI_API_KEY": "test_key",
+                        "MyCustomToken": "abc",
+                    },
+                }
+            }
+        }
+    }
+
+    converted = convert_keys(data)
+    env = converted["tools"]["mcp_servers"]["demo"]["env"]
+
+    assert env["OPENAI_API_KEY"] == "test_key"
+    assert env["MyCustomToken"] == "abc"
+
+
+def test_convert_to_camel_preserves_mcp_env_var_names() -> None:
+    data = {
+        "tools": {
+            "mcp_servers": {
+                "demo": {
+                    "command": "npx",
+                    "env": {
+                        "OPENAI_API_KEY": "test_key",
+                        "MyCustomToken": "abc",
+                    },
+                }
+            }
+        }
+    }
+
+    converted = convert_to_camel(data)
+    env = converted["tools"]["mcpServers"]["demo"]["env"]
+
+    assert env["OPENAI_API_KEY"] == "test_key"
+    assert env["MyCustomToken"] == "abc"
+
+
+def test_convert_to_camel_preserves_extra_headers_entry_names() -> None:
+    data = {
+        "providers": {
+            "openrouter": {
+                "extra_headers": {
+                    "X_Custom_Header": "value",
+                    "X_Trace_ID": "trace",
+                }
+            }
+        }
+    }
+
+    converted = convert_to_camel(data)
+    headers = converted["providers"]["openrouter"]["extraHeaders"]
+
+    assert headers["X_Custom_Header"] == "value"
+    assert headers["X_Trace_ID"] == "trace"
+
+
+def test_convert_keys_still_converts_non_env_keys_inside_mcp_servers() -> None:
+    data = {
+        "tools": {
+            "restrictToWorkspace": True,
+            "mcpServers": {
+                "demo": {
+                    "extraHeaders": {"XCustom": "v"},
+                }
+            },
+        }
+    }
+
+    converted = convert_keys(data)
+    tools = converted["tools"]
+
+    assert "restrict_to_workspace" in tools
+    assert "mcp_servers" in tools
+    assert "extra_headers" in tools["mcp_servers"]["demo"]

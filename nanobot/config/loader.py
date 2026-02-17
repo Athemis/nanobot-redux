@@ -75,34 +75,65 @@ def _migrate_config(data: dict) -> dict:
 _PRESERVE_ENTRY_KEY_FIELDS = {"extraHeaders", "extra_headers"}
 
 
+def _is_mcp_env_map_path(path: tuple[str, ...]) -> bool:
+    """Whether path points at tools.mcp_servers.<name>.env."""
+    return len(path) == 4 and path[0] == "tools" and path[1] == "mcp_servers" and path[3] == "env"
+
+
+def _is_extra_headers_path(path: tuple[str, ...]) -> bool:
+    """Whether path points at an extra_headers map where entry keys are free-form."""
+    return bool(path) and path[-1] == "extra_headers"
+
+
 def convert_keys(data: Any, preserve_entry_keys: bool = False) -> Any:
     """Convert camelCase keys to snake_case for Pydantic."""
     return _convert_keys(data, preserve_entry_keys=preserve_entry_keys)
 
 
-def _convert_keys(data: Any, preserve_entry_keys: bool) -> Any:
+def _convert_keys(data: Any, preserve_entry_keys: bool, path: tuple[str, ...] = ()) -> Any:
     """Convert keys recursively while preserving selected free-form entry keys."""
     if isinstance(data, dict):
-        if preserve_entry_keys:
-            return {k: _convert_keys(v, preserve_entry_keys=False) for k, v in data.items()}
+        # Preserve free-form dict keys under selected maps (e.g. headers/env var names).
+        if preserve_entry_keys or _is_mcp_env_map_path(path):
+            return {
+                k: _convert_keys(v, preserve_entry_keys=False, path=path + (k,))
+                for k, v in data.items()
+            }
 
         converted: dict[str, Any] = {}
         for key, value in data.items():
             converted_key = camel_to_snake(key)
             preserve_header_entry_keys = key in _PRESERVE_ENTRY_KEY_FIELDS
-            converted[converted_key] = _convert_keys(value, preserve_header_entry_keys)
+            converted[converted_key] = _convert_keys(
+                value,
+                preserve_entry_keys=preserve_header_entry_keys,
+                path=path + (converted_key,),
+            )
         return converted
     if isinstance(data, list):
-        return [_convert_keys(item, preserve_entry_keys=False) for item in data]
+        return [_convert_keys(item, preserve_entry_keys=False, path=path) for item in data]
     return data
 
 
 def convert_to_camel(data: Any) -> Any:
     """Convert snake_case keys to camelCase."""
+    return _convert_to_camel(data)
+
+
+def _convert_to_camel(data: Any, path: tuple[str, ...] = ()) -> Any:
+    """Convert keys recursively while preserving selected free-form entry keys."""
     if isinstance(data, dict):
-        return {snake_to_camel(k): convert_to_camel(v) for k, v in data.items()}
+        # Preserve free-form map entry keys (header names/env var names) on save.
+        if _is_mcp_env_map_path(path) or _is_extra_headers_path(path):
+            return {k: _convert_to_camel(v, path + (k,)) for k, v in data.items()}
+
+        converted: dict[str, Any] = {}
+        for key, value in data.items():
+            converted_key = snake_to_camel(key)
+            converted[converted_key] = _convert_to_camel(value, path + (key,))
+        return converted
     if isinstance(data, list):
-        return [convert_to_camel(item) for item in data]
+        return [_convert_to_camel(item, path) for item in data]
     return data
 
 
