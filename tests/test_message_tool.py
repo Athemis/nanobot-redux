@@ -44,7 +44,11 @@ async def test_message_tool_success_without_media_does_not_append_attachment_cou
     async def _send(msg: OutboundMessage) -> None:
         sent.append(msg)
 
-    tool = MessageTool(send_callback=_send, default_channel="matrix", default_chat_id="!room:example.org")
+    tool = MessageTool(
+        send_callback=_send,
+        default_channel="matrix",
+        default_chat_id="!room:example.org",
+    )
 
     result = await tool.execute(content="hello")
 
@@ -60,7 +64,11 @@ async def test_message_tool_uses_singular_attachment_label_for_one_media_path() 
     async def _send(msg: OutboundMessage) -> None:
         sent.append(msg)
 
-    tool = MessageTool(send_callback=_send, default_channel="matrix", default_chat_id="!room:example.org")
+    tool = MessageTool(
+        send_callback=_send,
+        default_channel="matrix",
+        default_chat_id="!room:example.org",
+    )
 
     result = await tool.execute(content="hello", media=[" /tmp/one.txt "])
 
