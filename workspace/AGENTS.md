@@ -19,7 +19,6 @@ You have access to:
 - Web access (search, fetch)
 - Messaging (message)
 - Background tasks (spawn)
-- Skills (specialized capabilities in `skills/` — read the skill's `SKILL.md` to use it)
 
 ## Spawning Subagents
 
