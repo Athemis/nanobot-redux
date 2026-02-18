@@ -67,24 +67,10 @@ Changes specific to this fork, not in upstream:
 
 ## 📦 Install
 
-**Install from source** (latest features, recommended for development)
-
 ```bash
 git clone https://github.com/Athemis/nanobot-redux.git
 cd nanobot-redux
 pip install -e .
-```
-
-**Install with [uv](https://github.com/astral-sh/uv)** (stable, fast)
-
-```bash
-uv tool install nanobot-ai
-```
-
-**Install from PyPI** (stable)
-
-```bash
-pip install nanobot-ai
 ```
 
 ## 🚀 Quick Start
