@@ -526,8 +526,16 @@ nanobot cron add --name "daily-berlin" --message "Good morning!" --cron "0 9 * *
 # Add an interval job
 nanobot cron add --name "hourly" --message "Check status" --every 3600
 
-# Add a one-time reminder
+# Add a one-time reminder (naive timestamp = local system time)
 nanobot cron add --name "meeting" --message "Meeting now!" --at "2099-01-01T15:00:00"
+
+# Add a one-time reminder at an unambiguous UTC time
+nanobot cron add --name "meeting-utc" --message "Meeting now!" --at "2099-01-01T15:00:00Z"
+
+# Add a one-time reminder with an explicit UTC offset
+nanobot cron add --name "meeting-tz" --message "Meeting now!" --at "2099-01-01T15:00:00+02:00"
+
+# Note: --tz is only valid with --cron, not with --at
 
 # List jobs
 nanobot cron list
