@@ -58,17 +58,6 @@ class ProviderSpec:
 
 PROVIDERS: tuple[ProviderSpec, ...] = (
 
-    # === Custom (any OpenAI-compatible endpoint configured explicitly) ======
-    # No keywords — matched only via the fallback loop in Config._match_provider().
-    # Placed first so it wins the fallback when both custom and another provider are set.
-    ProviderSpec(
-        name="custom",
-        keywords=(),
-        env_key="",
-        display_name="Custom",
-        model_prefix="",
-    ),
-
     # === Gateways (detected by api_key / api_base, not model name) =========
     # Gateways can route any model, so they win in fallback.
 

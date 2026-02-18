@@ -70,6 +70,7 @@ def _migrate_config(data: dict) -> dict:
     _removed = {
         "anthropic": "providers.openrouter",
         "gemini": "providers.openrouter",
+        "custom": "providers.openai (set apiBase to your endpoint URL)",
     }
     for key, replacement in _removed.items():
         if key in providers:

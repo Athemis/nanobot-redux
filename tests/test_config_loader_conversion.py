@@ -190,6 +190,17 @@ def test_migrate_config_warns_for_removed_gemini_provider(capsys) -> None:
     assert "providers.openrouter" in captured.out
 
 
+def test_migrate_config_warns_for_removed_custom_provider(capsys) -> None:
+    """Config with providers.custom triggers a deprecation warning."""
+    data = {"providers": {"custom": {"apiBase": "http://localhost:8000/v1"}}}
+
+    _migrate_config(data)
+
+    captured = capsys.readouterr()
+    assert "providers.custom is no longer supported" in captured.out
+    assert "providers.openai" in captured.out
+
+
 def test_migrate_config_no_warning_for_supported_providers(capsys) -> None:
     """Config with supported providers does not trigger any deprecation warning."""
     data = {"providers": {"openrouter": {"apiKey": "sk-or-123"}}}
