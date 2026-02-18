@@ -62,7 +62,7 @@ Changes that look interesting but aren't ready to adopt yet:
 
 | Upstream PR/Commit                                        | Area          | Why Deferred                                                                 | Revisit When                                                                                |
 | --------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| *(none currently)* | - | - | - |
+| [#713](https://github.com/HKUDS/nanobot/pull/713) (`get_history()` part only) | Session | `get_history()` is extended to preserve `tool_calls`/`tool_call_id`/`name` — but both upstream and redux `loop.py` only persist user + final assistant messages; tool messages are never written to the session. The fix is a no-op in the current architecture. | When `loop.py` is extended to persist individual tool call/result messages to the session |
 
 ## Rejected Changes
 
