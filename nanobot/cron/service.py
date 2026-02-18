@@ -79,6 +79,7 @@ class CronService:
         self.store_path = store_path
         self.on_job = on_job  # Callback to execute job, returns response text
         self._store: CronStore | None = None
+        self._store_mtime: float = 0.0  # st_mtime at last load/save; guards against spurious self-reload
         self._timer_task: asyncio.Task | None = None
         self._running = False
 
@@ -124,6 +125,10 @@ class CronService:
             except Exception as e:
                 logger.warning(f"Failed to load cron store: {e}")
                 self._store = CronStore()
+            try:
+                self._store_mtime = self.store_path.stat().st_mtime  # baseline for external-change detection
+            except OSError:
+                pass  # _store_mtime stays 0.0; next tick will re-check
         else:
             self._store = CronStore()
 
@@ -172,6 +177,24 @@ class CronService:
         }
 
         self.store_path.write_text(json.dumps(data, indent=2))
+        self._store_mtime = self.store_path.stat().st_mtime  # track own write to skip self-reload
+
+    def _check_disk_changes(self) -> None:
+        """Reload the in-memory store when jobs.json has been modified by an external process.
+
+        The CLI (``nanobot cron add``) writes directly to disk without touching the running
+        gateway's in-memory store. This method detects those writes via mtime comparison and
+        reloads without recomputing next-run times, preserving the values set at add-time.
+        """
+        if not self.store_path.exists():
+            return
+        try:
+            mtime = self.store_path.stat().st_mtime
+        except OSError:
+            return
+        if mtime > self._store_mtime:
+            self._store = None
+            self._load_store()
 
     async def start(self) -> None:
         """Start the cron service."""
@@ -206,17 +229,29 @@ class CronService:
                  if j.enabled and j.state.next_run_at_ms]
         return min(times) if times else None
 
+    # Maximum seconds between disk-change checks, regardless of scheduled job times.
+    # Caps _arm_timer delay so _check_disk_changes fires even with no jobs or far-future schedules.
+    # Upstream HKUDS/nanobot#788 proposes watchdog-based instant notification instead;
+    # if upstream adopts it, redux will likely follow and this constant can be removed.
+    _POLL_INTERVAL_S = 300
+
     def _arm_timer(self) -> None:
-        """Schedule the next timer tick."""
+        """Schedule the next timer tick.
+
+        Always creates a task when running — even with no jobs — so _check_disk_changes
+        fires periodically. Delay is capped at _POLL_INTERVAL_S for the same reason.
+        """
         if self._timer_task:
             self._timer_task.cancel()
 
-        next_wake = self._get_next_wake_ms()
-        if not next_wake or not self._running:
+        if not self._running:
             return
 
-        delay_ms = max(0, next_wake - _now_ms())
-        delay_s = delay_ms / 1000
+        next_wake = self._get_next_wake_ms()
+        if next_wake:
+            delay_s = min(max(0, next_wake - _now_ms()) / 1000, self._POLL_INTERVAL_S)
+        else:
+            delay_s = self._POLL_INTERVAL_S
 
         async def tick():
             await asyncio.sleep(delay_s)
@@ -226,7 +261,8 @@ class CronService:
         self._timer_task = asyncio.create_task(tick())
 
     async def _on_timer(self) -> None:
-        """Handle timer tick - run due jobs."""
+        """Handle timer tick - reload store if changed externally, then run due jobs."""
+        self._check_disk_changes()
         if not self._store:
             return
 
