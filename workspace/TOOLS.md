@@ -139,7 +139,7 @@ Return: PR title, CI status, and any failing checks.
 ## Scheduled Reminders (Cron)
 
 Use the built-in `cron` tool (not `exec`) to manage scheduled reminders.
-This ensures the running gateway picks up changes immediately.
+The gateway polls for disk changes on a timer; new jobs may take up to 300 seconds to be picked up.
 
 ### Add a recurring reminder
 
