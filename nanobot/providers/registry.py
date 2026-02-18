@@ -78,19 +78,23 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
     ),
 
     # AiHubMix: global gateway, OpenAI-compatible interface.
-    # strip_model_prefix=True: strip "provider/" prefix to bare model name.
+    # model_prefix="" is intentionally empty — AiHubMix doesn't use a routing prefix.
+    # strip_model_prefix=True removes any slash-prefixed namespace from the incoming
+    # model string via model.split("/")[-1] in OpenAIProvider._resolve_model(), so
+    # "anthropic/claude-3" becomes "claude-3". The two fields are independent:
+    # model_prefix drives prefix-strip-by-name; strip_model_prefix drives take-last-segment.
     ProviderSpec(
         name="aihubmix",
         keywords=("aihubmix",),
         env_key="OPENAI_API_KEY",           # OpenAI-compatible
         display_name="AiHubMix",
-        model_prefix="",
+        model_prefix="",                    # intentionally empty; strip_model_prefix handles namespace removal
         is_gateway=True,
         is_local=False,
         detect_by_key_prefix="",
         detect_by_base_keyword="aihubmix",
         default_api_base="https://aihubmix.com/v1",
-        strip_model_prefix=True,            # anthropic/claude-3 → claude-3
+        strip_model_prefix=True,            # "anthropic/claude-3" → "claude-3" (last segment)
         model_overrides=(),
     ),
 
