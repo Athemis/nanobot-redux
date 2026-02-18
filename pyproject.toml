@@ -82,4 +82,4 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--cov=nanobot --cov-report=term-missing --cov-fail-under=63"
+addopts = "--cov=nanobot --cov-report=term-missing --cov-fail-under=80"
