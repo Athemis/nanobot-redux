@@ -42,7 +42,7 @@ def test_make_provider_applies_openrouter_runtime_fallback(
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.setattr("nanobot.providers.litellm_provider.LiteLLMProvider", DummyProvider)
+    monkeypatch.setattr("nanobot.providers.openai_provider.OpenAIProvider", DummyProvider)
 
     config = Config()
     config.providers.openrouter.api_key = "sk-test"

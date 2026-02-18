@@ -64,4 +64,18 @@ def _migrate_config(data: dict) -> dict:
     exec_cfg = tools.get("exec", {})
     if "restrictToWorkspace" in exec_cfg and "restrictToWorkspace" not in tools:
         tools["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
+
+    # Warn about providers no longer supported natively (use OpenRouter instead)
+    providers = data.get("providers", {})
+    _removed = {
+        "anthropic": "providers.openrouter",
+        "gemini": "providers.openrouter",
+    }
+    for key, replacement in _removed.items():
+        if key in providers:
+            print(
+                f"Warning: providers.{key} is no longer supported. "
+                f"Use {replacement} to access these models."
+            )
+
     return data

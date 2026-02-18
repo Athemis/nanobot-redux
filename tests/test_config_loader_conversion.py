@@ -168,6 +168,38 @@ def test_migrate_config_does_not_overwrite_existing_tools_restrict() -> None:
     assert migrated["tools"]["restrictToWorkspace"] is False
 
 
+def test_migrate_config_warns_for_removed_anthropic_provider(capsys) -> None:
+    """Config with providers.anthropic triggers a deprecation warning."""
+    data = {"providers": {"anthropic": {"apiKey": "sk-ant-123"}}}
+
+    _migrate_config(data)
+
+    captured = capsys.readouterr()
+    assert "providers.anthropic is no longer supported" in captured.out
+    assert "providers.openrouter" in captured.out
+
+
+def test_migrate_config_warns_for_removed_gemini_provider(capsys) -> None:
+    """Config with providers.gemini triggers a deprecation warning."""
+    data = {"providers": {"gemini": {"apiKey": "AI-123"}}}
+
+    _migrate_config(data)
+
+    captured = capsys.readouterr()
+    assert "providers.gemini is no longer supported" in captured.out
+    assert "providers.openrouter" in captured.out
+
+
+def test_migrate_config_no_warning_for_supported_providers(capsys) -> None:
+    """Config with supported providers does not trigger any deprecation warning."""
+    data = {"providers": {"openrouter": {"apiKey": "sk-or-123"}}}
+
+    _migrate_config(data)
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+
+
 def test_round_trip_preserves_camel_case_structure() -> None:
     """Load camelCase JSON → dump by_alias=True → same camelCase shape."""
     data = {

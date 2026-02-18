@@ -8,8 +8,8 @@ from nanobot.bus.queue import MessageBus
 from nanobot.config.schema import AgentDefaults
 from nanobot.providers import openai_codex_provider as codex_provider
 from nanobot.providers.base import LLMProvider, LLMResponse
-from nanobot.providers.litellm_provider import LiteLLMProvider
 from nanobot.providers.openai_codex_provider import OpenAICodexProvider
+from nanobot.providers.openai_provider import OpenAIProvider
 from nanobot.session.manager import Session
 
 
@@ -102,18 +102,23 @@ async def test_subagent_forwards_generation_parameters(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_litellm_chat_uses_passed_generation_parameters(monkeypatch) -> None:
+async def test_openai_provider_chat_uses_passed_generation_parameters(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    async def _fake_acompletion(**kwargs):
+    async def _fake_create(**kwargs):
         captured.update(kwargs)
-        message = SimpleNamespace(content="ok", tool_calls=None)
-        choice = SimpleNamespace(message=message, finish_reason="stop")
+        msg = SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
+        choice = SimpleNamespace(message=msg, finish_reason="stop")
         return SimpleNamespace(choices=[choice], usage=None)
 
-    monkeypatch.setattr("nanobot.providers.litellm_provider.acompletion", _fake_acompletion)
+    monkeypatch.setattr(
+        "nanobot.providers.openai_provider.AsyncOpenAI",
+        lambda **_: SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=_fake_create))
+        ),
+    )
 
-    provider = LiteLLMProvider(default_model="anthropic/claude-opus-4-5")
+    provider = OpenAIProvider(default_model="gpt-4o")
     result = await provider.chat(
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=987,
