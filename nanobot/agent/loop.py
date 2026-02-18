@@ -6,7 +6,7 @@ import re
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import json_repair
 from loguru import logger
@@ -29,7 +29,7 @@ from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
-from nanobot.providers.base import LLMProvider
+from nanobot.providers.base import LLMProvider, ToolCallRequest
 from nanobot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
@@ -165,12 +165,11 @@ class AgentLoop:
         return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
     @staticmethod
-    def _tool_hint(tool_calls: list[Any]) -> str:
-        """Format tool call names as a short fallback hint when content is empty."""
+    def _tool_hint(tool_calls: list[ToolCallRequest]) -> str:
+        """Return bare comma-separated tool names, or '' when the list is empty."""
         if not tool_calls:
             return ""
-        names = [tc.name for tc in tool_calls]
-        return "→ " + ", ".join(names)
+        return ", ".join(tc.name for tc in tool_calls)
 
     async def _run_agent_loop(
         self,
@@ -222,9 +221,13 @@ class AgentLoop:
 
                 if on_progress:
                     clean = self._strip_think(response.content or "")
-                    hint = clean or self._tool_hint(response.tool_calls)
+                    names = self._tool_hint(response.tool_calls)
+                    hint = clean or ("→ " + names if names else "")
                     if hint:
-                        await on_progress(hint)
+                        try:
+                            await on_progress(hint)
+                        except Exception:
+                            logger.warning("on_progress callback raised; continuing")
 
                 for tool_call in response.tool_calls:
                     tools_used.append(tool_call.name)

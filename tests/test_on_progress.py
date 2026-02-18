@@ -41,14 +41,14 @@ def test_strip_think_no_block():
 
 
 def test_tool_hint_formats_names(tmp_path):
-    """_tool_hint formats tool call names as arrow-prefixed list."""
+    """_tool_hint returns bare comma-separated names; caller adds decoration."""
     loop = _make_loop(tmp_path)
     tc1 = MagicMock()
     tc1.name = "read_file"
     tc2 = MagicMock()
     tc2.name = "write_file"
     result = loop._tool_hint([tc1, tc2])
-    assert result == "→ read_file, write_file"
+    assert result == "read_file, write_file"
 
 
 def test_tool_hint_empty_list(tmp_path):
