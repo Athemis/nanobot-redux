@@ -299,9 +299,9 @@ This file stores important information that should persist across sessions.
 
 def _make_provider(config: Config):
     """Create the appropriate LLM provider from config."""
-    from nanobot.providers.custom_provider import CustomProvider
-    from nanobot.providers.litellm_provider import LiteLLMProvider
     from nanobot.providers.openai_codex_provider import OpenAICodexProvider
+    from nanobot.providers.openai_provider import OpenAIProvider
+    from nanobot.providers.registry import find_by_name
 
     model = config.agents.defaults.model
     provider_name = config.get_provider_name(model)
@@ -312,22 +312,20 @@ def _make_provider(config: Config):
         ssl_verify = getattr(p, "ssl_verify", True) if p else True
         return OpenAICodexProvider(default_model=model, ssl_verify=ssl_verify)
 
-    # Custom: direct OpenAI-compatible endpoint, bypasses LiteLLM
-    if provider_name == "custom":
-        return CustomProvider(
-            api_key=p.api_key if p else "no-key",
-            api_base=config.get_api_base(model) or "http://localhost:8000/v1",
-            default_model=model,
-        )
+    # Bedrock models are not supported — no OpenAI-compatible API
+    if model.startswith("bedrock/"):
+        console.print("[red]Error: Bedrock models are no longer supported.[/red]")
+        console.print("Use providers.openrouter to access Anthropic models instead.")
+        raise typer.Exit(1)
 
-    from nanobot.providers.registry import find_by_name
-    spec = find_by_name(provider_name)
-    if not model.startswith("bedrock/") and not (p and p.api_key) and not (spec and spec.is_oauth):
+    spec = find_by_name(provider_name) if provider_name else None
+    keyless_ok = (spec and (spec.is_oauth or spec.is_local)) or (p and p.api_base)
+    if not (p and p.api_key) and not keyless_ok:
         console.print("[red]Error: No API key configured.[/red]")
         console.print("Set one in ~/.nanobot/config.json under providers section")
         raise typer.Exit(1)
 
-    return LiteLLMProvider(
+    return OpenAIProvider(
         api_key=p.api_key if p else None,
         api_base=config.get_api_base(model),
         default_model=model,

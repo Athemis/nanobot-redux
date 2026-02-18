@@ -1,5 +1,9 @@
 """Tests for camelCase/snake_case config handling via Pydantic alias_generator."""
 
+import warnings
+
+import pytest
+
 from nanobot.config.loader import _migrate_config
 from nanobot.config.schema import Config
 
@@ -166,6 +170,45 @@ def test_migrate_config_does_not_overwrite_existing_tools_restrict() -> None:
     migrated = _migrate_config(data)
 
     assert migrated["tools"]["restrictToWorkspace"] is False
+
+
+def test_migrate_config_warns_for_removed_anthropic_provider() -> None:
+    """Config with providers.anthropic triggers a deprecation warning and key is removed."""
+    data = {"providers": {"anthropic": {"apiKey": "sk-ant-123"}}}
+
+    with pytest.warns(DeprecationWarning, match="providers.anthropic is no longer supported"):
+        migrated = _migrate_config(data)
+
+    assert "anthropic" not in migrated.get("providers", {})
+
+
+def test_migrate_config_warns_for_removed_gemini_provider() -> None:
+    """Config with providers.gemini triggers a deprecation warning and key is removed."""
+    data = {"providers": {"gemini": {"apiKey": "AI-123"}}}
+
+    with pytest.warns(DeprecationWarning, match="providers.gemini is no longer supported"):
+        migrated = _migrate_config(data)
+
+    assert "gemini" not in migrated.get("providers", {})
+
+
+def test_migrate_config_warns_for_removed_custom_provider() -> None:
+    """Config with providers.custom triggers a deprecation warning and key is removed."""
+    data = {"providers": {"custom": {"apiBase": "http://localhost:8000/v1"}}}
+
+    with pytest.warns(DeprecationWarning, match="providers.custom is no longer supported"):
+        migrated = _migrate_config(data)
+
+    assert "custom" not in migrated.get("providers", {})
+
+
+def test_migrate_config_no_warning_for_supported_providers() -> None:
+    """Config with supported providers does not trigger any deprecation warning."""
+    data = {"providers": {"openrouter": {"apiKey": "sk-or-123"}}}
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        _migrate_config(data)  # raises if any DeprecationWarning is emitted
 
 
 def test_round_trip_preserves_camel_case_structure() -> None:

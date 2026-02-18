@@ -278,13 +278,10 @@ Config file: `~/.nanobot/config.json`
 
 | Provider | Purpose | Get API Key |
 |----------|---------|-------------|
-| `custom` | Any OpenAI-compatible endpoint (direct, no LiteLLM) | — |
 | `openrouter` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai) |
-| `anthropic` | LLM (Claude direct) | [console.anthropic.com](https://console.anthropic.com) |
 | `openai` | LLM (GPT direct) | [platform.openai.com](https://platform.openai.com) |
 | `deepseek` | LLM (DeepSeek direct) | [platform.deepseek.com](https://platform.deepseek.com) |
 | `groq` | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com) |
-| `gemini` | LLM (Gemini direct) | [aistudio.google.com](https://aistudio.google.com) |
 | `minimax` | LLM (MiniMax direct) | [platform.minimax.io](https://platform.minimax.io) |
 | `aihubmix` | LLM (API gateway, access to all models) | [aihubmix.com](https://aihubmix.com) |
 | `dashscope` | LLM (Qwen) | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com) |
@@ -292,6 +289,8 @@ Config file: `~/.nanobot/config.json`
 | `zhipu` | LLM (Zhipu GLM) | [open.bigmodel.cn](https://open.bigmodel.cn) |
 | `vllm` | LLM (local, any OpenAI-compatible server) | — |
 | `openai_codex` | LLM (Codex, OAuth) | `nanobot provider login openai-codex` |
+
+> **Claude and Gemini models** are accessible via OpenRouter (`providers.openrouter`). Native `providers.anthropic` and `providers.gemini` keys are no longer supported and will trigger a migration warning.
 
 <details>
 <summary><b>OpenAI Codex (OAuth)</b></summary>
@@ -336,14 +335,14 @@ Use this **only when you trust your network** path. Disabling verification incre
 </details>
 
 <details>
-<summary><b>Custom Provider (Any OpenAI-compatible API)</b></summary>
+<summary><b>Custom / Self-hosted Provider (Any OpenAI-compatible API)</b></summary>
 
-Connects directly to any OpenAI-compatible endpoint — LM Studio, llama.cpp, Together AI, Fireworks, Azure OpenAI, or any self-hosted server. Bypasses LiteLLM; model name is passed as-is.
+Use `providers.openai` with `apiBase` to connect to any OpenAI-compatible endpoint — LM Studio, llama.cpp, Together AI, Fireworks, Azure OpenAI, or any self-hosted server. The model name is forwarded as-is.
 
 ```json
 {
   "providers": {
-    "custom": {
+    "openai": {
       "apiKey": "your-api-key",
       "apiBase": "https://api.your-provider.com/v1"
     }
@@ -356,7 +355,7 @@ Connects directly to any OpenAI-compatible endpoint — LM Studio, llama.cpp, To
 }
 ```
 
-> For local servers that don't require a key, set `apiKey` to any non-empty string (e.g. `"no-key"`).
+> For local servers that don't require a key, omit `apiKey` or leave it empty — nanobot will not block keyless access when `apiBase` is set.
 
 </details>
 
@@ -407,12 +406,12 @@ Adding a new provider only takes **2 steps** — no if-elif chains to touch.
 
 ```python
 ProviderSpec(
-    name="myprovider",                   # config field name
+    name="myprovider",                   # config field name (matches ProvidersConfig field)
     keywords=("myprovider", "mymodel"),  # model-name keywords for auto-matching
-    env_key="MYPROVIDER_API_KEY",        # env var for LiteLLM
+    env_key="MYPROVIDER_API_KEY",        # primary env var for the API key
     display_name="My Provider",          # shown in `nanobot status`
-    litellm_prefix="myprovider",         # auto-prefix: model → myprovider/model
-    skip_prefixes=("myprovider/",),      # don't double-prefix
+    model_prefix="myprovider",           # strip "myprovider/" prefix from model names
+    default_api_base="https://api.myprovider.com/v1",  # fallback base URL
 )
 ```
 
@@ -428,16 +427,16 @@ That's it! Environment variables, model prefixing, config matching, and `nanobot
 
 **Common `ProviderSpec` options:**
 
-| Field                    | Description                                     | Example                                  |
-| ------------------------ | ----------------------------------------------- | ---------------------------------------- |
-| `litellm_prefix`         | Auto-prefix model names for LiteLLM             | `"dashscope"` → `dashscope/qwen-max`     |
-| `skip_prefixes`          | Don't prefix if model already starts with these | `("dashscope/", "openrouter/")`          |
-| `env_extras`             | Additional env vars to set                      | `(("ZHIPUAI_API_KEY", "{api_key}"),)`    |
-| `model_overrides`        | Per-model parameter overrides                   | `(("kimi-k2.5", {"temperature": 1.0}),)` |
-| `is_gateway`             | Can route any model (like OpenRouter)           | `True`                                   |
-| `detect_by_key_prefix`   | Detect gateway by API key prefix                | `"sk-or-"`                               |
-| `detect_by_base_keyword` | Detect gateway by API base URL                  | `"openrouter"`                           |
-| `strip_model_prefix`     | Strip existing prefix before re-prefixing       | `True` (for AiHubMix)                    |
+| Field                    | Description                                           | Example                                  |
+| ------------------------ | ----------------------------------------------------- | ---------------------------------------- |
+| `model_prefix`           | Strip this prefix from user-supplied model names      | `"deepseek"` strips `deepseek/` prefix   |
+| `default_api_base`       | Fallback base URL when user hasn't set `apiBase`      | `"https://api.deepseek.com/v1"`          |
+| `model_overrides`        | Per-model parameter overrides                         | `(("kimi-k2.5", {"temperature": 1.0}),)` |
+| `is_gateway`             | Can route any model (like OpenRouter)                 | `True`                                   |
+| `is_local`               | Local deployment — no API key required                | `True` (for vLLM)                        |
+| `detect_by_key_prefix`   | Detect gateway by API key prefix                      | `"sk-or-"`                               |
+| `detect_by_base_keyword` | Detect gateway by API base URL                        | `"openrouter"`                           |
+| `strip_model_prefix`     | Take last path segment as model name (gateway use)    | `True` (for AiHubMix)                    |
 
 </details>
 

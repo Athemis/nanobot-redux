@@ -7,6 +7,7 @@ from nanobot.cli.commands import (
     _seed_openrouter_attribution_headers,
 )
 from nanobot.config.schema import Config
+from nanobot.providers.openai_provider import OpenAIProvider
 
 
 def test_do_not_override_intentionally_empty_openrouter_headers() -> None:
@@ -42,7 +43,7 @@ def test_make_provider_applies_openrouter_runtime_fallback(
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.setattr("nanobot.providers.litellm_provider.LiteLLMProvider", DummyProvider)
+    monkeypatch.setattr("nanobot.providers.openai_provider.OpenAIProvider", DummyProvider)
 
     config = Config()
     config.providers.openrouter.api_key = "sk-test"
@@ -53,6 +54,32 @@ def test_make_provider_applies_openrouter_runtime_fallback(
 
     assert captured["provider_name"] == "openrouter"
     assert captured["extra_headers"] == OPENROUTER_DEFAULT_EXTRA_HEADERS
+
+
+def test_openrouter_prefix_stripped_before_forwarding_to_api() -> None:
+    """Legacy model strings like 'openrouter/anthropic/claude-3' must lose the 'openrouter/' prefix."""
+    provider = OpenAIProvider(
+        api_key="sk-or-test",
+        default_model="openrouter/anthropic/claude-opus-4-5",
+        provider_name="openrouter",
+    )
+
+    resolved = provider._resolve_model("openrouter/anthropic/claude-opus-4-5")
+
+    assert resolved == "anthropic/claude-opus-4-5"
+
+
+def test_openrouter_bare_model_name_unchanged() -> None:
+    """Model strings without the 'openrouter/' prefix are forwarded unchanged."""
+    provider = OpenAIProvider(
+        api_key="sk-or-test",
+        default_model="anthropic/claude-opus-4-5",
+        provider_name="openrouter",
+    )
+
+    resolved = provider._resolve_model("anthropic/claude-opus-4-5")
+
+    assert resolved == "anthropic/claude-opus-4-5"
 
 
 def test_make_provider_passes_openai_codex_ssl_verify_from_config(

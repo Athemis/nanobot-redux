@@ -1,6 +1,7 @@
 """Configuration loading utilities."""
 
 import json
+import warnings
 from pathlib import Path
 
 from nanobot.config.schema import Config
@@ -64,4 +65,22 @@ def _migrate_config(data: dict) -> dict:
     exec_cfg = tools.get("exec", {})
     if "restrictToWorkspace" in exec_cfg and "restrictToWorkspace" not in tools:
         tools["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
+
+    # Warn about providers no longer supported natively (use OpenRouter instead)
+    providers = data.get("providers", {})
+    _removed = {
+        "anthropic": "providers.openrouter",
+        "gemini": "providers.openrouter",
+        "custom": "providers.openai (set apiBase to your endpoint URL)",
+    }
+    for key, replacement in _removed.items():
+        if key in providers:
+            warnings.warn(
+                f"providers.{key} is no longer supported. "
+                f"Use {replacement} to access these models.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            del providers[key]
+
     return data
