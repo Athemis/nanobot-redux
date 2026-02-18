@@ -51,7 +51,7 @@ If something matters, write it down. Memory doesn't persist between sessions oth
 
 ## Scheduled Reminders
 
-Use the built-in `cron` tool (not `exec`) — see `TOOLS.md` for examples. Get USER_ID and CHANNEL from the current session (e.g., `8281248569` and `telegram` from `telegram:8281248569`).
+Use the built-in `cron` tool (not `exec`) — see `TOOLS.md` for examples. Get USER_ID and CHANNEL from the current session (e.g., `@user:example.org` and `matrix` from `matrix:@user:example.org`).
 
 **Do NOT just write reminders to MEMORY.md** — that won't trigger actual notifications.
 
