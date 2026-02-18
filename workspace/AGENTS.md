@@ -51,15 +51,7 @@ If something matters, write it down. Memory doesn't persist between sessions oth
 
 ## Scheduled Reminders
 
-When user asks for a reminder at a specific time, use the built-in `cron` tool (not `exec`):
-
-```python
-cron(action="add", message="Your message", at="YYYY-MM-DDTHH:MM:SS", deliver=True, to="USER_ID", channel="CHANNEL")
-```
-
-Get USER_ID and CHANNEL from the current session (e.g., `8281248569` and `telegram` from `telegram:8281248569`).
-
-Note: the gateway polls for disk changes up to every 300 seconds — new jobs may not be visible immediately.
+Use the built-in `cron` tool (not `exec`) — see `TOOLS.md` for examples. Get USER_ID and CHANNEL from the current session (e.g., `8281248569` and `telegram` from `telegram:8281248569`).
 
 **Do NOT just write reminders to MEMORY.md** — that won't trigger actual notifications.
 
