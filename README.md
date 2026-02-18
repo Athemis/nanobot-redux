@@ -31,11 +31,11 @@ Changes specific to this fork, not in upstream:
 
 **🔒 Security hardening**
 - Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies
-- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
 - Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
 
 **🔧 Provider compatibility**
 - Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures)
+- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
 
 **🤖 Agent reliability**
 - Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
