@@ -117,6 +117,7 @@ class ProvidersConfig(Base):
     moonshot: ProviderConfig = Field(default_factory=ProviderConfig)
     minimax: ProviderConfig = Field(default_factory=ProviderConfig)
     aihubmix: ProviderConfig = Field(default_factory=ProviderConfig)  # AiHubMix API gateway
+    mistral: ProviderConfig = Field(default_factory=ProviderConfig)
     openai_codex: OpenAICodexProviderConfig = Field(
         default_factory=OpenAICodexProviderConfig
     )  # OpenAI Codex (OAuth)
