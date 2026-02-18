@@ -92,6 +92,9 @@ Context7 Library IDs for this project (use to skip library-matching):
 - Keep commit titles imperative and concise.
 - PRs should include: summary, rationale, test evidence (`pytest`, `ruff`, relevant docker commands), and linked issues.
 - Update docs/config examples when changing CLI behavior, provider setup, or channel integration flows.
+- Keep `README.md` current: update feature descriptions, install instructions, and CLI examples when the corresponding behavior changes.
+- Keep `docs/redux-changes.md` current: add an entry for every fork-specific code change merged into `main`.
+- Keep `docs/upstream-log.md` current: add an entry for every upstream change adopted, deferred, or rejected.
 
 ## Upstream Intake & Fork Documentation
 
