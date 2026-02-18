@@ -39,6 +39,7 @@ Changes specific to this fork, not in upstream:
 
 **🤖 Agent reliability**
 - Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
+- Agentic prompt hardening: loop-continuation nudge, heartbeat prompt, and spawn tool description rewritten to push the agent toward direct action over passive confirmation-seeking ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 
 ## Key Features of nanobot:
 
