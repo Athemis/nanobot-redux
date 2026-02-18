@@ -169,36 +169,39 @@ def test_migrate_config_does_not_overwrite_existing_tools_restrict() -> None:
 
 
 def test_migrate_config_warns_for_removed_anthropic_provider(capsys) -> None:
-    """Config with providers.anthropic triggers a deprecation warning."""
+    """Config with providers.anthropic triggers a deprecation warning and key is removed."""
     data = {"providers": {"anthropic": {"apiKey": "sk-ant-123"}}}
 
-    _migrate_config(data)
+    migrated = _migrate_config(data)
 
     captured = capsys.readouterr()
     assert "providers.anthropic is no longer supported" in captured.out
     assert "providers.openrouter" in captured.out
+    assert "anthropic" not in migrated.get("providers", {})
 
 
 def test_migrate_config_warns_for_removed_gemini_provider(capsys) -> None:
-    """Config with providers.gemini triggers a deprecation warning."""
+    """Config with providers.gemini triggers a deprecation warning and key is removed."""
     data = {"providers": {"gemini": {"apiKey": "AI-123"}}}
 
-    _migrate_config(data)
+    migrated = _migrate_config(data)
 
     captured = capsys.readouterr()
     assert "providers.gemini is no longer supported" in captured.out
     assert "providers.openrouter" in captured.out
+    assert "gemini" not in migrated.get("providers", {})
 
 
 def test_migrate_config_warns_for_removed_custom_provider(capsys) -> None:
-    """Config with providers.custom triggers a deprecation warning."""
+    """Config with providers.custom triggers a deprecation warning and key is removed."""
     data = {"providers": {"custom": {"apiBase": "http://localhost:8000/v1"}}}
 
-    _migrate_config(data)
+    migrated = _migrate_config(data)
 
     captured = capsys.readouterr()
     assert "providers.custom is no longer supported" in captured.out
     assert "providers.openai" in captured.out
+    assert "custom" not in migrated.get("providers", {})
 
 
 def test_migrate_config_no_warning_for_supported_providers(capsys) -> None:

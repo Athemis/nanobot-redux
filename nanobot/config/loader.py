@@ -78,5 +78,6 @@ def _migrate_config(data: dict) -> dict:
                 f"Warning: providers.{key} is no longer supported. "
                 f"Use {replacement} to access these models."
             )
+            del providers[key]
 
     return data
