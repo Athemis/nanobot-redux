@@ -44,7 +44,7 @@ Context7 Library IDs for this project (use to skip library-matching):
 
 - `nanobot/` contains the Python app code (agent loop, tools, channels, providers, CLI, config, cron, heartbeat, session, skills).
 - `tests/` contains `pytest` suites plus `test_docker.sh` for container smoke testing.
-- `docs/` stores feature/configuration docs plus fork governance docs (`docs/redux-manifest.md`, `docs/upstream-intake.md`, `docs/upstream-log.md`, `docs/release-template.md`).
+- `docs/` stores feature/configuration docs plus fork governance docs (`docs/redux-manifest.md`, `docs/upstream-intake.md`, `docs/upstream-log.md`, `docs/redux-changes.md`, `docs/release-template.md`).
 - `workspace/` is runtime workspace content (agent notes/memory) and is not core library code.
 - Root files include packaging/config (`pyproject.toml`), container setup (`Dockerfile`), and project docs (`README.md`, `SECURITY.md`).
 
@@ -100,6 +100,7 @@ Context7 Library IDs for this project (use to skip library-matching):
 - Prefer selective cherry-picks over broad merges.
 - For each adopted upstream change, add an entry in `docs/upstream-log.md` with upstream link, area, rationale, risk, adoption date, and verification command(s).
 - For deferred or rejected upstream changes, record concise reasons in `docs/upstream-log.md`.
+- For fork-specific changes (not adopted from upstream), add an entry in `docs/redux-changes.md` with PR/commit link, area, rationale, risk, date, and verification command(s).
 - When preparing a release, use `docs/release-template.md`.
 
 ## Security & Configuration Tips

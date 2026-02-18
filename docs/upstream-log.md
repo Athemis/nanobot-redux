@@ -2,13 +2,14 @@
 
 This file tracks what I've adopted from upstream (`HKUDS/nanobot`), what I've deferred, and occasionally what I've explicitly rejected. It's a historical record and helps me remember why I made each decision.
 
+See [`docs/upstream-intake.md`](upstream-intake.md) for the adoption process.
+See [`docs/redux-changes.md`](redux-changes.md) for changes that originate in this fork.
+
 ## How to Use This Log
 
 - **Adopted**: Changes integrated into `redux/main`
 - **Deferred**: Interesting but not ready yet - revisit later
 - **Rejected**: Explicitly decided not to adopt (recorded for transparency)
-
-See [`docs/upstream-intake.md`](upstream-intake.md) for the adoption process.
 
 ## Baseline Features
 
@@ -38,22 +39,6 @@ Changes integrated after the initial fork:
 | [#759](https://github.com/HKUDS/nanobot/pull/759) *(superseded by [#766](https://github.com/HKUDS/nanobot/pull/766))*                           | Config loader   | Fixes `HKUDS/nanobot#703` by preserving MCP `env` map entry names (`OPENAI_API_KEY`, etc.) during snake/camel conversion without broad config refactors                           | low  | 2026-02-17 | superseded |
 | [#766](https://github.com/HKUDS/nanobot/pull/766)                                                                                               | Config loader   | Replaces manual camel/snake conversion in `loader.py` with Pydantic `alias_generator=to_camel` on all schema models; removes ~80 lines of path-tracking conversion code; `env` and `extra_headers` dict keys are preserved automatically since Pydantic alias_generator only applies to model field names, not dict keys | low  | 2026-02-17 | `ruff check nanobot/config/loader.py nanobot/config/schema.py tests/test_config_loader_conversion.py` + `pytest -q tests/test_config_loader_conversion.py tests/test_tool_validation.py` |
 
-## Redux-Specific Changes
-
-Changes made in this fork that are not directly adopted from upstream:
-
-| Change                                                  | Area           | Why                                                                                                                                                                                 | Risk   | Added      | Verification                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| OpenClaw skill metadata regression tests                | Skills loader  | Lock in fork behavior for `openclaw` metadata support and `nanobot` precedence when both keys exist                                                                                 | low    | 2026-02-16 | `pytest tests/test_skills_loader.py`                                                                                                                                                                                                                                                                                                                               |
-| Codex TLS verification hardening                        | Codex Provider | Avoid silent TLS downgrade; require explicit `providers.openaiCodex.sslVerify=false` opt-in                                                                                         | low    | 2026-02-16 | `pytest -q tests/test_config_loader_conversion.py tests/test_generation_params.py tests/test_onboard_openrouter_defaults.py` + `ruff check nanobot/config/schema.py nanobot/cli/commands.py nanobot/providers/openai_codex_provider.py tests/test_config_loader_conversion.py tests/test_generation_params.py tests/test_onboard_openrouter_defaults.py README.md` |
-| Codex SSE error diagnostics                             | Codex Provider | Surface provider error details from `error`/`response.failed` payloads instead of generic failure text                                                                              | low    | 2026-02-16 | `pytest -q tests/test_generation_params.py` + `ruff check nanobot/providers/openai_codex_provider.py tests/test_generation_params.py`                                                                                                                                                                                                                              |
-| Codex OAuth token-limit compatibility ([Athemis/nanobot-redux#16](https://github.com/Athemis/nanobot-redux/pull/16), [Athemis/nanobot-redux#17](https://github.com/Athemis/nanobot-redux/issues/17)) | Codex Provider | `chatgpt.com/backend-api/codex/responses` rejects unsupported token-limit parameters; align payload with OpenAI Codex OAuth request shape that omits `max_output_tokens`/`max_tokens` | low    | 2026-02-17 | `pytest -q tests/test_generation_params.py -k codex` + `ruff check nanobot/providers/openai_codex_provider.py tests/test_generation_params.py`                                                                                                                                                                                                                    |
-| Email TLS verification hardening + plaintext SMTP block | Email channel  | Enforce explicit TLS verification by default with explicit opt-out warning (`channels.email.tlsVerify`), and refuse SMTP sends when both `smtpUseTls` and `smtpUseSsl` are disabled | medium | 2026-02-16 | `pytest -q tests/test_email_channel.py` + `ruff check nanobot/channels/email.py tests/test_email_channel.py nanobot/config/schema.py README.md SECURITY.md`                                                                                                                                                                                                        |
-| Subagent skill access in workspace-restricted mode      | Agent / Skills | Subagents couldn't read builtin skills when `restrictToWorkspace` was enabled; `ReadFileTool` gains `extra_allowed_dirs` allowlist so `BUILTIN_SKILLS_DIR` is always readable; subagent prompt updated to surface available skills | low    | 2026-02-17 | `pytest -q tests/test_read_file_tool.py` + `ruff check nanobot/agent/subagent.py nanobot/agent/tools/filesystem.py tests/test_read_file_tool.py`                                                                                                                                                                                                                   |
-| Agentic prompt hardening                                | Agent prompts  | Skill-trigger wording, loop-continuation nudge, heartbeat prompt, spawn tool description, and workspace docs rewritten to push the agent toward direct action over passive confirmation-seeking | low    | 2026-02-17 | `ruff check nanobot/agent/loop.py nanobot/agent/context.py nanobot/agent/tools/spawn.py nanobot/heartbeat/service.py`                                                                                                                                                                                                                                              |
-| Cron mtime hot-reload ([Athemis/nanobot-redux#22](https://github.com/Athemis/nanobot-redux/pull/22)) | Cron service | `nanobot cron add` (CLI) writes only to disk; the running gateway never reloaded its in-memory store, so externally added jobs were silently skipped. Adds `_store_mtime` tracking, `_check_disk_changes()`, and a `_POLL_INTERVAL_S=300` cap on `_arm_timer` — fixes both the empty-store case (no timer at all) and the far-future-job case (timer would fire too late). No new dependencies. See rejected [HKUDS/nanobot#788](https://github.com/HKUDS/nanobot/pull/788) for the watchdog alternative. | low | 2026-02-18 | `pytest tests/test_cron_service.py` |
-| Cron `_save_store` OSError resilience ([Athemis/nanobot-redux#22](https://github.com/Athemis/nanobot-redux/pull/22)) | Cron service | `write_text()` or `stat()` in `_save_store` could raise `OSError` (disk full, permission error), propagating through `_on_timer` and killing the `tick()` asyncio task before `_arm_timer()` is called — permanently stopping the cron loop. Wraps both calls in `try/except OSError` with error logging; `_store_mtime` is only updated on success. | low | 2026-02-18 | `pytest tests/test_cron_service.py` |
-
 ### Template for New Adoptions
 
 When adopting something new, add a row like this:
@@ -79,25 +64,13 @@ Changes that look interesting but aren't ready to adopt yet:
 | --------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | *(none currently)* | - | - | - |
 
-### Example Deferred Entry
-
-```markdown
-| [#999](https://github.com/HKUDS/nanobot/pull/999) | Discord channel | Don't use Discord yet | When I start using Discord for comms |
-```
-
 ## Rejected Changes
 
 Changes I've explicitly decided not to adopt (for transparency and to avoid reconsidering the same thing repeatedly):
 
 | Upstream PR/Commit                  | Area | Why Rejected | Rejected |
 | ----------------------------------- | ---- | ------------ | -------- |
-| [#788](https://github.com/HKUDS/nanobot/pull/788) | Cron hot-reload | Adds `watchdog` dependency + async public API refactor for filesystem-event-driven store reload. Replaced in redux by lightweight mtime polling ([Athemis/nanobot-redux#22](https://github.com/Athemis/nanobot-redux/pull/22)) — no new dependency, 5-minute polling latency is sufficient for minute-granularity cron jobs. If upstream adopts #788, redux will likely follow and drop polling. | 2026-02-18 |
-
-### Example Rejected Entry
-
-```markdown
-| [#1234](https://github.com/HKUDS/nanobot/pull/1234) | WeChat channel | Can't test, don't use WeChat | 2025-01-10 |
-```
+| [#788](https://github.com/HKUDS/nanobot/pull/788) | Cron hot-reload | Adds `watchdog` dependency + async public API refactor for filesystem-event-driven store reload. Replaced in redux by lightweight mtime polling ([#22](https://github.com/Athemis/nanobot-redux/pull/22)) — no new dependency, 5-minute polling latency is sufficient for minute-granularity cron jobs. If upstream adopts #788, redux will likely follow and drop polling. | 2026-02-18 |
 
 ## Notes
 
@@ -110,4 +83,5 @@ Changes I've explicitly decided not to adopt (for transparency and to avoid reco
 
 - [`docs/redux-manifest.md`](redux-manifest.md) - Fork philosophy and adoption criteria
 - [`docs/upstream-intake.md`](upstream-intake.md) - How I evaluate and adopt changes
+- [`docs/redux-changes.md`](redux-changes.md) - Changes originating in this fork
 - [`docs/release-template.md`](release-template.md) - Release process

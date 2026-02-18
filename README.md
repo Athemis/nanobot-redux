@@ -53,8 +53,8 @@ This fork is based on **[HKUDS/nanobot v0.1.3.post7](https://github.com/HKUDS/na
 **Install from source** (latest features, recommended for development)
 
 ```bash
-git clone https://github.com/HKUDS/nanobot.git
-cd nanobot
+git clone https://github.com/Athemis/nanobot-redux.git
+cd nanobot-redux
 pip install -e .
 ```
 
@@ -500,9 +500,17 @@ Interactive mode exits: `exit`, `quit`, `/exit`, `/quit`, `:q`, or `Ctrl+D`.
 <summary><b>Scheduled Tasks (Cron)</b></summary>
 
 ```bash
-# Add a job
+# Add a recurring job (cron expression)
 nanobot cron add --name "daily" --message "Good morning!" --cron "0 9 * * *"
+
+# Add a timezone-aware job (IANA timezone)
+nanobot cron add --name "daily-berlin" --message "Good morning!" --cron "0 9 * * *" --tz "Europe/Berlin"
+
+# Add an interval job
 nanobot cron add --name "hourly" --message "Check status" --every 3600
+
+# Add a one-time reminder
+nanobot cron add --name "meeting" --message "Meeting now!" --at "2099-01-01T15:00:00"
 
 # List jobs
 nanobot cron list
@@ -510,6 +518,8 @@ nanobot cron list
 # Remove a job
 nanobot cron remove <job_id>
 ```
+
+> Jobs added via `nanobot cron add` while the gateway is running are picked up automatically within ≤5 minutes (mtime polling, no restart required).
 
 </details>
 
@@ -574,6 +584,23 @@ I try to keep these compatible so I don't break my own setup:
 - Python package stays `nanobot.*`
 - Config lives in `~/.nanobot/*`
 
+### What This Fork Adds
+
+Changes that are specific to this fork and not in upstream:
+
+**Cron scheduler**
+- Hot-reload: jobs added via `nanobot cron add` while the gateway runs are picked up within ≤5 minutes — no restart needed ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
+- Cron loop is resilient to disk errors — `OSError` in `_save_store` no longer kills the timer task permanently ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
+
+**Security hardening**
+- Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies
+- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
+- Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures)
+- Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
+
+**Agent reliability**
+- Subagent skill access: builtin skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
+
 ### Philosophy
 
 - Keep channels stable, debuggable, and easy to self-host
@@ -596,7 +623,8 @@ For technical details on upstream intake, adoption criteria, and release process
 
 - [`docs/redux-manifest.md`](docs/redux-manifest.md) - Fork philosophy and priorities
 - [`docs/upstream-intake.md`](docs/upstream-intake.md) - How I evaluate upstream changes
-- [`docs/upstream-log.md`](docs/upstream-log.md) - History of adopted features
+- [`docs/upstream-log.md`](docs/upstream-log.md) - Upstream adoptions, deferrals, and rejections
+- [`docs/redux-changes.md`](docs/redux-changes.md) - Changes originating in this fork
 - [`docs/release-template.md`](docs/release-template.md) - Release checklist
 
 ## 🤝 Contributing
