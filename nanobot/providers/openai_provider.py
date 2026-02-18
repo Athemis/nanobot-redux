@@ -59,6 +59,7 @@ class OpenAIProvider(LLMProvider):
         return model
 
     def _apply_model_overrides(self, model: str, kwargs: dict[str, Any]) -> None:
+        """Apply per-model parameter overrides from the registry (e.g. temperature floor for kimi-k2.5)."""
         spec = find_by_model(model)
         if spec:
             model_lower = model.lower()
@@ -75,6 +76,8 @@ class OpenAIProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
     ) -> LLMResponse:
+        """Send a chat completion request. max_tokens is clamped to ≥1. API errors are
+        caught and returned as LLMResponse(finish_reason="error") rather than raised."""
         model = self._resolve_model(model or self.default_model)
         kwargs: dict[str, Any] = {
             "model": model,
@@ -91,6 +94,8 @@ class OpenAIProvider(LLMProvider):
             return LLMResponse(content=f"Error: {e}", finish_reason="error")
 
     def _parse(self, response: Any) -> LLMResponse:
+        """Parse a chat completion response. Raises ValueError on empty choices.
+        Tool-call arguments are run through json_repair to tolerate malformed JSON."""
         if not response.choices:
             raise ValueError(f"OpenAI response contains no choices: {response}")
         choice = response.choices[0]
