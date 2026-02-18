@@ -30,15 +30,15 @@ Changes specific to this fork, not in upstream:
 - Cron loop is resilient to disk errors — `OSError` in `_save_store` no longer kills the timer task permanently ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
 
 **🔒 Security hardening**
-- Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies
-- Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
+- Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies ([3d0d1eb](https://github.com/Athemis/nanobot-redux/commit/3d0d1ebdf2e711dce527b4b3ed2ddee2612734ca))
+- Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out ([#6](https://github.com/Athemis/nanobot-redux/pull/6))
 
 **🔧 Provider compatibility**
-- Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures)
-- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
+- Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures) ([#16](https://github.com/Athemis/nanobot-redux/pull/16))
+- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text ([2a77f20](https://github.com/Athemis/nanobot-redux/commit/2a77f20c2b91136ab9dabc11df063b4502dedc8d))
 
 **🤖 Agent reliability**
-- Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
+- Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 - Agentic prompt hardening: loop-continuation nudge, heartbeat prompt, and spawn tool description rewritten to push the agent toward direct action over passive confirmation-seeking ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 
 ## Key Features of nanobot:
