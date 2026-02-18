@@ -100,7 +100,7 @@ Context7 Library IDs for this project (use to skip library-matching):
 
 - For upstream adoption work, follow `docs/upstream-intake.md`.
 - Evaluate candidates against `docs/redux-manifest.md` criteria: testability, practical need, risk, and compatibility.
-- Prefer selective cherry-picks over broad merges.
+- Prefer selective cherry-picks over broad merges. Use `git cherry-pick` for upstream changes so the source commit is referenced in git history; resolve conflicts by keeping fork behavior where it intentionally differs.
 - For each adopted upstream change, add an entry in `docs/upstream-log.md` with upstream link, area, rationale, risk, adoption date, and verification command(s).
 - For deferred or rejected upstream changes, record concise reasons in `docs/upstream-log.md`.
 - For fork-specific changes (not adopted from upstream), add an entry in `docs/redux-changes.md` with PR/commit link, area, rationale, risk, date, and verification command(s).
