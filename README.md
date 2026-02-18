@@ -21,6 +21,23 @@ This fork is based on **[HKUDS/nanobot v0.1.3.post7](https://github.com/HKUDS/na
 - Matrix channel, OpenAI Codex OAuth, multi-provider web search (including SearXNG)
 - Enhanced tool safety (`delete_file` symlink protection, shell security hardening)
 
+## ⬆️ What This Fork Adds
+
+Changes specific to this fork, not in upstream:
+
+**⏰ Cron scheduler**
+- Hot-reload: jobs added via `nanobot cron add` while the gateway runs are picked up within ≤5 minutes — no restart needed ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
+- Cron loop is resilient to disk errors — `OSError` in `_save_store` no longer kills the timer task permanently ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
+
+**🔒 Security hardening**
+- Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies
+- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
+- Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures)
+- Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
+
+**🤖 Agent reliability**
+- Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
+
 ## Key Features of nanobot:
 
 🪶 **Ultra-Lightweight**: Just ~4,000 lines of core agent code — 99% smaller than Clawdbot.
@@ -509,8 +526,16 @@ nanobot cron add --name "daily-berlin" --message "Good morning!" --cron "0 9 * *
 # Add an interval job
 nanobot cron add --name "hourly" --message "Check status" --every 3600
 
-# Add a one-time reminder
+# Add a one-time reminder (naive timestamp = local system time)
 nanobot cron add --name "meeting" --message "Meeting now!" --at "2099-01-01T15:00:00"
+
+# Add a one-time reminder at an unambiguous UTC time
+nanobot cron add --name "meeting-utc" --message "Meeting now!" --at "2099-01-01T15:00:00Z"
+
+# Add a one-time reminder with an explicit UTC offset
+nanobot cron add --name "meeting-tz" --message "Meeting now!" --at "2099-01-01T15:00:00+02:00"
+
+# Note: --tz is only valid with --cron, not with --at
 
 # List jobs
 nanobot cron list
@@ -584,23 +609,6 @@ I try to keep these compatible so I don't break my own setup:
 - Python package stays `nanobot.*`
 - Config lives in `~/.nanobot/*`
 
-### What This Fork Adds
-
-Changes that are specific to this fork and not in upstream:
-
-**Cron scheduler**
-- Hot-reload: jobs added via `nanobot cron add` while the gateway runs are picked up within ≤5 minutes — no restart needed ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
-- Cron loop is resilient to disk errors — `OSError` in `_save_store` no longer kills the timer task permanently ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
-
-**Security hardening**
-- Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies
-- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
-- Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures)
-- Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
-
-**Agent reliability**
-- Subagent skill access: builtin skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
-
 ### Philosophy
 
 - Keep channels stable, debuggable, and easy to self-host
@@ -608,10 +616,6 @@ Changes that are specific to this fork and not in upstream:
 - Treat web search as configurable plumbing—local and federated options matter
 - Only build tools I actually use regularly and want to support
 - Add safety guards on anything that touches sensitive files or runs commands
-
-### Contributions
-
-Contributions are welcome! However, I'll only integrate features that I can personally use or at least test myself. For example, I won't add support for obscure chat platforms I can't validate. If you need something I can't test, feel free to maintain your own fork.
 
 ### Version & Release Info
 
