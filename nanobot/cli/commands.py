@@ -14,6 +14,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
@@ -505,7 +506,7 @@ def agent(
     )
 
     async def _cli_progress(text: str) -> None:
-        console.print(f"  [dim]↳ {text}[/dim]")
+        console.print(f"  [dim]↳ {escape(text)}[/dim]")
 
     if message:
         # Single message mode

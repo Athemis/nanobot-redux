@@ -6,7 +6,7 @@ import re
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import json_repair
 from loguru import logger
@@ -164,7 +164,8 @@ class AgentLoop:
         """Remove <think>...</think> blocks from LLM output before showing to user."""
         return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
-    def _tool_hint(self, tool_calls: list) -> str:
+    @staticmethod
+    def _tool_hint(tool_calls: list[Any]) -> str:
         """Format tool call names as a short fallback hint when content is empty."""
         if not tool_calls:
             return ""
