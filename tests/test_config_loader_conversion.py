@@ -233,3 +233,65 @@ def test_round_trip_preserves_camel_case_structure() -> None:
     assert dumped["providers"]["openrouter"]["apiBase"] == "https://openrouter.ai/api/v1"
     assert dumped["providers"]["openrouter"]["extraHeaders"]["HTTP-Referer"] == "https://example.com"
     assert dumped["tools"]["restrictToWorkspace"] is True
+
+
+# ── Additional tests for loader functions ─────────────────────────────────────
+
+import json  # noqa: E402
+
+from nanobot.config.loader import (  # noqa: E402
+    get_config_path,
+    get_data_dir,
+    load_config,
+    save_config,
+)
+
+
+def test_get_config_path_returns_default():
+    path = get_config_path()
+    assert path.name == "config.json"
+    assert ".nanobot" in str(path)
+
+
+def test_get_data_dir_returns_path():
+    d = get_data_dir()
+    assert d.exists()
+
+
+def test_load_config_from_existing_file(tmp_path):
+    from nanobot.config.schema import Config
+    cfg_file = tmp_path / "config.json"
+    cfg_file.write_text('{"model": "gpt-4o"}', encoding="utf-8")
+    cfg = load_config(cfg_file)
+    assert isinstance(cfg, Config)
+
+
+def test_load_config_returns_default_when_file_missing(tmp_path):
+    from nanobot.config.schema import Config
+    cfg = load_config(tmp_path / "nonexistent.json")
+    assert isinstance(cfg, Config)
+
+
+def test_load_config_returns_default_on_invalid_json(tmp_path):
+    from nanobot.config.schema import Config
+    cfg_file = tmp_path / "config.json"
+    cfg_file.write_text("not-json", encoding="utf-8")
+    cfg = load_config(cfg_file)
+    assert isinstance(cfg, Config)
+
+
+def test_save_config_writes_valid_json(tmp_path):
+    from nanobot.config.schema import Config
+    cfg = Config()
+    out = tmp_path / "out.json"
+    save_config(cfg, out)
+    data = json.loads(out.read_text())
+    assert isinstance(data, dict)
+
+
+def test_save_config_creates_parent_dirs(tmp_path):
+    from nanobot.config.schema import Config
+    cfg = Config()
+    out = tmp_path / "sub" / "dir" / "config.json"
+    save_config(cfg, out)
+    assert out.exists()
