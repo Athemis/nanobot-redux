@@ -599,7 +599,7 @@ Changes that are specific to this fork and not in upstream:
 - Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
 
 **🤖 Agent reliability**
-- Subagent skill access: builtin skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
+- Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
 
 ### Philosophy
 
