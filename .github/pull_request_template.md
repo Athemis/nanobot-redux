@@ -3,6 +3,7 @@
 - [ ] Feature
 - [ ] Bugfix
 - [ ] Upstream-Intake
+- [ ] Docs / Refactor / Chore
 
 ## Summary
 

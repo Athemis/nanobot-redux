@@ -16,4 +16,4 @@ labels: enhancement
 
 ---
 
-> Before opening, check that the idea fits the fork's goals: [`docs/redux-manifest.md`](../docs/redux-manifest.md).
+> Before opening, check that the idea fits the fork's goals: [`docs/redux-manifest.md`](../../docs/redux-manifest.md).

@@ -28,4 +28,4 @@ labels: upstream
 
 ---
 
-> Follow the intake workflow in [`docs/upstream-intake.md`](../docs/upstream-intake.md).
+> Follow the intake workflow in [`docs/upstream-intake.md`](../../docs/upstream-intake.md).
