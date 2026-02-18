@@ -55,6 +55,29 @@ def test_make_provider_applies_openrouter_runtime_fallback(
     assert captured["extra_headers"] == OPENROUTER_DEFAULT_EXTRA_HEADERS
 
 
+def test_make_provider_custom_endpoint_is_routed_to_openai_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """providers.custom config must not fall through to the 'No API key' error."""
+    captured: dict[str, object] = {}
+
+    class DummyProvider:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("nanobot.providers.openai_provider.OpenAIProvider", DummyProvider)
+
+    config = Config()
+    config.providers.custom.api_key = "no-key"
+    config.providers.custom.api_base = "http://localhost:8000/v1"
+    config.agents.defaults.model = "my-local-model"
+
+    _make_provider(config)
+
+    assert captured["provider_name"] == "custom"
+    assert captured["api_base"] == "http://localhost:8000/v1"
+
+
 def test_make_provider_passes_openai_codex_ssl_verify_from_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
