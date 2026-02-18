@@ -38,6 +38,7 @@ Changes integrated after the initial fork:
 | [#748](https://github.com/HKUDS/nanobot/pull/748)                                                                                               | Agent context   | Avoids sending empty assistant `content` entries that some providers reject when assistant messages only contain tool calls/reasoning                                             | low  | 2026-02-17 | `ruff check nanobot/agent/context.py tests/test_agent_context.py` + `pytest -q tests/test_agent_context.py`      |
 | [#759](https://github.com/HKUDS/nanobot/pull/759) *(superseded by [#766](https://github.com/HKUDS/nanobot/pull/766))*                           | Config loader   | Fixes `HKUDS/nanobot#703` by preserving MCP `env` map entry names (`OPENAI_API_KEY`, etc.) during snake/camel conversion without broad config refactors                           | low  | 2026-02-17 | superseded |
 | [#766](https://github.com/HKUDS/nanobot/pull/766)                                                                                               | Config loader   | Replaces manual camel/snake conversion in `loader.py` with Pydantic `alias_generator=to_camel` on all schema models; removes ~80 lines of path-tracking conversion code; `env` and `extra_headers` dict keys are preserved automatically since Pydantic alias_generator only applies to model field names, not dict keys | low  | 2026-02-17 | `ruff check nanobot/config/loader.py nanobot/config/schema.py tests/test_config_loader_conversion.py` + `pytest -q tests/test_config_loader_conversion.py tests/test_tool_validation.py` |
+| [#713](https://github.com/HKUDS/nanobot/pull/713) (partial, session-scoping only) | Session | Scopes session storage to `<workspace>/sessions/` instead of global `~/.nanobot/sessions/`; legacy sessions still readable as fallback. `get_history()` tool-metadata part deferred — see Deferred section. | low  | 2026-02-18 | `ruff check nanobot/session/manager.py` |
 
 ### Template for New Adoptions
 
@@ -62,7 +63,7 @@ Changes that look interesting but aren't ready to adopt yet:
 
 | Upstream PR/Commit                                        | Area          | Why Deferred                                                                 | Revisit When                                                                                |
 | --------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| *(none currently)* | - | - | - |
+| [#713](https://github.com/HKUDS/nanobot/pull/713) (`get_history()` part only) | Session | `get_history()` is extended to preserve `tool_calls`/`tool_call_id`/`name` — but both upstream and redux `loop.py` only persist user + final assistant messages; tool messages are never written to the session. The fix is a no-op in the current architecture. | When `loop.py` is extended to persist individual tool call/result messages to the session |
 
 ## Rejected Changes
 
