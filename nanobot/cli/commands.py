@@ -319,7 +319,8 @@ def _make_provider(config: Config):
         raise typer.Exit(1)
 
     spec = find_by_name(provider_name) if provider_name else None
-    if not (p and p.api_key) and not (spec and spec.is_oauth):
+    keyless_ok = (spec and (spec.is_oauth or spec.is_local)) or (p and p.api_base)
+    if not (p and p.api_key) and not keyless_ok:
         console.print("[red]Error: No API key configured.[/red]")
         console.print("Set one in ~/.nanobot/config.json under providers section")
         raise typer.Exit(1)
