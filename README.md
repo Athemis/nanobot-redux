@@ -37,6 +37,10 @@ Changes specific to this fork, not in upstream:
 - Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures) ([#16](https://github.com/Athemis/nanobot-redux/pull/16))
 - Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text ([2a77f20](https://github.com/Athemis/nanobot-redux/commit/2a77f20c2b91136ab9dabc11df063b4502dedc8d))
 
+**📦 Leaner dependency footprint**
+- LiteLLM removed — all OpenAI-compatible providers (OpenRouter, DeepSeek, Moonshot, Groq, MiniMax, Zhipu, DashScope, vLLM, AiHubMix, OpenAI) now use `openai.AsyncOpenAI` directly via `base_url` routing. No intermediary library, faster cold-start, smaller install ([#33](https://github.com/Athemis/nanobot-redux/pull/33))
+- **Breaking:** `providers.anthropic` and `providers.gemini` (native) removed — use `providers.openrouter` to access Claude and Gemini models. `providers.custom` removed — use `providers.openai` with `apiBase` set to your endpoint URL.
+
 **🤖 Agent reliability**
 - Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 - Agentic prompt hardening: loop-continuation nudge, heartbeat prompt, and spawn tool description rewritten to push the agent toward direct action over passive confirmation-seeking ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
