@@ -217,9 +217,10 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
     ),
 
     # Mistral AI: OpenAI-compatible API at api.mistral.ai/v1.
+    # keywords covers all Mistral model families (codestral, devstral, magistral, pixtral).
     ProviderSpec(
         name="mistral",
-        keywords=("mistral",),
+        keywords=("mistral", "codestral", "devstral", "magistral", "pixtral"),
         env_key="MISTRAL_API_KEY",
         display_name="Mistral",
         model_prefix="mistral",             # strip "mistral/" if present
