@@ -91,7 +91,7 @@ async def test_dispatch_outbound_calls_subscribers(bus):
 
 @pytest.mark.asyncio
 async def test_dispatch_outbound_logs_subscriber_error(bus):
-    async def failing_handler(msg):
+    async def failing_handler(_msg):
         raise RuntimeError("boom")
 
     bus.subscribe_outbound("matrix", failing_handler)
