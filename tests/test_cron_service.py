@@ -1,7 +1,6 @@
 import json
 import pathlib
 import time
-import uuid
 
 import pytest
 
@@ -37,51 +36,11 @@ def test_add_job_accepts_valid_timezone(tmp_path) -> None:
     assert job.state.next_run_at_ms is not None
 
 
-def test_check_disk_changes_reloads_when_file_is_newer(tmp_path) -> None:
-    """_check_disk_changes reloads in-memory store when the file has been updated externally."""
-    store_path = tmp_path / "cron" / "jobs.json"
-    service = CronService(store_path)
-    service._load_store()  # prime with empty store (file does not exist yet → _store_mtime = 0.0)
-
-    # Simulate external write: a second instance (CLI) adds a job
-    service2 = CronService(store_path)
-    service2.add_job(
-        name="external job",
-        schedule=CronSchedule(kind="every", every_ms=3_600_000),
-        message="tick",
-    )
-
-    # File is now newer than what service knows about
-    service._check_disk_changes()
-
-    assert len(service.list_jobs()) == 1
-    assert service.list_jobs()[0].name == "external job"
-
-
-def test_check_disk_changes_noop_when_file_unchanged(tmp_path) -> None:
-    """_check_disk_changes does not reload when the file mtime has not changed."""
-    store_path = tmp_path / "cron" / "jobs.json"
-    service = CronService(store_path)
-    service.add_job(
-        name="my job",
-        schedule=CronSchedule(kind="every", every_ms=3_600_000),
-        message="tick",
-    )
-
-    store_before = service._store
-
-    # No external changes — mtime still matches
-    service._check_disk_changes()
-
-    assert service._store is store_before  # same object, no reload
-
-
-async def test_on_timer_picks_up_externally_added_jobs(tmp_path) -> None:
-    """_on_timer reloads the store from disk and executes overdue jobs added externally."""
+async def test_on_timer_runs_due_jobs(tmp_path) -> None:
+    """_on_timer executes jobs whose next_run_at_ms is in the past."""
     store_path = tmp_path / "cron" / "jobs.json"
     service = CronService(store_path)
     service._running = True
-    service._load_store()  # empty store, primes _store_mtime = 0.0
 
     executed: list[str] = []
 
@@ -90,40 +49,17 @@ async def test_on_timer_picks_up_externally_added_jobs(tmp_path) -> None:
 
     service.on_job = on_job
 
-    # Write an overdue job directly to disk (simulating CLI add while gateway runs)
-    overdue_ms = int(time.time() * 1000) - 5_000
-    store_path.parent.mkdir(parents=True, exist_ok=True)
-    store_path.write_text(json.dumps({
-        "version": 1,
-        "jobs": [{
-            "id": str(uuid.uuid4())[:8],
-            "name": "overdue job",
-            "enabled": True,
-            "schedule": {"kind": "every", "atMs": None, "everyMs": 60_000, "expr": None, "tz": None},
-            "payload": {"kind": "agent_turn", "message": "tick", "deliver": False, "channel": None, "to": None},
-            "state": {"nextRunAtMs": overdue_ms, "lastRunAtMs": None, "lastStatus": None, "lastError": None},
-            "createdAtMs": overdue_ms,
-            "updatedAtMs": overdue_ms,
-            "deleteAfterRun": False,
-        }],
-    }))
+    service.add_job(
+        name="overdue job",
+        schedule=CronSchedule(kind="every", every_ms=60_000),
+        message="tick",
+    )
+    # Force next run into the past
+    service._store.jobs[0].state.next_run_at_ms = int(time.time() * 1000) - 5_000
 
     await service._on_timer()
 
     assert "overdue job" in executed
-
-
-async def test_arm_timer_creates_poll_task_when_no_jobs(tmp_path) -> None:
-    """_arm_timer schedules a timer even with no jobs so disk changes are polled."""
-    service = CronService(tmp_path / "cron" / "jobs.json")
-    service._running = True
-    service._load_store()  # empty store
-
-    service._arm_timer()
-
-    assert service._timer_task is not None
-    assert not service._timer_task.done()
-    service.stop()
 
 
 async def test_on_timer_re_arms_after_save_store_oserror(tmp_path, monkeypatch) -> None:
@@ -172,29 +108,34 @@ async def test_on_timer_re_arms_after_save_store_oserror(tmp_path, monkeypatch) 
     service.stop()
 
 
-def test_load_store_preserves_jobs_on_stat_error(tmp_path, monkeypatch) -> None:
-    """Jobs survive _load_store even when stat() raises during mtime tracking.
-
-    In Python 3.14, Path.exists() uses os.path.exists(), not Path.stat(), so
-    patching Path.stat only affects the explicit stat() call inside _load_store.
-    """
+async def test_on_external_change_reloads_store(tmp_path) -> None:
+    """_on_external_change reloads the in-memory store from disk."""
     store_path = tmp_path / "cron" / "jobs.json"
-
-    seeder = CronService(store_path)
-    seeder.add_job(name="canary", schedule=CronSchedule(kind="every", every_ms=3_600_000), message="tick")
-
     service = CronService(store_path)
+    service._running = True
+    service._load_store()  # primes empty in-memory store
 
-    _real_stat = pathlib.Path.stat
+    # Write a job to disk simulating external CLI add
+    job_ms = int(time.time() * 1000) + 60_000
+    store_path.parent.mkdir(parents=True, exist_ok=True)
+    store_path.write_text(json.dumps({
+        "version": 1,
+        "jobs": [{
+            "id": "ext1",
+            "name": "external job",
+            "enabled": True,
+            "schedule": {"kind": "every", "atMs": None, "everyMs": 3_600_000, "expr": None, "tz": None},
+            "payload": {"kind": "agent_turn", "message": "tick", "deliver": False, "channel": None, "to": None},
+            "state": {"nextRunAtMs": job_ms, "lastRunAtMs": None, "lastStatus": None, "lastError": None},
+            "createdAtMs": job_ms,
+            "updatedAtMs": job_ms,
+            "deleteAfterRun": False,
+        }],
+    }))
 
-    def stat_raises_for_store(self, **kwargs):
-        if self == store_path:
-            raise OSError("injected stat failure")
-        return _real_stat(self, **kwargs)
+    # Simulate watchdog notification
+    service._on_external_change()
+    service.stop()
 
-    monkeypatch.setattr(pathlib.Path, "stat", stat_raises_for_store)
-
-    store = service._load_store()
-
-    assert len(store.jobs) == 1
-    assert store.jobs[0].name == "canary"
+    assert len(service.list_jobs()) == 1
+    assert service.list_jobs()[0].name == "external job"

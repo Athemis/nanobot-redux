@@ -42,6 +42,7 @@ Changes integrated after the initial fork:
 | [#765](https://github.com/HKUDS/nanobot/pull/765) | Docker | Adds `docker-compose.yml` with persistent gateway service (restart policy, 1 CPU / 1 GB resource limits) and on-demand CLI service (`--profile cli`); README gains "Using Docker Compose" section. Cherry-pick `c03f2b6` applied cleanly. | low  | 2026-02-18 | `docker compose build && docker compose run --rm nanobot-cli status` + `bash tests/test_docker.sh` |
 | [#746](https://github.com/HKUDS/nanobot/pull/746) | CLI / Cron | Wires `CronService` into `nanobot agent` CLI command; previously only the gateway had cron tool access. Cherry-pick `778a933` with conflict resolved (import order, `brave_api_key` → `web_search_config`). | low  | 2026-02-18 | `ruff check nanobot/cli/commands.py` + `pytest -q` |
 | [#786](https://github.com/HKUDS/nanobot/pull/786) | Custom provider | New `CustomProvider` bypasses LiteLLM for the `custom` endpoint via `openai.AsyncOpenAI` directly — fixes model-prefix mangling for local/self-hosted servers. Cherry-pick `e2a0d63` with conflict resolved (import order in `_make_provider`); upstream's improved `is_oauth` guard in API key check adopted. **Phase 2 note:** `CustomProvider` was subsequently absorbed into `OpenAIProvider` (see redux-changes.md LiteLLM removal); `custom_provider.py` deleted, `is_direct` mechanism obsolete. | low  | 2026-02-18 | `ruff check nanobot/providers/registry.py nanobot/cli/commands.py` + `pytest -q` |
+| [#788](https://github.com/HKUDS/nanobot/pull/788) | Cron hot-reload | Replaces mtime polling with `watchdog` filesystem observer for instant reload when `jobs.json` is modified externally. `_StoreWatcher(FileSystemEventHandler)` bridges the watchdog thread to asyncio via `call_soon_threadsafe`. `_arm_timer()` no longer needs a polling cap — watchdog covers the no-jobs and far-future-job cases. Supersedes redux-changes.md "Cron mtime hot-reload" entry. Not a direct cherry-pick: upstream PR is open/unmerged. | low | 2026-02-18 | `pytest -q tests/test_cron_service.py` |
 
 ### Template for New Adoptions
 
@@ -74,7 +75,7 @@ Changes I've explicitly decided not to adopt (for transparency and to avoid reco
 
 | Upstream PR/Commit                  | Area | Why Rejected | Rejected |
 | ----------------------------------- | ---- | ------------ | -------- |
-| [#788](https://github.com/HKUDS/nanobot/pull/788) | Cron hot-reload | Adds `watchdog` dependency + async public API refactor for filesystem-event-driven store reload. Replaced in redux by lightweight mtime polling ([#22](https://github.com/Athemis/nanobot-redux/pull/22)) — no new dependency, 5-minute polling latency is sufficient for minute-granularity cron jobs. If upstream adopts #788, redux will likely follow and drop polling. | 2026-02-18 |
+| — | — | No rejections at this time. | — |
 
 ## Notes
 

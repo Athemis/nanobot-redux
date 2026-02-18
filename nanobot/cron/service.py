@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Callable, Coroutine
 
 from loguru import logger
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 
 from nanobot.cron.types import CronJob, CronJobState, CronPayload, CronSchedule, CronStore
 
@@ -67,6 +69,22 @@ def _validate_schedule_for_add(schedule: CronSchedule) -> None:
             raise ValueError(f"unknown timezone '{schedule.tz}'") from None
 
 
+class _StoreWatcher(FileSystemEventHandler):
+    """Watches the cron store file for external modifications."""
+
+    def __init__(self, store_path: Path, callback: Callable[[], None]) -> None:
+        self._store_path = store_path
+        self._callback = callback
+
+    def on_modified(self, event: FileSystemEvent) -> None:
+        if not event.is_directory and Path(event.src_path) == self._store_path:
+            self._callback()
+
+    def on_created(self, event: FileSystemEvent) -> None:
+        if not event.is_directory and Path(event.src_path) == self._store_path:
+            self._callback()
+
+
 class CronService:
     """Service for managing and executing scheduled jobs."""
 
@@ -79,9 +97,10 @@ class CronService:
         self.store_path = store_path
         self.on_job = on_job  # Callback to execute job, returns response text
         self._store: CronStore | None = None
-        self._store_mtime: float = 0.0  # st_mtime at last load/save; guards against spurious self-reload
         self._timer_task: asyncio.Task | None = None
         self._running = False
+        self._observer: Observer | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def _load_store(self) -> CronStore:
         """Load jobs from disk."""
@@ -125,10 +144,6 @@ class CronService:
             except Exception as e:
                 logger.warning(f"Failed to load cron store: {e}")
                 self._store = CronStore()
-            try:
-                self._store_mtime = self.store_path.stat().st_mtime  # baseline for external-change detection
-            except OSError:
-                pass  # _store_mtime stays 0.0; next tick will re-check
         else:
             self._store = CronStore()
 
@@ -178,34 +193,32 @@ class CronService:
 
         try:
             self.store_path.write_text(json.dumps(data, indent=2))
-            self._store_mtime = self.store_path.stat().st_mtime  # track own write to skip self-reload
         except OSError as e:
             logger.error(f"Cron: failed to save store: {e}")
 
-    def _check_disk_changes(self) -> None:
-        """Reload the in-memory store when jobs.json has been modified by an external process.
-
-        The CLI (``nanobot cron add``) writes directly to disk without touching the running
-        gateway's in-memory store. This method detects those writes via mtime comparison and
-        reloads without recomputing next-run times, preserving the values set at add-time.
-        """
-        if not self.store_path.exists():
-            return
-        try:
-            mtime = self.store_path.stat().st_mtime
-        except OSError:
-            return
-        if mtime > self._store_mtime:
-            self._store = None
-            self._load_store()
+    def _on_external_change(self) -> None:
+        """Reload store from disk when watchdog detects an external file modification."""
+        self._store = None
+        self._load_store()
+        self._arm_timer()
+        logger.debug("Cron: store reloaded from external file change")
 
     async def start(self) -> None:
         """Start the cron service."""
         self._running = True
+        self._loop = asyncio.get_event_loop()
         self._load_store()
         self._recompute_next_runs()
         self._save_store()
         self._arm_timer()
+
+        watcher = _StoreWatcher(
+            self.store_path,
+            lambda: self._loop.call_soon_threadsafe(self._on_external_change),
+        )
+        self._observer = Observer()
+        self._observer.schedule(watcher, str(self.store_path.parent), recursive=False)
+        self._observer.start()
         logger.info(f"Cron service started with {len(self._store.jobs if self._store else [])} jobs")
 
     def stop(self) -> None:
@@ -214,6 +227,10 @@ class CronService:
         if self._timer_task:
             self._timer_task.cancel()
             self._timer_task = None
+        if self._observer:
+            self._observer.stop()
+            self._observer.join(timeout=2.0)
+            self._observer = None
 
     def _recompute_next_runs(self) -> None:
         """Recompute next run times for all enabled jobs."""
@@ -232,18 +249,8 @@ class CronService:
                  if j.enabled and j.state.next_run_at_ms]
         return min(times) if times else None
 
-    # Maximum seconds between disk-change checks, regardless of scheduled job times.
-    # Caps _arm_timer delay so _check_disk_changes fires even with no jobs or far-future schedules.
-    # Upstream HKUDS/nanobot#788 proposes watchdog-based instant notification instead;
-    # if upstream adopts it, redux will likely follow and this constant can be removed.
-    _POLL_INTERVAL_S = 300
-
     def _arm_timer(self) -> None:
-        """Schedule the next timer tick.
-
-        Always creates a task when running — even with no jobs — so _check_disk_changes
-        fires periodically. Delay is capped at _POLL_INTERVAL_S for the same reason.
-        """
+        """Schedule the next timer tick for the nearest due job."""
         if self._timer_task:
             self._timer_task.cancel()
 
@@ -251,10 +258,11 @@ class CronService:
             return
 
         next_wake = self._get_next_wake_ms()
-        if next_wake:
-            delay_s = min(max(0, next_wake - _now_ms()) / 1000, self._POLL_INTERVAL_S)
-        else:
-            delay_s = self._POLL_INTERVAL_S
+        if not next_wake:
+            self._timer_task = None
+            return
+
+        delay_s = max(0, next_wake - _now_ms()) / 1000
 
         async def tick():
             await asyncio.sleep(delay_s)
@@ -264,8 +272,7 @@ class CronService:
         self._timer_task = asyncio.create_task(tick())
 
     async def _on_timer(self) -> None:
-        """Handle timer tick - reload store if changed externally, then run due jobs."""
-        self._check_disk_changes()
+        """Handle timer tick: run due jobs."""
         if not self._store:
             return
 
