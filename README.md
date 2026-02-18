@@ -544,6 +544,39 @@ nanobot cron remove <job_id>
 >
 > The default `Dockerfile` uses a multi-stage Alpine build (`python:3.14-alpine`) and includes Matrix E2EE dependencies (`olm`, `olm-dev`). It also sets `CMAKE_POLICY_VERSION_MINIMUM=3.5` to keep `python-olm` builds working with Alpine 3.23's CMake 4.
 
+### Using Docker Compose (Recommended)
+
+The easiest way to run nanobot with Docker:
+
+```bash
+# 1. Initialize config (first time only)
+docker compose run --rm nanobot-cli onboard
+
+# 2. Edit config to add API keys
+vim ~/.nanobot/config.json
+
+# 3. Start gateway service
+docker compose up -d nanobot-gateway
+
+# 4. Check logs
+docker compose logs -f nanobot-gateway
+
+# 5. Run CLI commands
+docker compose run --rm nanobot-cli status
+docker compose run --rm nanobot-cli agent -m "Hello!"
+
+# 6. Stop services
+docker compose down
+```
+
+**Features:**
+- ✅ Resource limits (1 CPU, 1GB memory)
+- ✅ Auto-restart on failure
+- ✅ Shared configuration using YAML anchors
+- ✅ Separate CLI profile for on-demand commands
+
+### Using Docker directly
+
 Build and run nanobot in a container:
 
 ```bash
