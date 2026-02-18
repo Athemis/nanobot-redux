@@ -609,10 +609,6 @@ Changes that are specific to this fork and not in upstream:
 - Only build tools I actually use regularly and want to support
 - Add safety guards on anything that touches sensitive files or runs commands
 
-### Contributions
-
-Contributions are welcome! However, I'll only integrate features that I can personally use or at least test myself. For example, I won't add support for obscure chat platforms I can't validate. If you need something I can't test, feel free to maintain your own fork.
-
 ### Version & Release Info
 
 - Separate version line from upstream (starting at `0.2.0`)
