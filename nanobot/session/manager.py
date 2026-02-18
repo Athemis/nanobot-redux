@@ -62,13 +62,19 @@ class SessionManager:
     def __init__(self, workspace: Path):
         """Initialize session storage paths and an in-memory session cache."""
         self.workspace = workspace
-        self.sessions_dir = ensure_dir(Path.home() / ".nanobot" / "sessions")
+        self.sessions_dir = ensure_dir(self.workspace / "sessions")
+        self.legacy_sessions_dir = Path.home() / ".nanobot" / "sessions"
         self._cache: dict[str, Session] = {}
 
     def _get_session_path(self, key: str) -> Path:
         """Get the file path for a session."""
         safe_key = safe_filename(key.replace(":", "_"))
         return self.sessions_dir / f"{safe_key}.jsonl"
+
+    def _get_legacy_session_path(self, key: str) -> Path:
+        """Get the legacy global session path for backward compatibility."""
+        safe_key = safe_filename(key.replace(":", "_"))
+        return self.legacy_sessions_dir / f"{safe_key}.jsonl"
 
     def get_or_create(self, key: str) -> Session:
         """
@@ -93,6 +99,10 @@ class SessionManager:
     def _load(self, key: str) -> Session | None:
         """Load a session from disk."""
         path = self._get_session_path(key)
+        if not path.exists():
+            legacy_path = self._get_legacy_session_path(key)
+            if legacy_path.exists():
+                path = legacy_path
 
         if not path.exists():
             return None
