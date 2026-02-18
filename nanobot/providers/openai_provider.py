@@ -91,6 +91,8 @@ class OpenAIProvider(LLMProvider):
             return LLMResponse(content=f"Error: {e}", finish_reason="error")
 
     def _parse(self, response: Any) -> LLMResponse:
+        if not response.choices:
+            raise ValueError(f"OpenAI response contains no choices: {response}")
         choice = response.choices[0]
         msg = choice.message
         tool_calls = [
