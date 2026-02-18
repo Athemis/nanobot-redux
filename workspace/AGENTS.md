@@ -49,25 +49,24 @@ See `TOOLS.md` → `spawn` for how to write an effective task string.
 
 If something matters, write it down. Memory doesn't persist between sessions otherwise.
 
-## Scheduled Reminders
+## Scheduled Reminders and Periodic Tasks
 
-When user asks for a reminder at a specific time, use `exec` to run:
+Use the right tool based on what the user needs:
 
-```
-nanobot cron add --name "reminder" --message "Your message" --at "YYYY-MM-DDTHH:MM:SS" --deliver --to "USER_ID" --channel "CHANNEL"
-```
+| Situation | Tool |
+|---|---|
+| Fixed time or timezone ("every day at 7:15", "friday 18:00") | `cron` tool |
+| One-time reminder at a specific datetime | `cron` tool |
+| User notification required (`deliver=True`) | `cron` tool |
+| Fuzzy periodic check without fixed time ("check inbox regularly") | `HEARTBEAT.md` |
+| Agent self-maintenance task (update memory, scan for events) | `HEARTBEAT.md` |
 
-Get USER_ID and CHANNEL from the current session (e.g., `8281248569` and `telegram` from `telegram:8281248569`).
+**cron tool** (see `TOOLS.md` for examples): when the user requests a reminder or scheduled notification. Get USER_ID and CHANNEL from the current session (e.g., `@user:example.org` and `matrix` from `matrix:@user:example.org`).
 
-**Do NOT just write reminders to MEMORY.md** — that won't trigger actual notifications.
-
-## Heartbeat Tasks
-
-`HEARTBEAT.md` is checked every 30 minutes. Manage periodic tasks by editing this file:
+**HEARTBEAT.md** is checked every 30 minutes. Manage periodic tasks by editing this file:
 
 - **Add a task**: append to `HEARTBEAT.md`
 - **Remove a task**: edit out completed or obsolete tasks
-- **Rewrite tasks**: overwrite the file entirely
 
 Task format examples:
 
@@ -77,4 +76,4 @@ Task format examples:
 - [ ] Check weather forecast for today
 ```
 
-When the user asks for a recurring/periodic task, update `HEARTBEAT.md` instead of creating a one-time reminder. Keep the file small to minimize token usage.
+Keep `HEARTBEAT.md` small to minimize token usage. **Do NOT write reminders to MEMORY.md** — that won't trigger notifications.
