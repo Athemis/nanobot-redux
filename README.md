@@ -21,6 +21,23 @@ This fork is based on **[HKUDS/nanobot v0.1.3.post7](https://github.com/HKUDS/na
 - Matrix channel, OpenAI Codex OAuth, multi-provider web search (including SearXNG)
 - Enhanced tool safety (`delete_file` symlink protection, shell security hardening)
 
+## ⬆️ What This Fork Adds
+
+Changes specific to this fork, not in upstream:
+
+**⏰ Cron scheduler**
+- Hot-reload: jobs added via `nanobot cron add` while the gateway runs are picked up within ≤5 minutes — no restart needed ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
+- Cron loop is resilient to disk errors — `OSError` in `_save_store` no longer kills the timer task permanently ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
+
+**🔒 Security hardening**
+- Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies
+- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
+- Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures)
+- Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
+
+**🤖 Agent reliability**
+- Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
+
 ## Key Features of nanobot:
 
 🪶 **Ultra-Lightweight**: Just ~4,000 lines of core agent code — 99% smaller than Clawdbot.
@@ -583,23 +600,6 @@ I try to keep these compatible so I don't break my own setup:
 - CLI stays `nanobot`
 - Python package stays `nanobot.*`
 - Config lives in `~/.nanobot/*`
-
-### What This Fork Adds
-
-Changes that are specific to this fork and not in upstream:
-
-**⏰ Cron scheduler**
-- Hot-reload: jobs added via `nanobot cron add` while the gateway runs are picked up within ≤5 minutes — no restart needed ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
-- Cron loop is resilient to disk errors — `OSError` in `_save_store` no longer kills the timer task permanently ([#22](https://github.com/Athemis/nanobot-redux/pull/22))
-
-**🔒 Security hardening**
-- Codex provider: TLS verification is on by default; `sslVerify=false` must be set explicitly, preventing silent MITM exposure on corporate proxies
-- Codex provider: SSE error payloads (`error`, `response.failed`) are surfaced as diagnostic messages instead of generic failure text
-- Codex provider: `max_output_tokens`/`max_tokens` omitted from OAuth payloads (the endpoint rejects them — fixes actual API failures)
-- Email channel: plaintext SMTP (both `smtpUseTls` and `smtpUseSsl` disabled) is refused at send time; `tlsVerify` defaults to `true` with explicit opt-out
-
-**🤖 Agent reliability**
-- Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode
 
 ### Philosophy
 
