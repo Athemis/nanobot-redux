@@ -1,6 +1,7 @@
 """Configuration loading utilities."""
 
 import json
+import warnings
 from pathlib import Path
 
 from nanobot.config.schema import Config
@@ -74,9 +75,11 @@ def _migrate_config(data: dict) -> dict:
     }
     for key, replacement in _removed.items():
         if key in providers:
-            print(
-                f"Warning: providers.{key} is no longer supported. "
-                f"Use {replacement} to access these models."
+            warnings.warn(
+                f"providers.{key} is no longer supported. "
+                f"Use {replacement} to access these models.",
+                DeprecationWarning,
+                stacklevel=2,
             )
             del providers[key]
 

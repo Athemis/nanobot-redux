@@ -102,10 +102,12 @@ async def test_subagent_forwards_generation_parameters(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_chat_uses_passed_generation_parameters(monkeypatch) -> None:
+async def test_openai_provider_chat_uses_passed_generation_parameters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured: dict[str, object] = {}
 
-    async def _fake_create(**kwargs):
+    async def _fake_create(**kwargs: object) -> SimpleNamespace:
         captured.update(kwargs)
         msg = SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
         choice = SimpleNamespace(message=msg, finish_reason="stop")
