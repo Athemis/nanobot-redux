@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import re
+from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -27,7 +29,7 @@ from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
-from nanobot.providers.base import LLMProvider
+from nanobot.providers.base import LLMProvider, ToolCallRequest
 from nanobot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
@@ -157,12 +159,29 @@ class AgentLoop:
             if isinstance(cron_tool, CronTool):
                 cron_tool.set_context(channel, chat_id)
 
-    async def _run_agent_loop(self, initial_messages: list[dict]) -> tuple[str | None, list[str]]:
+    @staticmethod
+    def _strip_think(text: str) -> str:
+        """Remove <think>...</think> blocks from LLM output before showing to user."""
+        return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+    @staticmethod
+    def _tool_hint(tool_calls: list[ToolCallRequest]) -> str:
+        """Return bare comma-separated tool names, or '' when the list is empty."""
+        if not tool_calls:
+            return ""
+        return ", ".join(tc.name for tc in tool_calls)
+
+    async def _run_agent_loop(
+        self,
+        initial_messages: list[dict],
+        on_progress: Callable[[str], Awaitable[None]] | None = None,
+    ) -> tuple[str | None, list[str]]:
         """
         Run the agent iteration loop.
 
         Args:
             initial_messages: Starting messages for the LLM conversation.
+            on_progress: Optional async callback fired with reasoning text before each tool call.
 
         Returns:
             Tuple of (final_content, list_of_tools_used).
@@ -199,6 +218,16 @@ class AgentLoop:
                     messages, response.content, tool_call_dicts,
                     reasoning_content=response.reasoning_content,
                 )
+
+                if on_progress:
+                    clean = self._strip_think(response.content or "")
+                    names = self._tool_hint(response.tool_calls)
+                    hint = clean or ("→ " + names if names else "")
+                    if hint:
+                        try:
+                            await on_progress(hint)
+                        except Exception:
+                            logger.warning("on_progress callback raised; continuing")
 
                 for tool_call in response.tool_calls:
                     tools_used.append(tool_call.name)
@@ -255,13 +284,19 @@ class AgentLoop:
         self._running = False
         logger.info("Agent loop stopping")
 
-    async def _process_message(self, msg: InboundMessage, session_key: str | None = None) -> OutboundMessage | None:
+    async def _process_message(
+        self,
+        msg: InboundMessage,
+        session_key: str | None = None,
+        on_progress: Callable[[str], Awaitable[None]] | None = None,
+    ) -> OutboundMessage | None:
         """
         Process a single inbound message.
 
         Args:
             msg: The inbound message to process.
             session_key: Override session key (used by process_direct).
+            on_progress: Optional async callback fired before each tool call.
 
         Returns:
             The response message, or None if no response needed.
@@ -308,7 +343,7 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
         )
-        final_content, tools_used = await self._run_agent_loop(initial_messages)
+        final_content, tools_used = await self._run_agent_loop(initial_messages, on_progress=on_progress)
 
         if final_content is None:
             final_content = "I've completed processing but have no response to give."
@@ -462,6 +497,7 @@ Respond with ONLY valid JSON, no markdown fences."""
         session_key: str = "cli:direct",
         channel: str = "cli",
         chat_id: str = "direct",
+        on_progress: Callable[[str], Awaitable[None]] | None = None,
     ) -> str:
         """
         Process a message directly (for CLI or cron usage).
@@ -471,6 +507,7 @@ Respond with ONLY valid JSON, no markdown fences."""
             session_key: Session identifier (overrides channel:chat_id for session lookup).
             channel: Source channel (for tool context routing).
             chat_id: Source chat ID (for tool context routing).
+            on_progress: Optional async callback fired with reasoning text before each tool call.
 
         Returns:
             The agent's response.
@@ -483,5 +520,5 @@ Respond with ONLY valid JSON, no markdown fences."""
             content=content
         )
 
-        response = await self._process_message(msg, session_key=session_key)
+        response = await self._process_message(msg, session_key=session_key, on_progress=on_progress)
         return response.content if response else ""

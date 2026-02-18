@@ -14,6 +14,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
@@ -504,19 +505,13 @@ def agent(
         mcp_servers=config.tools.mcp_servers,
     )
 
-    # Show spinner when logs are off (no output to miss); skip when logs are on
-    def _thinking_ctx():
-        if logs:
-            from contextlib import nullcontext
-            return nullcontext()
-        # Animated spinner is safe to use with prompt_toolkit input handling
-        return console.status("[dim]nanobot is thinking...[/dim]", spinner="dots")
+    async def _cli_progress(text: str) -> None:
+        console.print(f"  [dim]↳ {escape(text)}[/dim]")
 
     if message:
         # Single message mode
         async def run_once():
-            with _thinking_ctx():
-                response = await agent_loop.process_direct(message, session_id)
+            response = await agent_loop.process_direct(message, session_id, on_progress=_cli_progress)
             _print_agent_response(response, render_markdown=markdown)
             await agent_loop.close_mcp()
 
@@ -548,8 +543,7 @@ def agent(
                             console.print("\nGoodbye!")
                             break
 
-                        with _thinking_ctx():
-                            response = await agent_loop.process_direct(user_input, session_id)
+                        response = await agent_loop.process_direct(user_input, session_id, on_progress=_cli_progress)
                         _print_agent_response(response, render_markdown=markdown)
                     except KeyboardInterrupt:
                         _restore_terminal()
