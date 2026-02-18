@@ -138,30 +138,34 @@ Return: PR title, CI status, and any failing checks.
 
 ## Scheduled Reminders (Cron)
 
-Use the `exec` tool to create scheduled reminders with `nanobot cron add`:
+Use the built-in `cron` tool (not `exec`) to manage scheduled reminders.
+The gateway polls for disk changes on a timer; new jobs may take up to 300 seconds to be picked up.
 
-### Set a recurring reminder
+### Add a recurring reminder
 
-```bash
-# Every day at 9am
-nanobot cron add --name "morning" --message "Good morning! ☀️" --cron "0 9 * * *"
+```python
+# Every day at 9am (Europe/Berlin)
+cron(action="add", message="Good morning!", cron_expr="0 9 * * *", tz="Europe/Berlin")
+
+# Every weekday at 7:15am
+cron(action="add", message="Weather report", cron_expr="15 7 * * 1-5", tz="Europe/Berlin")
 
 # Every 2 hours
-nanobot cron add --name "water" --message "Drink water! 💧" --every 7200
+cron(action="add", message="Drink water!", every_seconds=7200)
 ```
 
-### Set a one-time reminder
+### Add a one-time reminder
 
-```bash
-# At a specific time (ISO format)
-nanobot cron add --name "meeting" --message "Meeting starts now!" --at "2025-01-31T15:00:00"
+```python
+# At a specific ISO datetime
+cron(action="add", message="Meeting starts now!", at="2099-01-01T15:00:00")
 ```
 
 ### Manage reminders
 
-```bash
-nanobot cron list              # List all jobs
-nanobot cron remove <job_id>   # Remove a job
+```python
+cron(action="list")                    # List all jobs
+cron(action="remove", job_id="abc123") # Remove a job
 ```
 
 ## Heartbeat Task Management
