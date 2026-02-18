@@ -87,6 +87,7 @@ Context7 Library IDs for this project (use to skip library-matching):
 
 ## Commit & Pull Request Guidelines
 
+- Always sign commits with GPG (`git commit -S`).
 - Follow the Conventional Commits specification for all commit messages.
 - Mirror existing commit style: `feat:`, `fix:`, `docs:`, `refactor:`, and scoped forms like `feat(email): ...`.
 - Keep commit titles imperative and concise.
