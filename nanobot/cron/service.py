@@ -176,8 +176,11 @@ class CronService:
             ]
         }
 
-        self.store_path.write_text(json.dumps(data, indent=2))
-        self._store_mtime = self.store_path.stat().st_mtime  # track own write to skip self-reload
+        try:
+            self.store_path.write_text(json.dumps(data, indent=2))
+            self._store_mtime = self.store_path.stat().st_mtime  # track own write to skip self-reload
+        except OSError as e:
+            logger.error(f"Cron: failed to save store: {e}")
 
     def _check_disk_changes(self) -> None:
         """Reload the in-memory store when jobs.json has been modified by an external process.
