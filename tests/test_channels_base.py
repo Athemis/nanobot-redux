@@ -12,13 +12,13 @@ from nanobot.channels.base import BaseChannel
 class ConcreteChannel(BaseChannel):
     name = "test"
 
-    async def start(self):
+    async def start(self) -> None:
         self._running = True
 
-    async def stop(self):
+    async def stop(self) -> None:
         self._running = False
 
-    async def send(self, msg):
+    async def send(self, msg: object) -> None:
         pass
 
 

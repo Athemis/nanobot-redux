@@ -57,7 +57,11 @@ async def test_spawn_returns_status_message(manager):
 @pytest.mark.asyncio
 async def test_spawn_runs_subagent_and_announces_result(manager, bus):
     await manager.spawn("do something")
-    await asyncio.sleep(0.1)
+    # Poll until the spawned background task completes rather than relying on a fixed sleep
+    for _ in range(100):
+        if manager.get_running_count() == 0:
+            break
+        await asyncio.sleep(0.01)
     bus.publish_inbound.assert_awaited()
 
 
@@ -65,8 +69,7 @@ async def test_spawn_runs_subagent_and_announces_result(manager, bus):
 async def test_run_subagent_announces_on_exception(manager, provider, bus):
     provider.chat = AsyncMock(side_effect=RuntimeError("boom"))
     await manager._run_subagent(
-        "t1", "bad task", "bad task",
-        {"channel": "cli", "chat_id": "direct"}
+        "t1", "bad task", "bad task", {"channel": "cli", "chat_id": "direct"}
     )
     call_arg = bus.publish_inbound.call_args[0][0]
     assert "Error" in call_arg.content or "failed" in call_arg.content.lower()
@@ -81,12 +84,14 @@ async def test_run_subagent_max_iterations_exceeded(manager, provider, bus):
     provider.chat = AsyncMock(return_value=make_response(tool_calls=[tool_call]))
 
     await manager._run_subagent(
-        "t1", "loop forever", "loop",
-        {"channel": "cli", "chat_id": "direct"}
+        "t1", "loop forever", "loop", {"channel": "cli", "chat_id": "direct"}
     )
     bus.publish_inbound.assert_awaited()
 
 
-def test_build_skills_section_empty_when_no_skills(manager):
+def test_build_skills_section_returns_skills_string(manager):
     result = manager._build_skills_section()
-    assert result == "" or isinstance(result, str)
+    # Built-in skills are always present, so the section is never empty
+    assert isinstance(result, str)
+    assert len(result) > 0
+    assert "## Skills" in result

@@ -209,9 +209,7 @@ async def test_web_search_brave_missing_key_without_fallback_returns_error(
 
 @pytest.mark.asyncio
 async def test_web_search_searxng_missing_base_url_falls_back_to_duckduckgo() -> None:
-    tool = WebSearchTool(
-        config=WebSearchConfig(provider="searxng", base_url="", max_results=5)
-    )
+    tool = WebSearchTool(config=WebSearchConfig(provider="searxng", base_url="", max_results=5))
 
     result = await tool.execute(query="nanobot", count=1)
     assert "DuckDuckGo fallback" in result
@@ -222,8 +220,10 @@ async def test_web_search_searxng_missing_base_url_falls_back_to_duckduckgo() ->
 async def test_web_search_searxng_missing_base_url_no_fallback_returns_error() -> None:
     tool = WebSearchTool(
         config=WebSearchConfig(
-            provider="searxng", base_url="",
-            fallback_to_duckduckgo=False, max_results=5,
+            provider="searxng",
+            base_url="",
+            fallback_to_duckduckgo=False,
+            max_results=5,
         )
     )
 
@@ -336,12 +336,17 @@ async def test_web_search_searxng_rejects_invalid_url() -> None:
 
 
 def _patch_async_client(transport):
-    """Return a context manager that injects *transport* into AsyncClient."""
+    """Return a context manager that injects *transport* into AsyncClient.
+
+    Note: patched_init mirrors the (*args, **kwargs) signature of the original
+    __init__ to avoid silently dropping positional arguments if the httpx API
+    changes in the future.
+    """
     original_init = httpx.AsyncClient.__init__
 
-    def patched_init(self, **kwargs):
+    def patched_init(self, *args, **kwargs):
         kwargs["transport"] = transport
-        original_init(self, **kwargs)
+        original_init(self, *args, **kwargs)
 
     return mock.patch.object(httpx.AsyncClient, "__init__", patched_init)
 
@@ -499,7 +504,9 @@ async def test_web_search_fallback_duckduckgo_itself_errors(
             raise RuntimeError("ddg is down")
 
     tool = WebSearchTool(
-        config=WebSearchConfig(provider="brave", api_key="", fallback_to_duckduckgo=True, max_results=5),
+        config=WebSearchConfig(
+            provider="brave", api_key="", fallback_to_duckduckgo=True, max_results=5
+        ),
         ddgs_factory=lambda: BrokenDDGS(),
     )
     result = await tool.execute(query="nanobot", count=1)
@@ -573,7 +580,9 @@ async def test_web_fetch_html_markdown() -> None:
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text=html_body, headers={"content-type": "text/html; charset=utf-8"})
+        return httpx.Response(
+            200, text=html_body, headers={"content-type": "text/html; charset=utf-8"}
+        )
 
     transport = httpx.MockTransport(handler)
     with _patch_async_client(transport):
@@ -759,10 +768,14 @@ async def test_web_fetch_html_sniffed_from_body() -> None:
     from nanobot.agent.tools.web import WebFetchTool
 
     tool = WebFetchTool()
-    html_body = "<!doctype html><html><head><title>Sniffed</title></head><body><p>Hi</p></body></html>"
+    html_body = (
+        "<!doctype html><html><head><title>Sniffed</title></head><body><p>Hi</p></body></html>"
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text=html_body, headers={"content-type": "application/octet-stream"})
+        return httpx.Response(
+            200, text=html_body, headers={"content-type": "application/octet-stream"}
+        )
 
     transport = httpx.MockTransport(handler)
     with _patch_async_client(transport):

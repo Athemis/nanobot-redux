@@ -1,5 +1,7 @@
 """Tests for HeartbeatService."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from nanobot.heartbeat.service import (
@@ -10,6 +12,7 @@ from nanobot.heartbeat.service import (
 )
 
 # ── _is_heartbeat_empty ───────────────────────────────────────────────────────
+
 
 def test_empty_string_is_empty():
     assert _is_heartbeat_empty("") is True
@@ -36,6 +39,7 @@ def test_real_content_is_not_empty():
 
 
 # ── HeartbeatService ──────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def workspace(tmp_path):
@@ -86,7 +90,6 @@ async def test_stop_cancels_task(workspace):
 
 @pytest.mark.asyncio
 async def test_tick_skips_when_heartbeat_empty(workspace):
-    from unittest.mock import AsyncMock
     cb = AsyncMock()
     svc = HeartbeatService(workspace, on_heartbeat=cb)
     await svc._tick()
@@ -95,7 +98,6 @@ async def test_tick_skips_when_heartbeat_empty(workspace):
 
 @pytest.mark.asyncio
 async def test_tick_calls_callback_when_content_present(workspace):
-    from unittest.mock import AsyncMock
     cb = AsyncMock(return_value="did things")
     svc = HeartbeatService(workspace, on_heartbeat=cb)
     (workspace / "HEARTBEAT.md").write_text("check the logs")
@@ -105,7 +107,6 @@ async def test_tick_calls_callback_when_content_present(workspace):
 
 @pytest.mark.asyncio
 async def test_tick_logs_ok_when_heartbeat_ok_returned(workspace):
-    from unittest.mock import AsyncMock
     cb = AsyncMock(return_value=HEARTBEAT_OK_TOKEN)
     svc = HeartbeatService(workspace, on_heartbeat=cb)
     (workspace / "HEARTBEAT.md").write_text("check the logs")
@@ -114,7 +115,6 @@ async def test_tick_logs_ok_when_heartbeat_ok_returned(workspace):
 
 @pytest.mark.asyncio
 async def test_tick_handles_callback_exception(workspace):
-    from unittest.mock import AsyncMock
     cb = AsyncMock(side_effect=RuntimeError("agent crashed"))
     svc = HeartbeatService(workspace, on_heartbeat=cb)
     (workspace / "HEARTBEAT.md").write_text("check the logs")
@@ -123,7 +123,6 @@ async def test_tick_handles_callback_exception(workspace):
 
 @pytest.mark.asyncio
 async def test_trigger_now_calls_callback(workspace):
-    from unittest.mock import AsyncMock
     cb = AsyncMock(return_value="result")
     svc = HeartbeatService(workspace, on_heartbeat=cb)
     result = await svc.trigger_now()

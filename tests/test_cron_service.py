@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 
-from nanobot.cron.service import CronService
+from nanobot.cron.service import CronService, _compute_next_run
 from nanobot.cron.types import CronSchedule
 
 
@@ -76,6 +76,7 @@ def test_check_disk_changes_noop_when_file_unchanged(tmp_path) -> None:
     assert service._store is store_before  # same object, no reload
 
 
+@pytest.mark.asyncio
 async def test_on_timer_picks_up_externally_added_jobs(tmp_path) -> None:
     """_on_timer reloads the store from disk and executes overdue jobs added externally."""
     store_path = tmp_path / "cron" / "jobs.json"
@@ -93,26 +94,50 @@ async def test_on_timer_picks_up_externally_added_jobs(tmp_path) -> None:
     # Write an overdue job directly to disk (simulating CLI add while gateway runs)
     overdue_ms = int(time.time() * 1000) - 5_000
     store_path.parent.mkdir(parents=True, exist_ok=True)
-    store_path.write_text(json.dumps({
-        "version": 1,
-        "jobs": [{
-            "id": str(uuid.uuid4())[:8],
-            "name": "overdue job",
-            "enabled": True,
-            "schedule": {"kind": "every", "atMs": None, "everyMs": 60_000, "expr": None, "tz": None},
-            "payload": {"kind": "agent_turn", "message": "tick", "deliver": False, "channel": None, "to": None},
-            "state": {"nextRunAtMs": overdue_ms, "lastRunAtMs": None, "lastStatus": None, "lastError": None},
-            "createdAtMs": overdue_ms,
-            "updatedAtMs": overdue_ms,
-            "deleteAfterRun": False,
-        }],
-    }))
+    store_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "jobs": [
+                    {
+                        "id": str(uuid.uuid4())[:8],
+                        "name": "overdue job",
+                        "enabled": True,
+                        "schedule": {
+                            "kind": "every",
+                            "atMs": None,
+                            "everyMs": 60_000,
+                            "expr": None,
+                            "tz": None,
+                        },
+                        "payload": {
+                            "kind": "agent_turn",
+                            "message": "tick",
+                            "deliver": False,
+                            "channel": None,
+                            "to": None,
+                        },
+                        "state": {
+                            "nextRunAtMs": overdue_ms,
+                            "lastRunAtMs": None,
+                            "lastStatus": None,
+                            "lastError": None,
+                        },
+                        "createdAtMs": overdue_ms,
+                        "updatedAtMs": overdue_ms,
+                        "deleteAfterRun": False,
+                    }
+                ],
+            }
+        )
+    )
 
     await service._on_timer()
 
     assert "overdue job" in executed
 
 
+@pytest.mark.asyncio
 async def test_arm_timer_creates_poll_task_when_no_jobs(tmp_path) -> None:
     """_arm_timer schedules a timer even with no jobs so disk changes are polled."""
     service = CronService(tmp_path / "cron" / "jobs.json")
@@ -126,6 +151,7 @@ async def test_arm_timer_creates_poll_task_when_no_jobs(tmp_path) -> None:
     service.stop()
 
 
+@pytest.mark.asyncio
 async def test_on_timer_re_arms_after_save_store_oserror(tmp_path, monkeypatch) -> None:
     """_arm_timer is called even when _save_store raises OSError (e.g. disk full).
 
@@ -139,20 +165,43 @@ async def test_on_timer_re_arms_after_save_store_oserror(tmp_path, monkeypatch) 
     # Seed an overdue job directly so _on_timer has something to execute and save
     overdue_ms = int(time.time() * 1000) - 5_000
     store_path.parent.mkdir(parents=True, exist_ok=True)
-    store_path.write_text(json.dumps({
-        "version": 1,
-        "jobs": [{
-            "id": "testjob1",
-            "name": "overdue",
-            "enabled": True,
-            "schedule": {"kind": "every", "atMs": None, "everyMs": 60_000, "expr": None, "tz": None},
-            "payload": {"kind": "agent_turn", "message": "tick", "deliver": False, "channel": None, "to": None},
-            "state": {"nextRunAtMs": overdue_ms, "lastRunAtMs": None, "lastStatus": None, "lastError": None},
-            "createdAtMs": overdue_ms,
-            "updatedAtMs": overdue_ms,
-            "deleteAfterRun": False,
-        }],
-    }))
+    store_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "jobs": [
+                    {
+                        "id": "testjob1",
+                        "name": "overdue",
+                        "enabled": True,
+                        "schedule": {
+                            "kind": "every",
+                            "atMs": None,
+                            "everyMs": 60_000,
+                            "expr": None,
+                            "tz": None,
+                        },
+                        "payload": {
+                            "kind": "agent_turn",
+                            "message": "tick",
+                            "deliver": False,
+                            "channel": None,
+                            "to": None,
+                        },
+                        "state": {
+                            "nextRunAtMs": overdue_ms,
+                            "lastRunAtMs": None,
+                            "lastStatus": None,
+                            "lastError": None,
+                        },
+                        "createdAtMs": overdue_ms,
+                        "updatedAtMs": overdue_ms,
+                        "deleteAfterRun": False,
+                    }
+                ],
+            }
+        )
+    )
     service._load_store()
 
     # Make write_text fail to simulate disk-full or permission error
@@ -181,7 +230,9 @@ def test_load_store_preserves_jobs_on_stat_error(tmp_path, monkeypatch) -> None:
     store_path = tmp_path / "cron" / "jobs.json"
 
     seeder = CronService(store_path)
-    seeder.add_job(name="canary", schedule=CronSchedule(kind="every", every_ms=3_600_000), message="tick")
+    seeder.add_job(
+        name="canary", schedule=CronSchedule(kind="every", every_ms=3_600_000), message="tick"
+    )
 
     service = CronService(store_path)
 
@@ -340,21 +391,18 @@ def test_update_next_run_at_in_past_returns_none(tmp_path) -> None:
 
 def test_compute_next_run_every_ms_zero_returns_none() -> None:
     """Every-schedule with every_ms=0 yields next_run_at_ms=None."""
-    from nanobot.cron.service import _compute_next_run
     result = _compute_next_run(CronSchedule(kind="every", every_ms=0), int(time.time() * 1000))
     assert result is None
 
 
 def test_compute_next_run_at_none_returns_none() -> None:
     """_compute_next_run returns None for an 'at' schedule with at_ms=None."""
-    from nanobot.cron.service import _compute_next_run
     result = _compute_next_run(CronSchedule(kind="at", at_ms=None), int(time.time() * 1000))
     assert result is None
 
 
 def test_compute_next_run_cron_bad_expr() -> None:
     """_compute_next_run returns None (and logs warning) for an invalid cron expr."""
-    from nanobot.cron.service import _compute_next_run
     result = _compute_next_run(
         CronSchedule(kind="cron", expr="not a cron expr"),
         int(time.time() * 1000),
@@ -364,11 +412,11 @@ def test_compute_next_run_cron_bad_expr() -> None:
 
 def test_compute_next_run_cron_no_expr() -> None:
     """_compute_next_run returns None when cron kind has no expr."""
-    from nanobot.cron.service import _compute_next_run
     result = _compute_next_run(CronSchedule(kind="cron", expr=None), int(time.time() * 1000))
     assert result is None
 
 
+@pytest.mark.asyncio
 async def test_run_job_disabled_without_force(tmp_path) -> None:
     """run_job returns False for a disabled job without force=True."""
     service = CronService(tmp_path / "jobs.json")
@@ -378,6 +426,7 @@ async def test_run_job_disabled_without_force(tmp_path) -> None:
     assert result is False
 
 
+@pytest.mark.asyncio
 async def test_run_job_disabled_with_force(tmp_path) -> None:
     """run_job executes a disabled job when force=True."""
     executed: list[str] = []
@@ -393,6 +442,7 @@ async def test_run_job_disabled_with_force(tmp_path) -> None:
     assert "j" in executed
 
 
+@pytest.mark.asyncio
 async def test_run_job_not_found(tmp_path) -> None:
     """run_job returns False when the job ID does not exist."""
     service = CronService(tmp_path / "jobs.json")
@@ -400,6 +450,7 @@ async def test_run_job_not_found(tmp_path) -> None:
     assert result is False
 
 
+@pytest.mark.asyncio
 async def test_execute_job_sets_last_status_ok(tmp_path) -> None:
     """_execute_job sets last_status='ok' on success."""
     executed: list[str] = []
@@ -414,8 +465,10 @@ async def test_execute_job_sets_last_status_ok(tmp_path) -> None:
     assert job.id in executed
 
 
+@pytest.mark.asyncio
 async def test_execute_job_sets_last_status_error(tmp_path) -> None:
     """_execute_job sets last_status='error' when on_job raises."""
+
     async def failing_on_job(job):
         raise RuntimeError("boom")
 
@@ -426,26 +479,33 @@ async def test_execute_job_sets_last_status_error(tmp_path) -> None:
     assert "boom" in job.state.last_error
 
 
+@pytest.mark.asyncio
 async def test_execute_job_at_schedule_disables_job(tmp_path) -> None:
     """_execute_job disables an 'at' job (without delete_after_run) after execution."""
     future_ms = int(time.time() * 1000) + 60_000
     service = CronService(tmp_path / "jobs.json")
-    job = service.add_job("once", CronSchedule(kind="at", at_ms=future_ms), "msg", delete_after_run=False)
+    job = service.add_job(
+        "once", CronSchedule(kind="at", at_ms=future_ms), "msg", delete_after_run=False
+    )
     await service._execute_job(job)
     assert job.enabled is False
     assert job.state.next_run_at_ms is None
 
 
+@pytest.mark.asyncio
 async def test_execute_job_at_schedule_delete_after_run(tmp_path) -> None:
     """_execute_job removes an 'at' job with delete_after_run=True from the store."""
     future_ms = int(time.time() * 1000) + 60_000
     service = CronService(tmp_path / "jobs.json")
-    job = service.add_job("once", CronSchedule(kind="at", at_ms=future_ms), "msg", delete_after_run=True)
+    job = service.add_job(
+        "once", CronSchedule(kind="at", at_ms=future_ms), "msg", delete_after_run=True
+    )
     assert len(service.list_jobs(include_disabled=True)) == 1
     await service._execute_job(job)
     assert service.list_jobs(include_disabled=True) == []
 
 
+@pytest.mark.asyncio
 async def test_schedule_loop_guard_not_running(tmp_path) -> None:
     """_arm_timer does nothing when _running is False."""
     service = CronService(tmp_path / "jobs.json")
@@ -455,6 +515,7 @@ async def test_schedule_loop_guard_not_running(tmp_path) -> None:
     assert service._timer_task is None
 
 
+@pytest.mark.asyncio
 async def test_start_and_stop(tmp_path) -> None:
     """start() sets _running=True and creates a timer; stop() cancels it."""
     service = CronService(tmp_path / "jobs.json")

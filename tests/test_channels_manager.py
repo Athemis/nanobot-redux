@@ -11,7 +11,7 @@ from nanobot.channels.manager import ChannelManager
 from nanobot.config.schema import Config
 
 
-def make_config(matrix_enabled=False, email_enabled=False):
+def make_config(matrix_enabled: bool = False, email_enabled: bool = False) -> MagicMock:
     cfg = MagicMock(spec=Config)
     cfg.channels = MagicMock()
     cfg.channels.matrix = MagicMock()

@@ -8,7 +8,7 @@
 
 Current state (228 tests, 2.56s):
 
-```
+```text
 Total statements : 3792
 Currently covered: 2401  (63.3%)
 Target covered   : 3034  (80.0%)

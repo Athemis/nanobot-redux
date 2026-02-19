@@ -1,6 +1,7 @@
 """Tests for MessageBus."""
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -14,12 +15,12 @@ def bus():
     return MessageBus()
 
 
-def make_inbound(**kwargs):
+def make_inbound(**kwargs: Any) -> InboundMessage:
     defaults = dict(channel="matrix", sender_id="u1", chat_id="r1", content="hi")
     return InboundMessage(**{**defaults, **kwargs})
 
 
-def make_outbound(**kwargs):
+def make_outbound(**kwargs: Any) -> OutboundMessage:
     defaults = dict(channel="matrix", chat_id="r1", content="reply")
     return OutboundMessage(**{**defaults, **kwargs})
 
@@ -100,6 +101,7 @@ async def test_dispatch_outbound_logs_subscriber_error(bus):
     task = asyncio.create_task(bus.dispatch_outbound())
     await asyncio.sleep(0.05)
     bus.stop()
+    await asyncio.sleep(0.05)
     task.cancel()
     # No exception should propagate
 
@@ -110,6 +112,7 @@ async def test_dispatch_outbound_unknown_channel_is_silent(bus):
     task = asyncio.create_task(bus.dispatch_outbound())
     await asyncio.sleep(0.05)
     bus.stop()
+    await asyncio.sleep(0.05)
     task.cancel()
 
 

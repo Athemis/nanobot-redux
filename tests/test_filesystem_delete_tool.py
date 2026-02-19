@@ -191,7 +191,6 @@ async def test_read_file_no_restriction_reads_any_file(tmp_path: Path) -> None:
     assert result == "content"
 
 
-
 # ---------------------------------------------------------------------------
 # WriteFileTool coverage
 # ---------------------------------------------------------------------------
@@ -242,7 +241,6 @@ async def test_write_file_overwrites_existing_file(tmp_path: Path) -> None:
 
     assert "Successfully wrote" in result
     assert dest.read_text(encoding="utf-8") == "new content"
-
 
 
 # ---------------------------------------------------------------------------
@@ -308,7 +306,6 @@ async def test_edit_file_blocks_path_outside_allowed_dir(tmp_path: Path) -> None
     assert result.startswith("Error:")
 
 
-
 # ---------------------------------------------------------------------------
 # ListDirTool coverage
 # ---------------------------------------------------------------------------
@@ -316,7 +313,7 @@ async def test_edit_file_blocks_path_outside_allowed_dir(tmp_path: Path) -> None
 
 @pytest.mark.asyncio
 async def test_list_dir_returns_contents(tmp_path: Path) -> None:
-    (tmp_path / "file.txt").write_text("x")
+    (tmp_path / "file.txt").write_text("x", encoding="utf-8")
     (tmp_path / "subdir").mkdir()
 
     tool = ListDirTool()
@@ -350,7 +347,7 @@ async def test_list_dir_returns_error_for_missing_dir(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_list_dir_returns_error_for_file_path(tmp_path: Path) -> None:
     f = tmp_path / "a_file.txt"
-    f.write_text("data")
+    f.write_text("data", encoding="utf-8")
 
     tool = ListDirTool()
     result = await tool.execute(path=str(f))
@@ -369,7 +366,6 @@ async def test_list_dir_blocks_path_outside_allowed_dir(tmp_path: Path) -> None:
     result = await tool.execute(path=str(outside_dir))
 
     assert result.startswith("Error:")
-
 
 
 # ---------------------------------------------------------------------------
@@ -397,4 +393,3 @@ async def test_delete_file_removes_broken_symlink(tmp_path: Path) -> None:
 
     assert result == f"Successfully deleted {link}"
     assert not link.is_symlink()
-

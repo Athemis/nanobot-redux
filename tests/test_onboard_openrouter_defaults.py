@@ -91,7 +91,9 @@ def test_make_provider_passes_openai_codex_ssl_verify_from_config(
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.setattr("nanobot.providers.openai_codex_provider.OpenAICodexProvider", DummyProvider)
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider.OpenAICodexProvider", DummyProvider
+    )
 
     config = Config()
     config.agents.defaults.model = "openai-codex/gpt-5.2-codex"
@@ -109,16 +111,16 @@ from unittest.mock import AsyncMock, MagicMock, patch  # noqa: E402
 
 
 @pytest.fixture
-def basic_provider():
+def basic_provider() -> OpenAIProvider:
     with patch("nanobot.providers.openai_provider.AsyncOpenAI"):
         return OpenAIProvider(api_key="test", default_model="gpt-4o")
 
 
-def test_get_default_model(basic_provider):
+def test_get_default_model(basic_provider: OpenAIProvider) -> None:
     assert basic_provider.get_default_model() == "gpt-4o"
 
 
-def test_resolve_model_strips_gateway_strip_prefix(monkeypatch):
+def test_resolve_model_strips_gateway_strip_prefix(monkeypatch) -> None:
     import nanobot.providers.openai_provider as oai_mod
 
     spec = MagicMock()
@@ -134,7 +136,7 @@ def test_resolve_model_strips_gateway_strip_prefix(monkeypatch):
     assert p._resolve_model("openrouter/gpt-4o") == "gpt-4o"
 
 
-def test_resolve_model_strips_spec_prefix(monkeypatch):
+def test_resolve_model_strips_spec_prefix(monkeypatch) -> None:
     import nanobot.providers.openai_provider as oai_mod
 
     spec = MagicMock()
@@ -151,7 +153,7 @@ def test_resolve_model_strips_spec_prefix(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_chat_includes_tools_kwarg(basic_provider):
+async def test_chat_includes_tools_kwarg(basic_provider: OpenAIProvider) -> None:
     fake_response = MagicMock()
     fake_response.choices = [MagicMock()]
     fake_response.choices[0].message.content = "ok"
@@ -169,7 +171,7 @@ async def test_chat_includes_tools_kwarg(basic_provider):
 
 
 @pytest.mark.asyncio
-async def test_chat_returns_error_response_on_exception(basic_provider):
+async def test_chat_returns_error_response_on_exception(basic_provider: OpenAIProvider) -> None:
     basic_provider._client.chat.completions.create = AsyncMock(
         side_effect=RuntimeError("network error")
     )
@@ -178,7 +180,7 @@ async def test_chat_returns_error_response_on_exception(basic_provider):
     assert "network error" in response.content
 
 
-def test_parse_raises_on_empty_choices(basic_provider):
+def test_parse_raises_on_empty_choices(basic_provider: OpenAIProvider) -> None:
     fake_response = MagicMock()
     fake_response.choices = []
     with pytest.raises(ValueError, match="no choices"):

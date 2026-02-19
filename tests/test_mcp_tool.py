@@ -82,3 +82,6 @@ async def test_connect_mcp_servers_logs_error_on_failure():
     async with AsyncExitStack() as stack:
         with patch("mcp.client.stdio.stdio_client", side_effect=FileNotFoundError("not found")):
             await connect_mcp_servers({"srv": cfg}, registry, stack)
+
+    # Registry should remain empty after failed connection
+    assert registry.get_definitions() == []

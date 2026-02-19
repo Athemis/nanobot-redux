@@ -65,8 +65,11 @@ def test_get_skills_path_default(tmp_path, monkeypatch):
 
 
 def test_timestamp_returns_iso_string():
+    from datetime import datetime
+
     ts = timestamp()
-    assert "T" in ts or "-" in ts  # ISO format
+    assert "T" in ts and "-" in ts  # ISO format contains both
+    datetime.fromisoformat(ts)  # raises if not a valid ISO datetime string
 
 
 def test_truncate_string_no_truncation():
