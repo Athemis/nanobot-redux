@@ -141,7 +141,12 @@ class OpenAIProvider(LLMProvider):
 
 
 def _hash_prompt_cache_key(prompt_cache_key: str, secret: str | None) -> str:
-    """Return a deterministic HMAC-SHA256 cache key with versioned input."""
+    """Return deterministic HMAC-SHA256 key material for OpenAI prompt caching.
+
+    The "v1:" prefix version-tags the hash input so we can safely change hashing
+    strategy later (e.g., v2 with different normalization/secret handling) without
+    colliding with previously derived cache keys.
+    """
     key_material = (secret or "nanobot").encode("utf-8")
     message = f"v1:{prompt_cache_key}".encode("utf-8")
     return hmac.new(key_material, message, hashlib.sha256).hexdigest()
