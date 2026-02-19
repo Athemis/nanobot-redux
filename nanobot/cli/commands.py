@@ -391,8 +391,30 @@ def gateway(
     # Set cron callback (needs agent)
     async def on_cron_job(job: CronJob) -> str | None:
         """Execute a cron job through the agent."""
+        if job.payload.kind == "skill":
+            from loguru import logger as _logger
+            skill_name = job.payload.skill or ""
+            if not skill_name:
+                _logger.error(f"Cron: job '{job.name}' has kind='skill' but no skill name set")
+                return None
+            skill_content = agent.context.skills.load_skills_for_context([skill_name])
+            if skill_content:
+                lines = [
+                    f"Execute the `{skill_name}` skill now. Follow the skill instructions exactly without asking for clarification.",
+                ]
+                if job.payload.message:
+                    lines.append(job.payload.message)
+                lines.append("")
+                lines.append(skill_content)
+                message = "\n".join(lines)
+            else:
+                _logger.warning(f"Cron: skill '{skill_name}' not found; passing skill name as fallback")
+                message = f"Execute skill: {skill_name}"
+        else:
+            message = job.payload.message
+
         response = await agent.process_direct(
-            job.payload.message,
+            message,
             session_key=f"cron:{job.id}",
             channel=job.payload.channel or "cli",
             chat_id=job.payload.to or "direct",
@@ -661,7 +683,8 @@ def cron_list(
 @cron_app.command("add")
 def cron_add(
     name: str = typer.Option(..., "--name", "-n", help="Job name"),
-    message: str = typer.Option(..., "--message", "-m", help="Message for agent"),
+    message: str = typer.Option(None, "--message", "-m", help="Message for agent"),
+    skill: str = typer.Option(None, "--skill", "-s", help="Skill name to execute (alternative to --message)"),
     every: int = typer.Option(None, "--every", "-e", help="Run every N seconds"),
     cron_expr: str = typer.Option(None, "--cron", "-c", help="Cron expression (e.g. '0 9 * * *')"),
     tz: str | None = typer.Option(None, "--tz", help="IANA timezone for cron (e.g. 'America/Vancouver')"),
@@ -674,6 +697,13 @@ def cron_add(
     from nanobot.config.loader import get_data_dir
     from nanobot.cron.service import CronService
     from nanobot.cron.types import CronSchedule
+
+    if not message and not skill:
+        console.print("[red]Error: Must specify --message or --skill[/red]")
+        raise typer.Exit(1)
+    if message and skill:
+        console.print("[red]Error: Cannot use both --message and --skill[/red]")
+        raise typer.Exit(1)
 
     if tz and not cron_expr:
         console.print("[red]Error: --tz can only be used with --cron[/red]")
@@ -699,7 +729,8 @@ def cron_add(
         job = service.add_job(
             name=name,
             schedule=schedule,
-            message=message,
+            message=message or "",
+            skill=skill,
             deliver=deliver,
             to=to,
             channel=channel,
