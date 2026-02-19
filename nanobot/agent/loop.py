@@ -335,10 +335,34 @@ class AgentLoop:
         if len(session.messages) > self.memory_window:
             asyncio.create_task(self._consolidate_memory(session))
 
+        # Expand "skill:name [args]" to inject SKILL.md content for deterministic execution.
+        # This prevents the LLM from asking for clarification or misidentifying the skill.
+        # The original message is preserved in session history; only the LLM prompt is expanded.
+        current_message = msg.content
+        raw = msg.content.strip()
+        if raw.startswith("skill:"):
+            rest = raw[len("skill:"):].strip()
+            skill_parts = rest.split(None, 1)
+            skill_name = skill_parts[0] if skill_parts else ""
+            skill_args = skill_parts[1].strip() if len(skill_parts) > 1 else ""
+            if skill_name:
+                skill_content = self.context.skills.load_skills_for_context([skill_name])
+                if skill_content:
+                    lines = [
+                        f"Execute the `{skill_name}` skill now. Follow the skill instructions exactly without asking for clarification.",
+                    ]
+                    if skill_args:
+                        lines.append(f"Arguments: {skill_args}")
+                    lines.append("")
+                    lines.append(skill_content)
+                    current_message = "\n".join(lines)
+                else:
+                    logger.warning(f"Skill '{skill_name}' not found; passing message as-is")
+
         self._set_tool_context(msg.channel, msg.chat_id)
         initial_messages = self.context.build_messages(
             history=session.get_history(max_messages=self.memory_window),
-            current_message=msg.content,
+            current_message=current_message,
             media=msg.media if msg.media else None,
             channel=msg.channel,
             chat_id=msg.chat_id,
