@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
 import json_repair
@@ -26,11 +28,15 @@ class OpenAIProvider(LLMProvider):
         default_model: str = "gpt-4o",
         extra_headers: dict[str, str] | None = None,
         provider_name: str | None = None,
+        prompt_caching_enabled: bool = False,
+        prompt_cache_retention: str | None = None,
     ):
         super().__init__(api_key, api_base)
         self.default_model = default_model
         self._provider_name = provider_name
         self._gateway = find_gateway(provider_name, api_key, api_base)
+        self._prompt_caching_enabled = prompt_caching_enabled
+        self._prompt_cache_retention = prompt_cache_retention
 
         spec = self._gateway or find_by_model(default_model) or find_by_name(provider_name or "")
         effective_base = api_base or (spec.default_api_base if spec else None)
@@ -48,14 +54,14 @@ class OpenAIProvider(LLMProvider):
                 return model.split("/")[-1]
             prefix = self._gateway.model_prefix
             if prefix and model.startswith(f"{prefix}/"):
-                model = model[len(prefix) + 1:]
+                model = model[len(prefix) + 1 :]
             return model
 
         spec = find_by_model(model) or find_by_name(self._provider_name or "")
         if spec and spec.model_prefix:
             pfx = f"{spec.model_prefix}/"
             if model.startswith(pfx):
-                model = model[len(pfx):]
+                model = model[len(pfx) :]
         return model
 
     def _apply_model_overrides(self, model: str, kwargs: dict[str, Any]) -> None:
@@ -86,6 +92,10 @@ class OpenAIProvider(LLMProvider):
             "temperature": temperature,
         }
         self._apply_model_overrides(model, kwargs)
+        if self._prompt_caching_enabled:
+            kwargs["prompt_cache_key"] = _prompt_cache_key(messages)
+            if self._prompt_cache_retention:
+                kwargs["prompt_cache_retention"] = self._prompt_cache_retention
         if tools:
             kwargs.update(tools=tools, tool_choice="auto")
         try:
@@ -127,3 +137,9 @@ class OpenAIProvider(LLMProvider):
 
     def get_default_model(self) -> str:
         return self.default_model
+
+
+def _prompt_cache_key(messages: list[dict[str, Any]]) -> str:
+    """Generate a stable cache key from message payloads."""
+    raw = json.dumps(messages, ensure_ascii=True, sort_keys=True)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()

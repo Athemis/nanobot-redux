@@ -54,6 +54,22 @@ def test_model_validate_maps_openai_codex_ssl_verify() -> None:
     assert config.providers.openai_codex.ssl_verify is False
 
 
+def test_model_validate_maps_openai_prompt_caching_fields() -> None:
+    data = {
+        "providers": {
+            "openai": {
+                "promptCachingEnabled": True,
+                "promptCacheRetention": "24h",
+            }
+        }
+    }
+
+    config = Config.model_validate(data)
+
+    assert config.providers.openai.prompt_caching_enabled is True
+    assert config.providers.openai.prompt_cache_retention == "24h"
+
+
 def test_model_validate_maps_provider_fields_and_preserves_header_entry_keys() -> None:
     data = {
         "providers": {
@@ -139,6 +155,24 @@ def test_model_dump_by_alias_preserves_extra_headers_entry_names() -> None:
 
     assert headers["X_Custom_Header"] == "value"
     assert headers["X_Trace_ID"] == "trace"
+
+
+def test_model_dump_by_alias_outputs_openai_prompt_caching_fields() -> None:
+    config = Config.model_validate(
+        {
+            "providers": {
+                "openai": {
+                    "promptCachingEnabled": True,
+                    "promptCacheRetention": "24h",
+                }
+            }
+        }
+    )
+
+    dumped = config.model_dump(by_alias=True)
+
+    assert dumped["providers"]["openai"]["promptCachingEnabled"] is True
+    assert dumped["providers"]["openai"]["promptCacheRetention"] == "24h"
 
 
 def test_model_validate_accepts_e2ee_enabled_with_correct_casing() -> None:

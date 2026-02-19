@@ -51,6 +51,7 @@ class EmailConfig(Base):
 
 class MatrixConfig(Base):
     """Matrix (Element) channel configuration."""
+
     enabled: bool = False
     homeserver: str = "https://matrix.org"
     access_token: str = ""
@@ -66,6 +67,7 @@ class MatrixConfig(Base):
     group_policy: Literal["open", "mention", "allowlist"] = "open"
     group_allow_from: list[str] = Field(default_factory=list)
     allow_room_mentions: bool = False
+
 
 class ChannelsConfig(Base):
     """Configuration for chat channels."""
@@ -97,6 +99,8 @@ class ProviderConfig(Base):
     api_key: str = ""
     api_base: str | None = None
     extra_headers: dict[str, str] | None = None  # Custom headers (e.g. APP-Code for AiHubMix)
+    prompt_caching_enabled: bool = False
+    prompt_cache_retention: str | None = None
 
 
 class OpenAICodexProviderConfig(ProviderConfig):
@@ -107,6 +111,7 @@ class OpenAICodexProviderConfig(ProviderConfig):
 
 class ProvidersConfig(Base):
     """Configuration for LLM providers."""
+
     openai: ProviderConfig = Field(default_factory=ProviderConfig)
     openrouter: ProviderConfig = Field(default_factory=ProviderConfig)
     deepseek: ProviderConfig = Field(default_factory=ProviderConfig)
@@ -132,9 +137,10 @@ class GatewayConfig(Base):
 
 class WebSearchConfig(Base):
     """Web search tool configuration."""
-    provider: str = ""             # brave, tavily, searxng, duckduckgo (empty = brave)
-    api_key: str = ""             # API key for the selected provider
-    base_url: str = ""            # Base URL (SearXNG)
+
+    provider: str = ""  # brave, tavily, searxng, duckduckgo (empty = brave)
+    api_key: str = ""  # API key for the selected provider
+    base_url: str = ""  # Base URL (SearXNG)
     fallback_to_duckduckgo: bool = True
     max_results: int = 5
 
@@ -153,6 +159,7 @@ class ExecToolConfig(Base):
 
 class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
+
     command: str = ""  # Stdio: command to run (e.g. "npx")
     args: list[str] = Field(default_factory=list)  # Stdio: command arguments
     env: dict[str, str] = Field(default_factory=dict)  # Stdio: extra env vars
@@ -238,7 +245,4 @@ class Config(BaseSettings):
                 return spec.default_api_base
         return None
 
-    model_config = ConfigDict(
-        env_prefix="NANOBOT_",
-        env_nested_delimiter="__"
-    )
+    model_config = ConfigDict(env_prefix="NANOBOT_", env_nested_delimiter="__")
