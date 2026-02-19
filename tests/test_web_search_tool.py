@@ -1,3 +1,5 @@
+import json as _json
+import unittest.mock as mock
 from collections.abc import Callable
 from typing import Literal
 
@@ -207,9 +209,7 @@ async def test_web_search_brave_missing_key_without_fallback_returns_error(
 
 @pytest.mark.asyncio
 async def test_web_search_searxng_missing_base_url_falls_back_to_duckduckgo() -> None:
-    tool = WebSearchTool(
-        config=WebSearchConfig(provider="searxng", base_url="", max_results=5)
-    )
+    tool = WebSearchTool(config=WebSearchConfig(provider="searxng", base_url="", max_results=5))
 
     result = await tool.execute(query="nanobot", count=1)
     assert "DuckDuckGo fallback" in result
@@ -220,8 +220,10 @@ async def test_web_search_searxng_missing_base_url_falls_back_to_duckduckgo() ->
 async def test_web_search_searxng_missing_base_url_no_fallback_returns_error() -> None:
     tool = WebSearchTool(
         config=WebSearchConfig(
-            provider="searxng", base_url="",
-            fallback_to_duckduckgo=False, max_results=5,
+            provider="searxng",
+            base_url="",
+            fallback_to_duckduckgo=False,
+            max_results=5,
         )
     )
 
@@ -326,3 +328,511 @@ async def test_web_search_searxng_rejects_invalid_url() -> None:
     )
     result = await tool.execute(query="nanobot", count=1)
     assert "Error: invalid SearXNG URL" in result
+
+
+# ---------------------------------------------------------------------------
+# Helpers for patching httpx.AsyncClient to use a MockTransport
+# ---------------------------------------------------------------------------
+
+
+def _patch_async_client(transport):
+    """Return a context manager that injects *transport* into AsyncClient.
+
+    Note: patched_init mirrors the (*args, **kwargs) signature of the original
+    __init__ to avoid silently dropping positional arguments if the httpx API
+    changes in the future.
+    """
+    original_init = httpx.AsyncClient.__init__
+
+    def patched_init(self, *args, **kwargs):
+        kwargs["transport"] = transport
+        original_init(self, *args, **kwargs)
+
+    return mock.patch.object(httpx.AsyncClient, "__init__", patched_init)
+
+
+# ---------------------------------------------------------------------------
+# _validate_url helper — missing domain and exception paths
+# ---------------------------------------------------------------------------
+
+
+def test_validate_url_missing_domain() -> None:
+    from nanobot.agent.tools.web import _validate_url
+
+    ok, msg = _validate_url("http://")
+    assert not ok
+    assert "Missing domain" in msg
+
+
+def test_validate_url_non_http_scheme() -> None:
+    from nanobot.agent.tools.web import _validate_url
+
+    ok, msg = _validate_url("ftp://example.com")
+    assert not ok
+    assert "ftp" in msg
+
+
+def test_validate_url_valid() -> None:
+    from nanobot.agent.tools.web import _validate_url
+
+    ok, msg = _validate_url("https://example.com/path")
+    assert ok
+    assert msg == ""
+
+
+# ---------------------------------------------------------------------------
+# _format_results helper — empty results path
+# ---------------------------------------------------------------------------
+
+
+def test_format_results_empty() -> None:
+    from nanobot.agent.tools.web import _format_results
+
+    result = _format_results("myquery", [], 5)
+    assert result == "No results for: myquery"
+
+
+# ---------------------------------------------------------------------------
+# WebSearchTool — Brave HTTP error path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_brave_http_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="Internal Server Error")
+
+    tool = _tool(
+        WebSearchConfig(provider="brave", api_key="brave-key", max_results=5),
+        handler,
+    )
+    result = await tool.execute(query="nanobot", count=1)
+    assert result.startswith("Error:")
+
+
+# ---------------------------------------------------------------------------
+# WebSearchTool — Tavily missing key without fallback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_tavily_missing_key_without_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    tool = WebSearchTool(
+        config=WebSearchConfig(
+            provider="tavily",
+            api_key="",
+            fallback_to_duckduckgo=False,
+        )
+    )
+    result = await tool.execute(query="anything", count=1)
+    assert result == "Error: TAVILY_API_KEY not configured"
+
+
+# ---------------------------------------------------------------------------
+# WebSearchTool — Tavily HTTP error path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_tavily_http_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="Service Unavailable")
+
+    tool = _tool(
+        WebSearchConfig(provider="tavily", api_key="tavily-key", max_results=5),
+        handler,
+    )
+    result = await tool.execute(query="nanobot", count=1)
+    assert result.startswith("Error:")
+
+
+# ---------------------------------------------------------------------------
+# WebSearchTool — DuckDuckGo no results path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_duckduckgo_no_results() -> None:
+    class EmptyDDGS:
+        def text(self, keywords: str, max_results: int):
+            return []
+
+    tool = WebSearchTool(
+        config=WebSearchConfig(provider="duckduckgo", max_results=5),
+        ddgs_factory=lambda: EmptyDDGS(),
+    )
+    result = await tool.execute(query="obscurequery", count=1)
+    assert result == "No results for: obscurequery"
+
+
+# ---------------------------------------------------------------------------
+# WebSearchTool — DuckDuckGo exception path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_duckduckgo_exception() -> None:
+    class BrokenDDGS:
+        def text(self, keywords: str, max_results: int):
+            raise RuntimeError("network failure")
+
+    tool = WebSearchTool(
+        config=WebSearchConfig(provider="duckduckgo", max_results=5),
+        ddgs_factory=lambda: BrokenDDGS(),
+    )
+    result = await tool.execute(query="nanobot", count=1)
+    assert "Error: DuckDuckGo search failed" in result
+    assert "network failure" in result
+
+
+# ---------------------------------------------------------------------------
+# WebSearchTool — fallback DDG itself errors
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_fallback_duckduckgo_itself_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BRAVE_API_KEY", raising=False)
+
+    class BrokenDDGS:
+        def text(self, keywords: str, max_results: int):
+            raise RuntimeError("ddg is down")
+
+    tool = WebSearchTool(
+        config=WebSearchConfig(
+            provider="brave", api_key="", fallback_to_duckduckgo=True, max_results=5
+        ),
+        ddgs_factory=lambda: BrokenDDGS(),
+    )
+    result = await tool.execute(query="nanobot", count=1)
+    assert result.startswith("Error:")
+
+
+# ---------------------------------------------------------------------------
+# WebSearchTool — SearXNG HTTP error path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_search_searxng_http_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, text="Bad Gateway")
+
+    tool = _tool(
+        WebSearchConfig(provider="searxng", base_url="https://searx.example", max_results=5),
+        handler,
+    )
+    result = await tool.execute(query="nanobot", count=1)
+    assert result.startswith("Error:")
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — constructor and tool properties
+# ---------------------------------------------------------------------------
+
+
+def test_web_fetch_tool_properties() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool(max_chars=12345)
+    assert tool.name == "web_fetch"
+    assert tool.description
+    assert tool.max_chars == 12345
+    assert "url" in tool.parameters["properties"]
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — URL validation failure
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_invalid_url() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+    result = await tool.execute(url="ftp://bad-scheme.example.com")
+    data = _json.loads(result)
+    assert "error" in data
+    assert "URL validation failed" in data["error"]
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — successful HTML fetch with markdown extraction
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_html_markdown() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+
+    html_body = (
+        "<!doctype html><html><head><title>Test Page</title></head>"
+        "<body><p>Hello <a href='https://example.com'>World</a></p>"
+        "<h2>Section</h2><ul><li>Item one</li></ul></body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, text=html_body, headers={"content-type": "text/html; charset=utf-8"}
+        )
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(url="https://example.com/page")
+
+    data = _json.loads(result)
+    assert data["status"] == 200
+    assert data["extractor"] == "readability"
+    assert "text" in data
+    assert data["truncated"] is False
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — successful JSON fetch
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_json_content() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+    payload = {"key": "value", "numbers": [1, 2, 3]}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=payload,
+            headers={"content-type": "application/json"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(url="https://api.example.com/data")
+
+    data = _json.loads(result)
+    assert data["extractor"] == "json"
+    assert "key" in data["text"]
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — raw text fetch (non-HTML, non-JSON content-type)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_raw_text() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="plain text content here",
+            headers={"content-type": "text/plain"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(url="https://example.com/data.txt")
+
+    data = _json.loads(result)
+    assert data["extractor"] == "raw"
+    assert "plain text content here" in data["text"]
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — truncation path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_truncation() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool(max_chars=20)
+    long_text = "A" * 500
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=long_text,
+            headers={"content-type": "text/plain"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(url="https://example.com/long")
+
+    data = _json.loads(result)
+    assert data["truncated"] is True
+    assert len(data["text"]) == 20
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — HTTP error exception path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_http_error() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, text="Not Found")
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(url="https://example.com/missing")
+
+    data = _json.loads(result)
+    assert "error" in data
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — kwargs extractMode and maxChars forwarding
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_kwargs_extract_mode_and_max_chars() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool(max_chars=50000)
+    html_body = (
+        "<!doctype html><html><head><title>KW Test</title></head>"
+        "<body><p>Content here that is longer than fifty characters total</p></body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html_body, headers={"content-type": "text/html"})
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(
+            url="https://example.com/kw",
+            extractMode="text",
+            maxChars=50,
+        )
+
+    data = _json.loads(result)
+    assert data["extractor"] == "readability"
+    assert len(data["text"]) <= 50
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — HTML fetch with text extraction mode
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_html_text_mode() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+    html_body = (
+        "<!doctype html><html><head><title>Text Mode</title></head>"
+        "<body><p>Simple content</p></body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html_body, headers={"content-type": "text/html"})
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(url="https://example.com/textmode", extract_mode="text")
+
+    data = _json.loads(result)
+    assert data["extractor"] == "readability"
+    assert "text" in data
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — HTML detected via body sniff (no text/html content-type)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_html_sniffed_from_body() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+    html_body = (
+        "<!doctype html><html><head><title>Sniffed</title></head><body><p>Hi</p></body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, text=html_body, headers={"content-type": "application/octet-stream"}
+        )
+
+    transport = httpx.MockTransport(handler)
+    with _patch_async_client(transport):
+        result = await tool.execute(url="https://example.com/sniff")
+
+    data = _json.loads(result)
+    assert data["extractor"] == "readability"
+
+
+# ---------------------------------------------------------------------------
+# WebFetchTool — _to_markdown method directly
+# ---------------------------------------------------------------------------
+
+
+def test_web_fetch_to_markdown_links_headings_lists() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+    html = (
+        "<h1>Title</h1>"
+        "<p>Para with <a href='https://x.com'>link text</a></p>"
+        "<ul><li>Item A</li><li>Item B</li></ul>"
+        "<div>end</div>"
+        "<br/>"
+        "<hr>"
+    )
+    result = tool._to_markdown(html)
+    assert "# Title" in result
+    assert "[link text](https://x.com)" in result
+    assert "- Item A" in result
+    assert "- Item B" in result
+
+
+def test_web_fetch_to_markdown_headings_h2_h3() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+    html = "<h2>Second</h2><h3>Third</h3>"
+    result = tool._to_markdown(html)
+    assert "## Second" in result
+    assert "### Third" in result
+
+
+def test_web_fetch_to_markdown_section_and_article_breaks() -> None:
+    from nanobot.agent.tools.web import WebFetchTool
+
+    tool = WebFetchTool()
+    html = "<section>content</section><article>more</article>"
+    result = tool._to_markdown(html)
+    assert "content" in result
+    assert "more" in result
+
+
+def test_validate_url_exception_returns_error() -> None:
+    from nanobot.agent.tools.web import _validate_url
+
+    with mock.patch("nanobot.agent.tools.web.urlparse", side_effect=ValueError("parse error")):
+        ok, msg = _validate_url("https://example.com")
+    assert not ok
+    assert "parse error" in msg

@@ -91,7 +91,9 @@ def test_make_provider_passes_openai_codex_ssl_verify_from_config(
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.setattr("nanobot.providers.openai_codex_provider.OpenAICodexProvider", DummyProvider)
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider.OpenAICodexProvider", DummyProvider
+    )
 
     config = Config()
     config.agents.defaults.model = "openai-codex/gpt-5.2-codex"
@@ -101,3 +103,85 @@ def test_make_provider_passes_openai_codex_ssl_verify_from_config(
 
     assert captured["default_model"] == "openai-codex/gpt-5.2-codex"
     assert captured["ssl_verify"] is False
+
+
+# ── Additional OpenAIProvider coverage ────────────────────────────────────────
+
+from unittest.mock import AsyncMock, MagicMock, patch  # noqa: E402
+
+
+@pytest.fixture
+def basic_provider() -> OpenAIProvider:
+    with patch("nanobot.providers.openai_provider.AsyncOpenAI"):
+        return OpenAIProvider(api_key="test", default_model="gpt-4o")
+
+
+def test_get_default_model(basic_provider: OpenAIProvider) -> None:
+    assert basic_provider.get_default_model() == "gpt-4o"
+
+
+def test_resolve_model_strips_gateway_strip_prefix(monkeypatch) -> None:
+    import nanobot.providers.openai_provider as oai_mod
+
+    spec = MagicMock()
+    spec.strip_model_prefix = True
+    spec.model_prefix = None
+    spec.default_api_base = None
+    spec.model_overrides = []
+    monkeypatch.setattr(oai_mod, "find_gateway", lambda *a, **k: spec)
+    monkeypatch.setattr(oai_mod, "find_by_model", lambda *a: None)
+    monkeypatch.setattr(oai_mod, "find_by_name", lambda *a: None)
+    with patch("nanobot.providers.openai_provider.AsyncOpenAI"):
+        p = OpenAIProvider(api_key="k", api_base="http://x", provider_name="x")
+    assert p._resolve_model("openrouter/gpt-4o") == "gpt-4o"
+
+
+def test_resolve_model_strips_spec_prefix(monkeypatch) -> None:
+    import nanobot.providers.openai_provider as oai_mod
+
+    spec = MagicMock()
+    spec.strip_model_prefix = False
+    spec.model_prefix = "openrouter"
+    spec.default_api_base = None
+    spec.model_overrides = []
+    monkeypatch.setattr(oai_mod, "find_gateway", lambda *a, **k: None)
+    monkeypatch.setattr(oai_mod, "find_by_model", lambda m: spec if "openrouter" in m else None)
+    monkeypatch.setattr(oai_mod, "find_by_name", lambda *a: None)
+    with patch("nanobot.providers.openai_provider.AsyncOpenAI"):
+        p = OpenAIProvider(api_key="k", default_model="openrouter/gpt-4o")
+    assert p._resolve_model("openrouter/gpt-4o") == "gpt-4o"
+
+
+@pytest.mark.asyncio
+async def test_chat_includes_tools_kwarg(basic_provider: OpenAIProvider) -> None:
+    fake_response = MagicMock()
+    fake_response.choices = [MagicMock()]
+    fake_response.choices[0].message.content = "ok"
+    fake_response.choices[0].message.tool_calls = []
+    fake_response.choices[0].finish_reason = "stop"
+    fake_response.usage = None
+    basic_provider._client.chat.completions.create = AsyncMock(return_value=fake_response)
+
+    tools = [{"type": "function", "function": {"name": "t"}}]
+    await basic_provider.chat([{"role": "user", "content": "hi"}], tools=tools)
+
+    call_kwargs = basic_provider._client.chat.completions.create.call_args[1]
+    assert "tools" in call_kwargs
+    assert call_kwargs["tool_choice"] == "auto"
+
+
+@pytest.mark.asyncio
+async def test_chat_returns_error_response_on_exception(basic_provider: OpenAIProvider) -> None:
+    basic_provider._client.chat.completions.create = AsyncMock(
+        side_effect=RuntimeError("network error")
+    )
+    response = await basic_provider.chat([{"role": "user", "content": "hi"}])
+    assert response.finish_reason == "error"
+    assert "network error" in response.content
+
+
+def test_parse_raises_on_empty_choices(basic_provider: OpenAIProvider) -> None:
+    fake_response = MagicMock()
+    fake_response.choices = []
+    with pytest.raises(ValueError, match="no choices"):
+        basic_provider._parse(fake_response)

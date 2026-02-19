@@ -1,10 +1,17 @@
 """Tests for camelCase/snake_case config handling via Pydantic alias_generator."""
 
+import json
 import warnings
 
 import pytest
 
-from nanobot.config.loader import _migrate_config
+from nanobot.config.loader import (
+    _migrate_config,
+    get_config_path,
+    get_data_dir,
+    load_config,
+    save_config,
+)
 from nanobot.config.schema import Config
 
 
@@ -231,5 +238,55 @@ def test_round_trip_preserves_camel_case_structure() -> None:
     dumped = config.model_dump(by_alias=True)
 
     assert dumped["providers"]["openrouter"]["apiBase"] == "https://openrouter.ai/api/v1"
-    assert dumped["providers"]["openrouter"]["extraHeaders"]["HTTP-Referer"] == "https://example.com"
+    assert (
+        dumped["providers"]["openrouter"]["extraHeaders"]["HTTP-Referer"] == "https://example.com"
+    )
     assert dumped["tools"]["restrictToWorkspace"] is True
+
+
+# ── Additional tests for loader functions ─────────────────────────────────────
+
+
+def test_get_config_path_returns_default() -> None:
+    path = get_config_path()
+    assert path.name == "config.json"
+    assert ".nanobot" in str(path)
+
+
+def test_get_data_dir_returns_path() -> None:
+    d = get_data_dir()
+    assert d.exists()
+
+
+def test_load_config_from_existing_file(tmp_path) -> None:
+    cfg_file = tmp_path / "config.json"
+    cfg_file.write_text('{"model": "gpt-4o"}', encoding="utf-8")
+    cfg = load_config(cfg_file)
+    assert isinstance(cfg, Config)
+
+
+def test_load_config_returns_default_when_file_missing(tmp_path) -> None:
+    cfg = load_config(tmp_path / "nonexistent.json")
+    assert isinstance(cfg, Config)
+
+
+def test_load_config_returns_default_on_invalid_json(tmp_path) -> None:
+    cfg_file = tmp_path / "config.json"
+    cfg_file.write_text("not-json", encoding="utf-8")
+    cfg = load_config(cfg_file)
+    assert isinstance(cfg, Config)
+
+
+def test_save_config_writes_valid_json(tmp_path) -> None:
+    cfg = Config()
+    out = tmp_path / "out.json"
+    save_config(cfg, out)
+    data = json.loads(out.read_text())
+    assert isinstance(data, dict)
+
+
+def test_save_config_creates_parent_dirs(tmp_path) -> None:
+    cfg = Config()
+    out = tmp_path / "sub" / "dir" / "config.json"
+    save_config(cfg, out)
+    assert out.exists()
