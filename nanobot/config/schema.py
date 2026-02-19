@@ -100,6 +100,7 @@ class ProviderConfig(Base):
     api_base: str | None = None
     extra_headers: dict[str, str] | None = None  # Custom headers (e.g. APP-Code for AiHubMix)
     prompt_caching_enabled: bool | None = None
+    prompt_cache_key: str | None = None
     prompt_cache_retention: str | None = None
 
 

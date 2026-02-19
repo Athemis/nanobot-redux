@@ -59,6 +59,7 @@ def test_model_validate_maps_openai_prompt_caching_fields() -> None:
         "providers": {
             "openai": {
                 "promptCachingEnabled": True,
+                "promptCacheKey": "session-123",
                 "promptCacheRetention": "24h",
             }
         }
@@ -67,6 +68,7 @@ def test_model_validate_maps_openai_prompt_caching_fields() -> None:
     config = Config.model_validate(data)
 
     assert config.providers.openai.prompt_caching_enabled is True
+    assert config.providers.openai.prompt_cache_key == "session-123"
     assert config.providers.openai.prompt_cache_retention == "24h"
 
 
@@ -169,6 +171,7 @@ def test_model_dump_by_alias_outputs_openai_prompt_caching_fields() -> None:
             "providers": {
                 "openai": {
                     "promptCachingEnabled": True,
+                    "promptCacheKey": "session-123",
                     "promptCacheRetention": "24h",
                 }
             }
@@ -178,6 +181,7 @@ def test_model_dump_by_alias_outputs_openai_prompt_caching_fields() -> None:
     dumped = config.model_dump(by_alias=True)
 
     assert dumped["providers"]["openai"]["promptCachingEnabled"] is True
+    assert dumped["providers"]["openai"]["promptCacheKey"] == "session-123"
     assert dumped["providers"]["openai"]["promptCacheRetention"] == "24h"
 
 

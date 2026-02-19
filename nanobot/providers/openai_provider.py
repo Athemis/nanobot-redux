@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from typing import Any
 
 import json_repair
@@ -29,6 +27,7 @@ class OpenAIProvider(LLMProvider):
         extra_headers: dict[str, str] | None = None,
         provider_name: str | None = None,
         prompt_caching_enabled: bool = False,
+        prompt_cache_key: str | None = None,
         prompt_cache_retention: str | None = None,
     ):
         super().__init__(api_key, api_base)
@@ -36,6 +35,7 @@ class OpenAIProvider(LLMProvider):
         self._provider_name = provider_name
         self._gateway = find_gateway(provider_name, api_key, api_base)
         self._prompt_caching_enabled = prompt_caching_enabled
+        self._prompt_cache_key = prompt_cache_key
         self._prompt_cache_retention = prompt_cache_retention
 
         spec = self._gateway or find_by_model(default_model) or find_by_name(provider_name or "")
@@ -92,8 +92,8 @@ class OpenAIProvider(LLMProvider):
             "temperature": temperature,
         }
         self._apply_model_overrides(model, kwargs)
-        if self._prompt_caching_enabled:
-            kwargs["prompt_cache_key"] = _prompt_cache_key(messages)
+        if self._prompt_caching_enabled and self._prompt_cache_key:
+            kwargs["prompt_cache_key"] = self._prompt_cache_key
             if self._prompt_cache_retention:
                 kwargs["prompt_cache_retention"] = self._prompt_cache_retention
         if tools:
@@ -137,9 +137,3 @@ class OpenAIProvider(LLMProvider):
 
     def get_default_model(self) -> str:
         return self.default_model
-
-
-def _prompt_cache_key(messages: list[dict[str, Any]]) -> str:
-    """Generate a stable cache key from message payloads."""
-    raw = json.dumps(messages, ensure_ascii=True, sort_keys=True)
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()

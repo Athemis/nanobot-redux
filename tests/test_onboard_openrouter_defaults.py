@@ -120,11 +120,13 @@ def test_make_provider_passes_openai_prompt_caching_config(
     config.agents.defaults.model = "openai/gpt-4o"
     config.providers.openai.api_key = "sk-test"
     config.providers.openai.prompt_caching_enabled = True
+    config.providers.openai.prompt_cache_key = "session-123"
     config.providers.openai.prompt_cache_retention = "24h"
 
     _make_provider(config)
 
     assert captured["prompt_caching_enabled"] is True
+    assert captured["prompt_cache_key"] == "session-123"
     assert captured["prompt_cache_retention"] == "24h"
 
 
