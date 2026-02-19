@@ -32,7 +32,7 @@ def load_config(config_path: Path | None = None) -> Config:
 
     if path.exists():
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             data = _migrate_config(data)
             return Config.model_validate(data)
@@ -54,8 +54,8 @@ def save_config(config: Config, config_path: Path | None = None) -> None:
     path = config_path or get_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(path, "w") as f:
-        json.dump(config.model_dump(by_alias=True), f, indent=2)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config.model_dump(by_alias=True), f, indent=2, ensure_ascii=False)
 
 
 def _migrate_config(data: dict) -> dict:

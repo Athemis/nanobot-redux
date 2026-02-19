@@ -90,7 +90,7 @@ class CronService:
 
         if self.store_path.exists():
             try:
-                data = json.loads(self.store_path.read_text())
+                data = json.loads(self.store_path.read_text(encoding="utf-8"))
                 jobs = []
                 for j in data.get("jobs", []):
                     jobs.append(CronJob(
@@ -177,7 +177,7 @@ class CronService:
         }
 
         try:
-            self.store_path.write_text(json.dumps(data, indent=2))
+            self.store_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             self._store_mtime = self.store_path.stat().st_mtime  # track own write to skip self-reload
         except OSError as e:
             logger.error(f"Cron: failed to save store: {e}")
