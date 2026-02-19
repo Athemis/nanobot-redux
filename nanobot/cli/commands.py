@@ -346,7 +346,6 @@ def _make_provider(config: Config):
         extra_headers=_resolve_runtime_extra_headers(provider_name, p.extra_headers if p else None),
         provider_name=provider_name,
         prompt_caching_enabled=effective_prompt_caching_enabled,
-        prompt_cache_key=(getattr(p, "prompt_cache_key", None) if p else None),
         prompt_cache_retention=(getattr(p, "prompt_cache_retention", None) if p else None),
     )
 

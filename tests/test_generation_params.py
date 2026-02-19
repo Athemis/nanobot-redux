@@ -25,6 +25,7 @@ class _RecordingProvider(LLMProvider):
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        prompt_cache_key: str | None = None,
     ) -> LLMResponse:
         self.calls.append(
             {
@@ -33,6 +34,7 @@ class _RecordingProvider(LLMProvider):
                 "model": model,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "prompt_cache_key": prompt_cache_key,
             }
         )
         return LLMResponse(content="ok")
@@ -74,6 +76,7 @@ async def test_agent_loop_forwards_generation_parameters(tmp_path) -> None:
     call = provider.calls[0]
     assert call["max_tokens"] == 1234
     assert call["temperature"] == 0.25
+    assert call["prompt_cache_key"] == "cli:direct"
 
 
 @pytest.mark.asyncio
@@ -99,6 +102,7 @@ async def test_subagent_forwards_generation_parameters(tmp_path) -> None:
     call = provider.calls[0]
     assert call["max_tokens"] == 2222
     assert call["temperature"] == 0.15
+    assert call["prompt_cache_key"] == "subagent:task1234"
 
 
 @pytest.mark.asyncio
@@ -154,9 +158,11 @@ async def test_openai_provider_adds_prompt_cache_key_when_stable_key_is_set(
     provider = OpenAIProvider(
         default_model="gpt-4o",
         prompt_caching_enabled=True,
+    )
+    await provider.chat(
+        messages=[{"role": "user", "content": "hello"}],
         prompt_cache_key="session-123",
     )
-    await provider.chat(messages=[{"role": "user", "content": "hello"}])
 
     assert captured["prompt_cache_key"] == "session-123"
 
@@ -235,10 +241,12 @@ async def test_openai_provider_passes_prompt_cache_retention_when_set(
     provider = OpenAIProvider(
         default_model="gpt-4o",
         prompt_caching_enabled=True,
-        prompt_cache_key="session-123",
         prompt_cache_retention="24h",
     )
-    await provider.chat(messages=[{"role": "user", "content": "hello"}])
+    await provider.chat(
+        messages=[{"role": "user", "content": "hello"}],
+        prompt_cache_key="session-123",
+    )
 
     assert captured["prompt_cache_retention"] == "24h"
 

@@ -27,7 +27,6 @@ class OpenAIProvider(LLMProvider):
         extra_headers: dict[str, str] | None = None,
         provider_name: str | None = None,
         prompt_caching_enabled: bool = False,
-        prompt_cache_key: str | None = None,
         prompt_cache_retention: str | None = None,
     ):
         super().__init__(api_key, api_base)
@@ -35,7 +34,6 @@ class OpenAIProvider(LLMProvider):
         self._provider_name = provider_name
         self._gateway = find_gateway(provider_name, api_key, api_base)
         self._prompt_caching_enabled = prompt_caching_enabled
-        self._prompt_cache_key = prompt_cache_key
         self._prompt_cache_retention = prompt_cache_retention
 
         spec = self._gateway or find_by_model(default_model) or find_by_name(provider_name or "")
@@ -81,6 +79,7 @@ class OpenAIProvider(LLMProvider):
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        prompt_cache_key: str | None = None,
     ) -> LLMResponse:
         """Send a chat completion request. max_tokens is clamped to ≥1. API errors are
         caught and returned as LLMResponse(finish_reason="error") rather than raised."""
@@ -92,8 +91,8 @@ class OpenAIProvider(LLMProvider):
             "temperature": temperature,
         }
         self._apply_model_overrides(model, kwargs)
-        if self._prompt_caching_enabled and self._prompt_cache_key:
-            kwargs["prompt_cache_key"] = self._prompt_cache_key
+        if self._prompt_caching_enabled and prompt_cache_key:
+            kwargs["prompt_cache_key"] = prompt_cache_key
             if self._prompt_cache_retention:
                 kwargs["prompt_cache_retention"] = self._prompt_cache_retention
         if tools:
