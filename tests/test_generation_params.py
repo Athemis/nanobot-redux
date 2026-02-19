@@ -9,7 +9,7 @@ from nanobot.config.schema import AgentDefaults
 from nanobot.providers import openai_codex_provider as codex_provider
 from nanobot.providers.base import LLMProvider, LLMResponse
 from nanobot.providers.openai_codex_provider import OpenAICodexProvider
-from nanobot.providers.openai_provider import OpenAIProvider
+from nanobot.providers.openai_provider import OpenAIProvider, _hash_prompt_cache_key
 from nanobot.session.manager import Session
 
 
@@ -164,7 +164,7 @@ async def test_openai_provider_adds_prompt_cache_key_when_stable_key_is_set(
         prompt_cache_key="session-123",
     )
 
-    assert captured["prompt_cache_key"] == "session-123"
+    assert captured["prompt_cache_key"] == _hash_prompt_cache_key("session-123", None)
 
 
 @pytest.mark.asyncio
@@ -248,6 +248,7 @@ async def test_openai_provider_passes_prompt_cache_retention_when_set(
         prompt_cache_key="session-123",
     )
 
+    assert captured["prompt_cache_key"] == _hash_prompt_cache_key("session-123", None)
     assert captured["prompt_cache_retention"] == "24h"
 
 

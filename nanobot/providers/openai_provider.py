@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from typing import Any
 
 import json_repair
@@ -92,7 +94,7 @@ class OpenAIProvider(LLMProvider):
         }
         self._apply_model_overrides(model, kwargs)
         if self._prompt_caching_enabled and prompt_cache_key:
-            kwargs["prompt_cache_key"] = prompt_cache_key
+            kwargs["prompt_cache_key"] = _hash_prompt_cache_key(prompt_cache_key, self.api_key)
             if self._prompt_cache_retention:
                 kwargs["prompt_cache_retention"] = self._prompt_cache_retention
         if tools:
@@ -136,3 +138,10 @@ class OpenAIProvider(LLMProvider):
 
     def get_default_model(self) -> str:
         return self.default_model
+
+
+def _hash_prompt_cache_key(prompt_cache_key: str, secret: str | None) -> str:
+    """Return a deterministic HMAC-SHA256 cache key with versioned input."""
+    key_material = (secret or "nanobot").encode("utf-8")
+    message = f"v1:{prompt_cache_key}".encode("utf-8")
+    return hmac.new(key_material, message, hashlib.sha256).hexdigest()
