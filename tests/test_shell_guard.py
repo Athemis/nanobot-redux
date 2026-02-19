@@ -18,21 +18,21 @@ BLOCKED_COMMANDS = [
     r"\\server\share\shutdown.exe /r /t 0",
     "(mkfs.ext4 /dev/sda)",
     "$(mkfs.ext4 /dev/sda)",
-    "bash -lc \"mkfs.ext4 /dev/sda\"",
+    'bash -lc "mkfs.ext4 /dev/sda"',
     "shutdown now",
     "sudo shutdown -h now",
     "$(reboot)",
-    "bash -lc \"shutdown now\"",
+    'bash -lc "shutdown now"',
     "env PATH=/tmp shutdown now",
     "sudo env FOO=1 mkfs.ext4 /dev/sda",
 ]
 
 ALLOWED_COMMANDS = [
-    "curl -s \"wttr.in/London?format=3\"",
+    'curl -s "wttr.in/London?format=3"',
     "echo mkfs.ext4 /dev/sda",
-    "bash -lc \"echo mkfs.ext4 /dev/sda\"",
+    'bash -lc "echo mkfs.ext4 /dev/sda"',
     "echo shutdown now",
-    "bash -lc \"echo shutdown now\"",
+    'bash -lc "echo shutdown now"',
     "env PATH=/tmp echo shutdown now",
     r"cmd /c echo shutdown now",
     r"cmd /c echo C:\\Windows\\System32\\format.com c:",
@@ -137,6 +137,7 @@ async def test_execute_timeout_kills_process_and_returns_error(tmp_path: Path) -
     proc = MagicMock()
     proc.returncode = None
     proc.kill = MagicMock()
+    proc.wait = AsyncMock(return_value=0)
 
     async def slow_communicate():
         await asyncio.sleep(10)
@@ -148,6 +149,7 @@ async def test_execute_timeout_kills_process_and_returns_error(tmp_path: Path) -
         result = await tool.execute("sleep 10")
 
     proc.kill.assert_called_once()
+    proc.wait.assert_called_once()
     assert "timed out" in result
     assert "1 seconds" in result
 
@@ -194,7 +196,6 @@ async def test_execute_exception_returns_error_string(tmp_path: Path) -> None:
 
     assert result.startswith("Error executing command:")
     assert "no such file or directory" in result
-
 
 
 # ---------------------------------------------------------------------------
