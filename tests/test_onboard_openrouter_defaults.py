@@ -128,6 +128,67 @@ def test_make_provider_passes_openai_prompt_caching_config(
     assert captured["prompt_cache_retention"] == "24h"
 
 
+def test_make_provider_defaults_openai_prompt_caching_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProvider:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("nanobot.providers.openai_provider.OpenAIProvider", DummyProvider)
+
+    config = Config()
+    config.agents.defaults.model = "openai/gpt-4o"
+    config.providers.openai.api_key = "sk-test"
+
+    _make_provider(config)
+
+    assert captured["prompt_caching_enabled"] is True
+
+
+def test_make_provider_defaults_openrouter_prompt_caching_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProvider:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("nanobot.providers.openai_provider.OpenAIProvider", DummyProvider)
+
+    config = Config()
+    config.agents.defaults.model = "openrouter/anthropic/claude-opus-4-5"
+    config.providers.openrouter.api_key = "sk-or-test"
+
+    _make_provider(config)
+
+    assert captured["prompt_caching_enabled"] is False
+
+
+def test_make_provider_explicit_openai_prompt_caching_false_overrides_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProvider:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("nanobot.providers.openai_provider.OpenAIProvider", DummyProvider)
+
+    config = Config()
+    config.agents.defaults.model = "openai/gpt-4o"
+    config.providers.openai.api_key = "sk-test"
+    config.providers.openai.prompt_caching_enabled = False
+
+    _make_provider(config)
+
+    assert captured["prompt_caching_enabled"] is False
+
+
 # ── Additional OpenAIProvider coverage ────────────────────────────────────────
 
 from unittest.mock import AsyncMock, MagicMock, patch  # noqa: E402

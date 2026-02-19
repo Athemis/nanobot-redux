@@ -21,10 +21,10 @@ class ProviderSpec:
     """One LLM provider's metadata. See PROVIDERS below for real examples."""
 
     # identity
-    name: str                       # config field name, e.g. "dashscope"
-    keywords: tuple[str, ...]       # model-name keywords for matching (lowercase)
-    env_key: str                    # primary env var name, e.g. "DASHSCOPE_API_KEY"
-    display_name: str = ""          # shown in `nanobot status`
+    name: str  # config field name, e.g. "dashscope"
+    keywords: tuple[str, ...]  # model-name keywords for matching (lowercase)
+    env_key: str  # primary env var name, e.g. "DASHSCOPE_API_KEY"
+    display_name: str = ""  # shown in `nanobot status`
 
     # model name handling: prefix that may appear in user-specified model names
     # and should be stripped before forwarding to the OpenAI-compatible API.
@@ -32,20 +32,23 @@ class ProviderSpec:
     model_prefix: str = ""
 
     # gateway / local detection
-    is_gateway: bool = False                 # routes any model (OpenRouter, AiHubMix)
-    is_local: bool = False                   # local deployment (vLLM, Ollama)
-    detect_by_key_prefix: str = ""           # match api_key prefix, e.g. "sk-or-"
-    detect_by_base_keyword: str = ""         # match substring in api_base URL
-    default_api_base: str = ""               # fallback base URL
+    is_gateway: bool = False  # routes any model (OpenRouter, AiHubMix)
+    is_local: bool = False  # local deployment (vLLM, Ollama)
+    detect_by_key_prefix: str = ""  # match api_key prefix, e.g. "sk-or-"
+    detect_by_base_keyword: str = ""  # match substring in api_base URL
+    default_api_base: str = ""  # fallback base URL
 
     # gateway behavior
-    strip_model_prefix: bool = False         # strip "provider/" before forwarding
+    strip_model_prefix: bool = False  # strip "provider/" before forwarding
 
     # per-model param overrides, e.g. (("kimi-k2.5", {"temperature": 1.0}),)
     model_overrides: tuple[tuple[str, dict[str, Any]], ...] = ()
 
     # OAuth-based providers (e.g., OpenAI Codex) don't use API keys
-    is_oauth: bool = False                   # if True, uses OAuth flow instead of API key
+    is_oauth: bool = False  # if True, uses OAuth flow instead of API key
+
+    # prompt caching defaults
+    default_prompt_caching_enabled: bool = False
 
     @property
     def label(self) -> str:
@@ -57,17 +60,15 @@ class ProviderSpec:
 # ---------------------------------------------------------------------------
 
 PROVIDERS: tuple[ProviderSpec, ...] = (
-
     # === Gateways (detected by api_key / api_base, not model name) =========
     # Gateways can route any model, so they win in fallback.
-
     # OpenRouter: global gateway, keys start with "sk-or-"
     ProviderSpec(
         name="openrouter",
         keywords=("openrouter",),
         env_key="OPENROUTER_API_KEY",
         display_name="OpenRouter",
-        model_prefix="openrouter",           # strip "openrouter/" prefix if present
+        model_prefix="openrouter",  # strip "openrouter/" prefix if present
         is_gateway=True,
         is_local=False,
         detect_by_key_prefix="sk-or-",
@@ -76,7 +77,6 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         strip_model_prefix=False,
         model_overrides=(),
     ),
-
     # AiHubMix: global gateway, OpenAI-compatible interface.
     # model_prefix="" is intentionally empty — AiHubMix doesn't use a routing prefix.
     # strip_model_prefix=True removes any slash-prefixed namespace from the incoming
@@ -86,20 +86,18 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
     ProviderSpec(
         name="aihubmix",
         keywords=("aihubmix",),
-        env_key="OPENAI_API_KEY",           # OpenAI-compatible
+        env_key="OPENAI_API_KEY",  # OpenAI-compatible
         display_name="AiHubMix",
-        model_prefix="",                    # intentionally empty; strip_model_prefix handles namespace removal
+        model_prefix="",  # intentionally empty; strip_model_prefix handles namespace removal
         is_gateway=True,
         is_local=False,
         detect_by_key_prefix="",
         detect_by_base_keyword="aihubmix",
         default_api_base="https://aihubmix.com/v1",
-        strip_model_prefix=True,            # "anthropic/claude-3" → "claude-3" (last segment)
+        strip_model_prefix=True,  # "anthropic/claude-3" → "claude-3" (last segment)
         model_overrides=(),
     ),
-
     # === Standard providers (matched by model-name keywords) ===============
-
     # OpenAI: gpt-* models via api.openai.com
     ProviderSpec(
         name="openai",
@@ -114,13 +112,13 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         default_api_base="https://api.openai.com/v1",
         strip_model_prefix=False,
         model_overrides=(),
+        default_prompt_caching_enabled=True,
     ),
-
     # OpenAI Codex: uses OAuth, not API key. Has its own provider class.
     ProviderSpec(
         name="openai_codex",
         keywords=("openai-codex", "codex"),
-        env_key="",                         # OAuth-based, no API key
+        env_key="",  # OAuth-based, no API key
         display_name="OpenAI Codex",
         model_prefix="",
         is_gateway=False,
@@ -132,14 +130,13 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         model_overrides=(),
         is_oauth=True,
     ),
-
     # DeepSeek: OpenAI-compatible API.
     ProviderSpec(
         name="deepseek",
         keywords=("deepseek",),
         env_key="DEEPSEEK_API_KEY",
         display_name="DeepSeek",
-        model_prefix="deepseek",            # strip "deepseek/" if present
+        model_prefix="deepseek",  # strip "deepseek/" if present
         is_gateway=False,
         is_local=False,
         detect_by_key_prefix="",
@@ -148,14 +145,13 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         strip_model_prefix=False,
         model_overrides=(),
     ),
-
     # Zhipu: GLM models, OpenAI-compatible API.
     ProviderSpec(
         name="zhipu",
         keywords=("zhipu", "glm", "zai"),
         env_key="ZAI_API_KEY",
         display_name="Zhipu AI",
-        model_prefix="zai",                 # strip "zai/" if present
+        model_prefix="zai",  # strip "zai/" if present
         is_gateway=False,
         is_local=False,
         detect_by_key_prefix="",
@@ -164,14 +160,13 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         strip_model_prefix=False,
         model_overrides=(),
     ),
-
     # DashScope: Qwen models, OpenAI-compatible API.
     ProviderSpec(
         name="dashscope",
         keywords=("qwen", "dashscope"),
         env_key="DASHSCOPE_API_KEY",
         display_name="DashScope",
-        model_prefix="dashscope",           # strip "dashscope/" if present
+        model_prefix="dashscope",  # strip "dashscope/" if present
         is_gateway=False,
         is_local=False,
         detect_by_key_prefix="",
@@ -180,7 +175,6 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         strip_model_prefix=False,
         model_overrides=(),
     ),
-
     # Moonshot: Kimi models, OpenAI-compatible API.
     # Kimi K2.5 API enforces temperature >= 1.0.
     ProviderSpec(
@@ -188,25 +182,22 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         keywords=("moonshot", "kimi"),
         env_key="MOONSHOT_API_KEY",
         display_name="Moonshot",
-        model_prefix="moonshot",            # strip "moonshot/" if present
+        model_prefix="moonshot",  # strip "moonshot/" if present
         is_gateway=False,
         is_local=False,
         detect_by_key_prefix="",
         detect_by_base_keyword="",
-        default_api_base="https://api.moonshot.ai/v1",   # intl; use api.moonshot.cn for China
+        default_api_base="https://api.moonshot.ai/v1",  # intl; use api.moonshot.cn for China
         strip_model_prefix=False,
-        model_overrides=(
-            ("kimi-k2.5", {"temperature": 1.0}),
-        ),
+        model_overrides=(("kimi-k2.5", {"temperature": 1.0}),),
     ),
-
     # MiniMax: OpenAI-compatible API at api.minimax.io/v1.
     ProviderSpec(
         name="minimax",
         keywords=("minimax",),
         env_key="MINIMAX_API_KEY",
         display_name="MiniMax",
-        model_prefix="minimax",             # strip "minimax/" if present
+        model_prefix="minimax",  # strip "minimax/" if present
         is_gateway=False,
         is_local=False,
         detect_by_key_prefix="",
@@ -215,7 +206,6 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         strip_model_prefix=False,
         model_overrides=(),
     ),
-
     # Mistral AI: OpenAI-compatible API at api.mistral.ai/v1.
     # keywords covers all Mistral model families (codestral, devstral, magistral, pixtral).
     ProviderSpec(
@@ -223,7 +213,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         keywords=("mistral", "codestral", "devstral", "magistral", "pixtral"),
         env_key="MISTRAL_API_KEY",
         display_name="Mistral",
-        model_prefix="mistral",             # strip "mistral/" if present
+        model_prefix="mistral",  # strip "mistral/" if present
         is_gateway=False,
         is_local=False,
         detect_by_key_prefix="",
@@ -232,34 +222,30 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         strip_model_prefix=False,
         model_overrides=(),
     ),
-
     # === Local deployment (matched by config key, NOT by api_base) =========
-
     # vLLM / any OpenAI-compatible local server.
     ProviderSpec(
         name="vllm",
         keywords=("vllm",),
         env_key="HOSTED_VLLM_API_KEY",
         display_name="vLLM/Local",
-        model_prefix="hosted_vllm",         # strip "hosted_vllm/" if present
+        model_prefix="hosted_vllm",  # strip "hosted_vllm/" if present
         is_gateway=False,
         is_local=True,
         detect_by_key_prefix="",
         detect_by_base_keyword="",
-        default_api_base="",                # user must provide in config
+        default_api_base="",  # user must provide in config
         strip_model_prefix=False,
         model_overrides=(),
     ),
-
     # === Auxiliary (not a primary LLM provider) ============================
-
     # Groq: mainly used for Whisper voice transcription, also usable for LLM.
     ProviderSpec(
         name="groq",
         keywords=("groq",),
         env_key="GROQ_API_KEY",
         display_name="Groq",
-        model_prefix="groq",                # strip "groq/" if present
+        model_prefix="groq",  # strip "groq/" if present
         is_gateway=False,
         is_local=False,
         detect_by_key_prefix="",
@@ -274,6 +260,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
 # ---------------------------------------------------------------------------
 # Lookup helpers
 # ---------------------------------------------------------------------------
+
 
 def find_by_model(model: str) -> ProviderSpec | None:
     """Match a standard provider by model-name keyword (case-insensitive).

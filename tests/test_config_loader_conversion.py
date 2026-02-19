@@ -70,6 +70,12 @@ def test_model_validate_maps_openai_prompt_caching_fields() -> None:
     assert config.providers.openai.prompt_cache_retention == "24h"
 
 
+def test_provider_prompt_caching_enabled_defaults_to_none() -> None:
+    config = Config()
+
+    assert config.providers.openai.prompt_caching_enabled is None
+
+
 def test_model_validate_maps_provider_fields_and_preserves_header_entry_keys() -> None:
     data = {
         "providers": {
