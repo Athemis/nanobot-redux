@@ -79,6 +79,7 @@ Changes I've explicitly decided not to adopt (for transparency and to avoid reco
 | Upstream PR/Commit                  | Area | Why Rejected | Rejected |
 | ----------------------------------- | ---- | ------------ | -------- |
 | [#788](https://github.com/HKUDS/nanobot/pull/788) | Cron hot-reload | Adds `watchdog` dependency + async public API refactor for filesystem-event-driven store reload. Replaced in redux by lightweight mtime polling ([#22](https://github.com/Athemis/nanobot-redux/pull/22)) — no new dependency, 5-minute polling latency is sufficient for minute-granularity cron jobs. If upstream adopts #788, redux will likely follow and drop polling. | 2026-02-18 |
+| [#820](https://github.com/HKUDS/nanobot/pull/820) | Shell guard | Already covered in redux by the hardened exec safety regex (`nanobot/agent/tools/shell.py`) and existing guard allow-case for `?format=3` (`tests/test_shell_guard.py`); upstream's added networked curl tests are not aligned with redux's no-live-network test policy. | 2026-02-19 |
 
 ## Notes
 
