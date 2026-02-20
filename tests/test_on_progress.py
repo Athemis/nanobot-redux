@@ -472,6 +472,7 @@ async def test_run_always_publishes_outbound_for_none_response(tmp_path) -> None
 
     async def _run_and_stop() -> None:
         task = asyncio.create_task(loop.run())
+        # Wait deterministically until outbound has an item (or timeout safety net)
         for _ in range(40):
             if not bus.outbound.empty():
                 break
@@ -485,5 +486,5 @@ async def test_run_always_publishes_outbound_for_none_response(tmp_path) -> None
     msg: OutboundMessage = bus.outbound.get_nowait()
     assert msg.channel == "cli"
     assert msg.chat_id == "session1"
-    assert msg.content == ""
+    assert msg.content == ""  # empty sentinel message
     assert msg.metadata == {"thread_root_event_id": "$root"}

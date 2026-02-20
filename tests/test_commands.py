@@ -628,6 +628,7 @@ async def test_run_interactive_routes_user_input_through_bus(tmp_path) -> None:
                             channel=inbound.channel,
                             chat_id=inbound.chat_id,
                             content="Mock agent response",
+                            metadata=inbound.metadata or {},
                         )
                     )
                 except asyncio.TimeoutError:
@@ -725,7 +726,10 @@ async def test_run_interactive_displays_progress_hints_and_final_response(
                             channel=inbound.channel,
                             chat_id=inbound.chat_id,
                             content="Calling tool: shell",
-                            metadata={"_progress": True},
+                            metadata={
+                                "_progress": True,
+                                "_turn_id": (inbound.metadata or {}).get("_turn_id"),
+                            },
                         )
                     )
                     # Then: the final answer
@@ -734,6 +738,7 @@ async def test_run_interactive_displays_progress_hints_and_final_response(
                             channel=inbound.channel,
                             chat_id=inbound.chat_id,
                             content="The answer is 42",
+                            metadata=inbound.metadata or {},
                         )
                     )
                 except asyncio.TimeoutError:
@@ -763,46 +768,42 @@ async def test_run_interactive_displays_progress_hints_and_final_response(
     import nanobot.cli.commands as cmd_mod
 
     printed_hints: list[str] = []
-    original_print = cmd_mod.console.print
 
     def _capture_print(s, *a, **kw):
         if isinstance(s, str) and "[dim]↳" in s:
             printed_hints.append(s)
-        return original_print(s, *a, **kw)
+        return cmd_mod.Console.print(cmd_mod.console, s, *a, **kw)
 
-    cmd_mod.console.print = _capture_print  # type: ignore[method-assign]
-    try:
-        with (
-            patch("nanobot.bus.queue.MessageBus", return_value=real_bus),
-            patch("nanobot.agent.loop.AgentLoop", return_value=mock_loop),
-            patch("nanobot.config.loader.load_config", return_value=Config()),
-            patch("nanobot.cli.commands._make_provider", return_value=MagicMock()),
-            patch("nanobot.cron.service.CronService", return_value=MagicMock()),
-            patch("nanobot.config.loader.get_data_dir", return_value=tmp_path),
-            patch(
-                "nanobot.cli.commands._read_interactive_input_async",
-                side_effect=_mock_read_input,
-            ),
-            patch("nanobot.cli.commands._init_prompt_session"),
-            patch("nanobot.cli.commands._flush_pending_tty_input"),
-            patch("nanobot.cli.commands._restore_terminal"),
-            patch(
-                "nanobot.cli.commands._print_agent_response",
-                side_effect=lambda r, **kw: printed_responses.append(r),
-            ),
-            patch("asyncio.run", side_effect=_capture_asyncio_run2),
-        ):
-            from nanobot.cli.commands import agent
+    with (
+        patch("nanobot.bus.queue.MessageBus", return_value=real_bus),
+        patch("nanobot.agent.loop.AgentLoop", return_value=mock_loop),
+        patch("nanobot.config.loader.load_config", return_value=Config()),
+        patch("nanobot.cli.commands._make_provider", return_value=MagicMock()),
+        patch("nanobot.cron.service.CronService", return_value=MagicMock()),
+        patch("nanobot.config.loader.get_data_dir", return_value=tmp_path),
+        patch(
+            "nanobot.cli.commands._read_interactive_input_async",
+            side_effect=_mock_read_input,
+        ),
+        patch("nanobot.cli.commands._init_prompt_session"),
+        patch("nanobot.cli.commands._flush_pending_tty_input"),
+        patch("nanobot.cli.commands._restore_terminal"),
+        patch.object(cmd_mod.console, "print", side_effect=_capture_print),
+        patch(
+            "nanobot.cli.commands._print_agent_response",
+            side_effect=lambda r, **kw: printed_responses.append(r),
+        ),
+        patch("asyncio.run", side_effect=_capture_asyncio_run2),
+    ):
+        from nanobot.cli.commands import agent
 
-            agent(  # type: ignore[arg-type]
-                message=None, session_id="cli:test", markdown=True, logs=False
-            )
+        agent(  # type: ignore[arg-type]
+            message=None, session_id="cli:test", markdown=True, logs=False
+        )
 
-            # agent() called asyncio.run(run_interactive()) — await it while patches are active
-            assert len(captured_coros2) == 1, "Expected asyncio.run called once for run_interactive"
-            await captured_coros2[0]
-    finally:
-        cmd_mod.console.print = original_print
+        # agent() called asyncio.run(run_interactive()) — await it while patches are active
+        assert len(captured_coros2) == 1, "Expected asyncio.run called once for run_interactive"
+        await captured_coros2[0]
 
     # Progress hint must be displayed via console.print with Rich markup
     assert len(printed_hints) == 1, f"Expected 1 progress hint, got {printed_hints}"
@@ -811,3 +812,94 @@ async def test_run_interactive_displays_progress_hints_and_final_response(
     # Final response must be routed to _print_agent_response
     assert len(printed_responses) == 1, f"Expected 1 response, got {printed_responses}"
     assert printed_responses[0] == "The answer is 42"
+
+
+async def test_run_interactive_ignores_stale_outbound_from_other_turn(tmp_path) -> None:
+    """Current turn must not complete on stale outbound from another turn."""
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from nanobot.bus.events import OutboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.config.schema import Config
+
+    real_bus = MessageBus()
+    agent_stopped = asyncio.Event()
+
+    async def _fake_agent_run() -> None:
+        try:
+            while not agent_stopped.is_set():
+                try:
+                    inbound = await asyncio.wait_for(real_bus.consume_inbound(), timeout=0.1)
+                    current_turn = (inbound.metadata or {}).get("_turn_id", "")
+
+                    # Stale message from a different turn arrives first.
+                    await real_bus.publish_outbound(
+                        OutboundMessage(
+                            channel=inbound.channel,
+                            chat_id=inbound.chat_id,
+                            content="Stale previous-turn reply",
+                            metadata={"_turn_id": "stale-turn"},
+                        )
+                    )
+
+                    # Real response for the active turn arrives later.
+                    await asyncio.sleep(0.25)
+                    await real_bus.publish_outbound(
+                        OutboundMessage(
+                            channel=inbound.channel,
+                            chat_id=inbound.chat_id,
+                            content="Current turn final reply",
+                            metadata={"_turn_id": current_turn},
+                        )
+                    )
+                except asyncio.TimeoutError:
+                    continue
+        except asyncio.CancelledError:
+            pass
+
+    mock_loop = MagicMock()
+    mock_loop.run = _fake_agent_run
+    mock_loop.stop = lambda: agent_stopped.set()
+    mock_loop.close_mcp = AsyncMock()
+
+    printed_responses: list[str] = []
+    user_inputs = iter(["hello", "exit"])
+
+    async def _mock_read_input() -> str:
+        try:
+            return next(user_inputs)
+        except StopIteration:
+            raise EOFError
+
+    captured_coros: list = []
+
+    def _capture_asyncio_run(coro):  # type: ignore[override]
+        captured_coros.append(coro)
+
+    with (
+        patch("nanobot.bus.queue.MessageBus", return_value=real_bus),
+        patch("nanobot.agent.loop.AgentLoop", return_value=mock_loop),
+        patch("nanobot.config.loader.load_config", return_value=Config()),
+        patch("nanobot.cli.commands._make_provider", return_value=MagicMock()),
+        patch("nanobot.cron.service.CronService", return_value=MagicMock()),
+        patch("nanobot.config.loader.get_data_dir", return_value=tmp_path),
+        patch("nanobot.cli.commands._read_interactive_input_async", side_effect=_mock_read_input),
+        patch("nanobot.cli.commands._init_prompt_session"),
+        patch("nanobot.cli.commands._flush_pending_tty_input"),
+        patch("nanobot.cli.commands._restore_terminal"),
+        patch(
+            "nanobot.cli.commands._print_agent_response",
+            side_effect=lambda r, **kw: printed_responses.append(r),
+        ),
+        patch("asyncio.run", side_effect=_capture_asyncio_run),
+    ):
+        from nanobot.cli.commands import agent
+
+        agent(  # type: ignore[arg-type]
+            message=None, session_id="cli:test", markdown=True, logs=False
+        )
+        assert len(captured_coros) == 1
+        await captured_coros[0]
+
+    assert printed_responses == ["Current turn final reply"], printed_responses

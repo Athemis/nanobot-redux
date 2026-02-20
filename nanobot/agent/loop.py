@@ -303,6 +303,7 @@ class AgentLoop:
                             channel=msg.channel,
                             chat_id=msg.chat_id,
                             content="",
+                            metadata=msg.metadata or {},
                         )
                     )
                 except Exception as e:

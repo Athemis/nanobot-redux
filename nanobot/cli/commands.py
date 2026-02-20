@@ -5,7 +5,7 @@ import os
 import select
 import signal
 import sys
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import typer
@@ -532,7 +532,7 @@ def agent(
     )
 
     # Show spinner when logs are off (no output to miss); skip when logs are on
-    def _thinking_ctx():
+    def _thinking_ctx() -> AbstractContextManager:
         if logs:
             return nullcontext()
         # Animated spinner is safe to use with prompt_toolkit input handling
@@ -578,12 +578,22 @@ def agent(
             turn_done = asyncio.Event()
             turn_done.set()
             turn_response: list[str | None] = [None]
+            active_turn_id: list[str | None] = [None]
+            turn_counter = 0
 
             async def _consume_outbound():
                 while True:
                     try:
                         msg = await asyncio.wait_for(bus.consume_outbound(), timeout=1.0)
-                        if msg.metadata.get("_progress"):
+                        metadata = msg.metadata or {}
+                        msg_turn_id = metadata.get("_turn_id")
+                        is_progress = bool(metadata.get("_progress"))
+
+                        if not turn_done.is_set() and msg_turn_id != active_turn_id[0]:
+                            # Ignore stale/foreign messages while waiting for current turn.
+                            continue
+
+                        if is_progress:
                             console.print(f"  [dim]↳ {escape(msg.content)}[/dim]")
                         elif not turn_done.is_set():
                             if msg.content:
@@ -615,6 +625,8 @@ def agent(
 
                         turn_done.clear()
                         turn_response[0] = None
+                        turn_counter += 1
+                        active_turn_id[0] = str(turn_counter)
 
                         await bus.publish_inbound(
                             InboundMessage(
@@ -622,6 +634,7 @@ def agent(
                                 sender_id="user",
                                 chat_id=cli_chat_id,
                                 content=user_input,
+                                metadata={"_turn_id": active_turn_id[0]},
                             )
                         )
 
