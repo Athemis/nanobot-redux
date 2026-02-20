@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import mimetypes
+import re
 from pathlib import Path
 from typing import Any, TypeAlias
 
@@ -617,6 +618,13 @@ class MatrixChannel(BaseChannel):
         relates_to = self._build_thread_relates_to(msg.metadata)
 
         try:
+            if (
+                self.config.filter_progress_tool_hints
+                and (msg.metadata or {}).get("_progress")
+                and self._is_progress_tool_hint(text)
+            ):
+                return
+
             failures: list[str] = []
 
             if candidates:
@@ -855,6 +863,17 @@ class MatrixChannel(BaseChannel):
             "m.in_reply_to": {"event_id": reply_to},
             "is_falling_back": True,
         }
+
+    @staticmethod
+    def _is_progress_tool_hint(text: str) -> bool:
+        """Return True when progress text consists of tool-hint tokens only."""
+        stripped = text.strip()
+        if not stripped:
+            return False
+        parts = [part.strip() for part in stripped.split(",")]
+        if any(not part for part in parts):
+            return False
+        return all(re.fullmatch(r'\w+(?:\(".*"\))?', part) for part in parts)
 
     def _event_attachment_type(self, event: MatrixMediaEvent) -> str:
         """Map Matrix event payload/type to a stable attachment kind."""
@@ -1098,7 +1117,6 @@ class MatrixChannel(BaseChannel):
         try:
             metadata: dict[str, Any] = {
                 "room": getattr(room, "display_name", room.room_id),
-                "matrix_filter_progress_tool_hints": bool(self.config.filter_progress_tool_hints),
             }
             event_id = getattr(event, "event_id", None)
             if isinstance(event_id, str) and event_id:
@@ -1143,7 +1161,6 @@ class MatrixChannel(BaseChannel):
             metadata: dict[str, Any] = {
                 "room": getattr(room, "display_name", room.room_id),
                 "attachments": attachments,
-                "matrix_filter_progress_tool_hints": bool(self.config.filter_progress_tool_hints),
             }
             event_id = getattr(event, "event_id", None)
             if isinstance(event_id, str) and event_id:
