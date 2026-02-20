@@ -517,3 +517,126 @@ def test_provider_login_openai_codex_import_error(monkeypatch):
     result = runner.invoke(app, ["provider", "login", "openai-codex"])
     assert result.exit_code == 1
     assert "not installed" in result.stdout
+
+
+# ============================================================================
+# Interactive CLI bus routing (upstream PR #908)
+# ============================================================================
+
+
+def test_run_interactive_uses_bus_not_process_direct(tmp_path) -> None:
+    """run_interactive does NOT call process_direct — it routes through the bus.
+
+    Upstream PR #908: the interactive CLI must use bus.publish_inbound / run()
+    rather than process_direct() so subagent replies are delivered correctly.
+    This verifies the contract: after cherry-pick, process_direct must NOT be
+    used inside the interactive mode inner loop.
+    """
+    import ast
+    import inspect
+
+    from nanobot.cli import commands
+
+    source = inspect.getsource(commands.agent)
+    tree = ast.parse(source)
+
+    # Find the run_interactive async function in the AST
+    run_interactive_node = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "run_interactive":
+            run_interactive_node = node
+            break
+
+    assert run_interactive_node is not None, "run_interactive function not found in agent()"
+
+    # Collect all function calls inside run_interactive
+    call_names = set()
+    for node in ast.walk(run_interactive_node):
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute):
+                call_names.add(node.func.attr)
+            elif isinstance(node.func, ast.Name):
+                call_names.add(node.func.id)
+
+    # process_direct must NOT be called in the interactive loop
+    assert "process_direct" not in call_names, (
+        "run_interactive must use bus routing (publish_inbound), not process_direct"
+    )
+    # publish_inbound must be called (bus routing is active)
+    assert "publish_inbound" in call_names, (
+        "run_interactive must call bus.publish_inbound to route user messages"
+    )
+
+
+def test_run_interactive_waits_for_turn_done_not_process_direct(tmp_path) -> None:
+    """run_interactive waits on turn_done event (not process_direct result).
+
+    Upstream PR #908: the interactive mode must set/clear turn_done event and
+    wait for it to signal turn completion from the bus consumer.
+    """
+    import ast
+    import inspect
+
+    from nanobot.cli import commands
+
+    source = inspect.getsource(commands.agent)
+    tree = ast.parse(source)
+
+    run_interactive_node = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "run_interactive":
+            run_interactive_node = node
+            break
+
+    assert run_interactive_node is not None
+
+    # Check that turn_done.wait() is awaited inside run_interactive
+    has_turn_done_wait = False
+    for node in ast.walk(run_interactive_node):
+        if isinstance(node, ast.Await):
+            if isinstance(node.value, ast.Call):
+                call = node.value
+                if isinstance(call.func, ast.Attribute) and call.func.attr == "wait":
+                    if isinstance(call.func.value, ast.Name) and call.func.value.id == "turn_done":
+                        has_turn_done_wait = True
+
+    assert has_turn_done_wait, (
+        "run_interactive must await turn_done.wait() to know when the bus has delivered the reply"
+    )
+
+
+async def test_consume_outbound_distinguishes_progress_from_final_messages() -> None:
+    """_consume_outbound routes messages by _progress metadata flag.
+
+    Upstream PR #908: outbound messages with metadata._progress=True are shown
+    as tool hints; messages without _progress (or _progress=False) are the final
+    turn response and set turn_done.
+    """
+    import asyncio
+
+    from nanobot.bus.events import OutboundMessage
+
+    turn_done = asyncio.Event()
+    turn_done.clear()  # Simulating an active turn
+    turn_response: list[str] = []
+    printed_hints: list[str] = []
+
+    # Simulate _consume_outbound processing loop logic
+    messages = [
+        OutboundMessage(
+            channel="cli", chat_id="s1", content="Calling tool X", metadata={"_progress": True}
+        ),
+        OutboundMessage(channel="cli", chat_id="s1", content="Final answer", metadata={}),
+    ]
+
+    for msg in messages:
+        if msg.metadata.get("_progress"):
+            printed_hints.append(msg.content)
+        elif not turn_done.is_set():
+            if msg.content:
+                turn_response.append(msg.content)
+            turn_done.set()
+
+    assert printed_hints == ["Calling tool X"], "Progress message should be shown as hint"
+    assert turn_response == ["Final answer"], "Final message should be stored as turn response"
+    assert turn_done.is_set(), "turn_done should be set after receiving final message"

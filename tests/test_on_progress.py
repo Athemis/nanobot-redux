@@ -400,3 +400,90 @@ async def test_retry_does_not_add_interim_text_to_context(tmp_path) -> None:
         "Retry must not inject interim assistant message into context"
     )
     assert content == "Done!"
+
+
+async def test_bus_progress_sets_progress_metadata(tmp_path) -> None:
+    """_bus_progress publishes OutboundMessage with _progress=True in metadata."""
+    from nanobot.bus.events import InboundMessage, OutboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.providers.base import LLMResponse
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    tool_call = MagicMock()
+    tool_call.id = "tc2"
+    tool_call.name = "shell"
+    tool_call.arguments = {"command": "ls"}
+
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(content="Running shell.", tool_calls=[tool_call]),
+            LLMResponse(content="Done!", tool_calls=[]),
+        ]
+    )
+    loop.tools.execute = AsyncMock(return_value="file.txt")
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    msg = InboundMessage(
+        channel="cli",
+        sender_id="user",
+        chat_id="session1",
+        content="list files",
+        metadata={"extra": "data"},
+    )
+    await loop._process_message(msg)
+
+    outbound: list[OutboundMessage] = []
+    while not bus.outbound.empty():
+        outbound.append(bus.outbound.get_nowait())
+
+    assert len(outbound) >= 1, "Expected at least one progress message"
+    for m in outbound:
+        assert m.metadata.get("_progress") is True
+        assert m.metadata.get("extra") == "data"
+
+
+async def test_run_always_publishes_outbound_for_none_response(tmp_path) -> None:
+    """run() publishes empty OutboundMessage with metadata when response is None."""
+    import asyncio
+
+    from nanobot.bus.events import InboundMessage, OutboundMessage
+    from nanobot.bus.queue import MessageBus
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    loop._process_message = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    loop._connect_mcp = AsyncMock()  # type: ignore[method-assign]
+
+    inbound = InboundMessage(
+        channel="cli",
+        sender_id="user",
+        chat_id="session1",
+        content="hello",
+        metadata={"thread_root_event_id": "$root"},
+    )
+    await bus.publish_inbound(inbound)
+
+    async def _run_and_stop() -> None:
+        task = asyncio.create_task(loop.run())
+        for _ in range(40):
+            if not bus.outbound.empty():
+                break
+            await asyncio.sleep(0.05)
+        loop.stop()
+        await asyncio.gather(task, return_exceptions=True)
+
+    await _run_and_stop()
+
+    assert not bus.outbound.empty()
+    msg: OutboundMessage = bus.outbound.get_nowait()
+    assert msg.channel == "cli"
+    assert msg.chat_id == "session1"
+    assert msg.content == ""
+    assert msg.metadata == {"thread_root_event_id": "$root"}

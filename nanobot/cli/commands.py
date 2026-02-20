@@ -530,11 +530,20 @@ def agent(
         mcp_servers=config.tools.mcp_servers,
     )
 
+    # Show spinner when logs are off (no output to miss); skip when logs are on
+    def _thinking_ctx():
+        if logs:
+            from contextlib import nullcontext
+
+            return nullcontext()
+        # Animated spinner is safe to use with prompt_toolkit input handling
+        return console.status("[dim]nanobot is thinking...[/dim]", spinner="dots")
+
     async def _cli_progress(text: str) -> None:
         console.print(f"  [dim]↳ {escape(text)}[/dim]")
 
     if message:
-        # Single message mode
+        # Single message mode — direct call, no bus needed
         async def run_once():
             response = await agent_loop.process_direct(
                 message, session_id, on_progress=_cli_progress
@@ -544,11 +553,18 @@ def agent(
 
         asyncio.run(run_once())
     else:
-        # Interactive mode
+        # Interactive mode — route through bus like other channels
+        from nanobot.bus.events import InboundMessage
+
         _init_prompt_session()
         console.print(
             f"{__logo__} Interactive mode (type [bold]exit[/bold] or [bold]Ctrl+C[/bold] to quit)\n"
         )
+
+        if ":" in session_id:
+            cli_channel, cli_chat_id = session_id.split(":", 1)
+        else:
+            cli_channel, cli_chat_id = "cli", session_id
 
         def _exit_on_sigint(signum, frame):
             _restore_terminal()
@@ -558,6 +574,31 @@ def agent(
         signal.signal(signal.SIGINT, _exit_on_sigint)
 
         async def run_interactive():
+            bus_task = asyncio.create_task(agent_loop.run())
+            turn_done = asyncio.Event()
+            turn_done.set()
+            turn_response: list[str] = []
+
+            async def _consume_outbound():
+                while True:
+                    try:
+                        msg = await asyncio.wait_for(bus.consume_outbound(), timeout=1.0)
+                        if msg.metadata.get("_progress"):
+                            console.print(f"  [dim]↳ {msg.content}[/dim]")
+                        elif not turn_done.is_set():
+                            if msg.content:
+                                turn_response.append(msg.content)
+                            turn_done.set()
+                        elif msg.content:
+                            console.print()
+                            _print_agent_response(msg.content, render_markdown=markdown)
+                    except asyncio.TimeoutError:
+                        continue
+                    except asyncio.CancelledError:
+                        break
+
+            outbound_task = asyncio.create_task(_consume_outbound())
+
             try:
                 while True:
                     try:
@@ -572,10 +613,23 @@ def agent(
                             console.print("\nGoodbye!")
                             break
 
-                        response = await agent_loop.process_direct(
-                            user_input, session_id, on_progress=_cli_progress
+                        turn_done.clear()
+                        turn_response.clear()
+
+                        await bus.publish_inbound(
+                            InboundMessage(
+                                channel=cli_channel,
+                                sender_id="user",
+                                chat_id=cli_chat_id,
+                                content=user_input,
+                            )
                         )
-                        _print_agent_response(response, render_markdown=markdown)
+
+                        with _thinking_ctx():
+                            await turn_done.wait()
+
+                        if turn_response:
+                            _print_agent_response(turn_response[0], render_markdown=markdown)
                     except KeyboardInterrupt:
                         _restore_terminal()
                         console.print("\nGoodbye!")
@@ -585,6 +639,9 @@ def agent(
                         console.print("\nGoodbye!")
                         break
             finally:
+                agent_loop.stop()
+                outbound_task.cancel()
+                await asyncio.gather(bus_task, outbound_task, return_exceptions=True)
                 await agent_loop.close_mcp()
 
         asyncio.run(run_interactive())

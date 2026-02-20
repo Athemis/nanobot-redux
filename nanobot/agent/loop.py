@@ -297,8 +297,14 @@ class AgentLoop:
                 msg = await asyncio.wait_for(self.bus.consume_inbound(), timeout=1.0)
                 try:
                     response = await self._process_message(msg)
-                    if response:
-                        await self.bus.publish_outbound(response)
+                    await self.bus.publish_outbound(
+                        response
+                        or OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content="",
+                        )
+                    )
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     await self.bus.publish_outbound(
@@ -316,7 +322,7 @@ class AgentLoop:
         if self._mcp_stack:
             try:
                 await self._mcp_stack.aclose()
-            except (RuntimeError, BaseExceptionGroup):
+            except RuntimeError, BaseExceptionGroup:
                 pass  # MCP SDK cancel scope cleanup is noisy but harmless
             self._mcp_stack = None
 
@@ -446,12 +452,14 @@ class AgentLoop:
                     target = (msg.channel, msg.chat_id)
                     if message_tool.sent_in_turn_target == target:
                         return
+            meta = dict(msg.metadata or {})
+            meta["_progress"] = True
             await self.bus.publish_outbound(
                 OutboundMessage(
                     channel=msg.channel,
                     chat_id=msg.chat_id,
                     content=content,
-                    metadata=msg.metadata or {},
+                    metadata=meta,
                 )
             )
 
