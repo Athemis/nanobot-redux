@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 
 import pytest
@@ -26,7 +27,7 @@ class _RecordingProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
         prompt_cache_key: str | None = None,
-        on_reasoning_delta=None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> LLMResponse:
         self.calls.append(
             {
@@ -426,3 +427,26 @@ async def test_codex_chat_sets_reasoning_content(monkeypatch) -> None:
     assert result.content == "ok"
     assert result.finish_reason == "stop"
     assert result.reasoning_content == "reasoning summary"
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_fires_on_reasoning_delta_callback(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {"type": "response.reasoning_text.delta", "delta": "first "}
+        yield {"type": "response.reasoning_text.delta", "delta": "second"}
+        yield {"type": "response.output_text.delta", "delta": "answer"}
+        yield {"type": "response.completed", "response": {"status": "completed"}}
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    fired: list[str] = []
+
+    async def _capture(delta: str) -> None:
+        fired.append(delta)
+
+    content, tool_calls, finish_reason, reasoning = await codex_provider._consume_sse(
+        object(), on_reasoning_delta=_capture
+    )
+    assert content == "answer"
+    assert reasoning == "first second"
+    assert fired == ["first ", "second"]
