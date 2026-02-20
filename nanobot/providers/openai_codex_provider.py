@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from collections.abc import Awaitable, Callable
 from typing import Any, AsyncGenerator
 
 import httpx
@@ -36,6 +37,7 @@ class OpenAICodexProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
         prompt_cache_key: str | None = None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> LLMResponse:
         """Send a chat request to Codex Responses API and normalize the result."""
         model = model or self.default_model
@@ -77,7 +79,7 @@ class OpenAICodexProvider(LLMProvider):
 
         try:
             content, tool_calls, finish_reason, reasoning_content = await _request_codex(
-                url, headers, body, verify=ssl_verify
+                url, headers, body, verify=ssl_verify, on_reasoning_delta=on_reasoning_delta
             )
             return LLMResponse(
                 content=content,
@@ -121,6 +123,7 @@ async def _request_codex(
     headers: dict[str, str],
     body: dict[str, Any],
     verify: bool,
+    on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, list[ToolCallRequest], str, str | None]:
     """Execute the streaming Codex request and parse its SSE response."""
     async with httpx.AsyncClient(timeout=60.0, verify=verify) as client:
@@ -130,7 +133,7 @@ async def _request_codex(
                 raise RuntimeError(
                     _friendly_error(response.status_code, text.decode("utf-8", "ignore"))
                 )
-            return await _consume_sse(response)
+            return await _consume_sse(response, on_reasoning_delta=on_reasoning_delta)
 
 
 def _convert_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -273,6 +276,7 @@ async def _iter_sse(response: httpx.Response) -> AsyncGenerator[dict[str, Any], 
 
 async def _consume_sse(
     response: httpx.Response,
+    on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, list[ToolCallRequest], str, str | None]:
     """Aggregate text/tool events from Codex SSE into a final response tuple."""
     content = ""
@@ -295,7 +299,10 @@ async def _consume_sse(
                     "arguments": item.get("arguments") or "",
                 }
         elif event_type == "response.reasoning_text.delta":
-            reasoning_content += event.get("delta") or ""
+            delta = event.get("delta") or ""
+            reasoning_content += delta
+            if delta and on_reasoning_delta:
+                await on_reasoning_delta(delta)
         elif event_type == "response.output_text.delta":
             content += event.get("delta") or ""
         elif event_type == "response.function_call_arguments.delta":

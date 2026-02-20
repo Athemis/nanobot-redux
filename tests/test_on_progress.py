@@ -227,3 +227,48 @@ async def test_run_agent_loop_strips_think_before_progress(tmp_path):
     await loop._run_agent_loop([{"role": "user", "content": "read"}], on_progress=capture_progress)
 
     assert progress_calls[0] == "Reading the requested file."
+
+
+async def test_codex_reasoning_deltas_forwarded_to_on_progress(tmp_path) -> None:
+    """Codex reasoning deltas arrive via on_reasoning_delta and are forwarded to on_progress."""
+    from collections.abc import Awaitable, Callable
+
+    from nanobot.bus.queue import MessageBus
+    from nanobot.providers.base import LLMProvider, LLMResponse
+
+    # A fake provider that fires reasoning deltas during chat()
+    class _ReasoningProvider(LLMProvider):
+        def __init__(self):
+            super().__init__(api_key=None, api_base=None)
+
+        async def chat(
+            self,
+            messages,
+            tools=None,
+            model=None,
+            max_tokens=4096,
+            temperature=0.7,
+            prompt_cache_key=None,
+            on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
+        ):
+            if on_reasoning_delta:
+                await on_reasoning_delta("step one")
+                await on_reasoning_delta("step two")
+            return LLMResponse(content="done", tool_calls=[])
+
+        def get_default_model(self) -> str:
+            return "test"
+
+    loop = AgentLoop(
+        bus=MessageBus(), provider=_ReasoningProvider(), workspace=tmp_path, model="test"
+    )
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    captured: list[str] = []
+
+    async def _capture(text: str) -> None:
+        captured.append(text)
+
+    await loop._run_agent_loop([{"role": "user", "content": "go"}], on_progress=_capture)
+    assert "step one" in captured
+    assert "step two" in captured

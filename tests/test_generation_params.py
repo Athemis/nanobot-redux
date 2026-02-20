@@ -26,6 +26,7 @@ class _RecordingProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
         prompt_cache_key: str | None = None,
+        on_reasoning_delta=None,
     ) -> LLMResponse:
         self.calls.append(
             {
@@ -262,7 +263,11 @@ async def test_codex_chat_omits_token_limit_fields_and_ignores_temperature(monke
     captured: dict[str, object] = {}
 
     async def _fake_request_codex(
-        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta=None,
     ):
         captured["url"] = url
         captured["headers"] = headers
@@ -300,7 +305,11 @@ async def test_codex_chat_disables_ssl_verify_only_when_provider_configured(monk
     captured: dict[str, object] = {}
 
     async def _fake_request_codex(
-        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta=None,
     ):
         captured["verify"] = verify
         return "ok", [], "stop", None
@@ -326,7 +335,11 @@ async def test_codex_chat_no_longer_auto_retries_without_ssl_verify(monkeypatch)
     calls: list[bool] = []
 
     async def _fake_request_codex(
-        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta=None,
     ):
         calls.append(verify)
         raise RuntimeError("CERTIFICATE_VERIFY_FAILED")
@@ -396,7 +409,11 @@ async def test_codex_chat_sets_reasoning_content(monkeypatch) -> None:
     )
 
     async def _fake_request_codex(
-        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta=None,
     ):
         return "ok", [], "stop", "reasoning summary"
 
