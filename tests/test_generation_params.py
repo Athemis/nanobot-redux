@@ -268,7 +268,7 @@ async def test_codex_chat_omits_token_limit_fields_and_ignores_temperature(monke
         headers: dict[str, str],
         body: dict[str, object],
         verify: bool,
-        on_reasoning_delta=None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ):
         captured["url"] = url
         captured["headers"] = headers
@@ -310,7 +310,7 @@ async def test_codex_chat_disables_ssl_verify_only_when_provider_configured(monk
         headers: dict[str, str],
         body: dict[str, object],
         verify: bool,
-        on_reasoning_delta=None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ):
         captured["verify"] = verify
         return "ok", [], "stop", None
@@ -340,7 +340,7 @@ async def test_codex_chat_no_longer_auto_retries_without_ssl_verify(monkeypatch)
         headers: dict[str, str],
         body: dict[str, object],
         verify: bool,
-        on_reasoning_delta=None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ):
         calls.append(verify)
         raise RuntimeError("CERTIFICATE_VERIFY_FAILED")
@@ -414,7 +414,7 @@ async def test_codex_chat_sets_reasoning_content(monkeypatch) -> None:
         headers: dict[str, str],
         body: dict[str, object],
         verify: bool,
-        on_reasoning_delta=None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ):
         return "ok", [], "stop", "reasoning summary"
 

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 import json_repair
 from openai import AsyncOpenAI

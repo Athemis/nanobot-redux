@@ -1,5 +1,7 @@
 """Tests for the on_progress callback in the agent loop."""
 
+from collections.abc import Awaitable, Callable
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from nanobot.agent.loop import AgentLoop
@@ -229,10 +231,8 @@ async def test_run_agent_loop_strips_think_before_progress(tmp_path):
     assert progress_calls[0] == "Reading the requested file."
 
 
-async def test_codex_reasoning_deltas_forwarded_to_on_progress(tmp_path) -> None:
-    """Codex reasoning deltas arrive via on_reasoning_delta and are forwarded to on_progress."""
-    from collections.abc import Awaitable, Callable
-
+async def test_codex_reasoning_deltas_forwarded_via_on_reasoning_delta(tmp_path) -> None:
+    """on_reasoning_delta is wired separately from on_progress so bus channels are not flooded."""
     from nanobot.bus.queue import MessageBus
     from nanobot.providers.base import LLMProvider, LLMResponse
 
@@ -243,14 +243,14 @@ async def test_codex_reasoning_deltas_forwarded_to_on_progress(tmp_path) -> None
 
         async def chat(
             self,
-            messages,
-            tools=None,
-            model=None,
-            max_tokens=4096,
-            temperature=0.7,
-            prompt_cache_key=None,
+            messages: list[dict[str, Any]],
+            tools: list[dict[str, Any]] | None = None,
+            model: str | None = None,
+            max_tokens: int = 4096,
+            temperature: float = 0.7,
+            prompt_cache_key: str | None = None,
             on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
-        ):
+        ) -> LLMResponse:
             if on_reasoning_delta:
                 await on_reasoning_delta("step one")
                 await on_reasoning_delta("step two")
@@ -264,11 +264,24 @@ async def test_codex_reasoning_deltas_forwarded_to_on_progress(tmp_path) -> None
     )
     loop.tools.get_definitions = MagicMock(return_value=[])
 
-    captured: list[str] = []
+    reasoning_captured: list[str] = []
+    progress_captured: list[str] = []
 
-    async def _capture(text: str) -> None:
-        captured.append(text)
+    async def _capture_reasoning(text: str) -> None:
+        reasoning_captured.append(text)
 
-    await loop._run_agent_loop([{"role": "user", "content": "go"}], on_progress=_capture)
-    assert "step one" in captured
-    assert "step two" in captured
+    async def _capture_progress(text: str) -> None:
+        progress_captured.append(text)
+
+    # on_reasoning_delta is separate from on_progress — only the explicit reasoning callback
+    # receives deltas; on_progress (bus path) does not, preventing Matrix message floods.
+    await loop._run_agent_loop(
+        [{"role": "user", "content": "go"}],
+        on_progress=_capture_progress,
+        on_reasoning_delta=_capture_reasoning,
+    )
+    assert "step one" in reasoning_captured
+    assert "step two" in reasoning_captured
+    # on_progress must NOT receive reasoning deltas (bus channel isolation)
+    assert "step one" not in progress_captured
+    assert "step two" not in progress_captured

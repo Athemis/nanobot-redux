@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Add failing Codex reasoning parser tests
+## Task 1: Add failing Codex reasoning parser tests
 
 **Files:**
 - Modify: `tests/test_generation_params.py`
@@ -72,7 +72,7 @@ git add tests/test_generation_params.py
 git commit -m "test: add codex reasoning streaming expectations"
 ```
 
-### Task 2: Implement Codex reasoning aggregation and response propagation
+## Task 2: Implement Codex reasoning aggregation and response propagation
 
 **Files:**
 - Modify: `nanobot/providers/openai_codex_provider.py`
@@ -108,7 +108,7 @@ git add nanobot/providers/openai_codex_provider.py tests/test_generation_params.
 git commit -m "feat(codex): propagate reasoning content from SSE responses"
 ```
 
-### Task 3: Stream reasoning through agent progress callback
+## Task 3: Stream reasoning through agent progress callback
 
 **Files:**
 - Modify: `nanobot/providers/base.py`
@@ -153,7 +153,7 @@ git add nanobot/providers/base.py nanobot/providers/openai_provider.py nanobot/p
 git commit -m "feat(agent): stream codex reasoning via progress callbacks"
 ```
 
-### Task 4: Preserve and verify Matrix typing fallback behavior
+## Task 4: Preserve and verify Matrix typing fallback behavior
 
 **Files:**
 - Modify: `tests/test_matrix_channel.py`
@@ -185,7 +185,7 @@ git add nanobot/channels/matrix.py tests/test_matrix_channel.py
 git commit -m "test(matrix): guarantee typing fallback without reasoning"
 ```
 
-### Task 5: Final verification and fork docs updates
+## Task 5: Final verification and fork docs updates
 
 **Files:**
 - Modify: `docs/redux-changes.md`
