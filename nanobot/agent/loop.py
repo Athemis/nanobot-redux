@@ -102,6 +102,7 @@ class AgentLoop:
         self._mcp_connected = False
         self._consolidating: set[str] = set()  # Session keys with consolidation in progress
         self._consolidation_tasks: set[asyncio.Task] = set()  # Strong refs to prevent GC
+        self._consolidation_locks: dict[str, asyncio.Lock] = {}
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
@@ -292,6 +293,14 @@ class AgentLoop:
         self._running = False
         logger.info("Agent loop stopping")
 
+    def _get_consolidation_lock(self, session_key: str) -> asyncio.Lock:
+        """Return the per-session lock for consolidation writers."""
+        lock = self._consolidation_locks.get(session_key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._consolidation_locks[session_key] = lock
+        return lock
+
     async def _process_message(
         self,
         msg: InboundMessage,
@@ -322,28 +331,24 @@ class AgentLoop:
         # Handle slash commands
         cmd = msg.content.strip().lower()
         if cmd == "/new":
-            # Capture messages before clearing (avoid race condition with background task)
             messages_to_archive = session.messages.copy()
+            lock = self._get_consolidation_lock(session.key)
+            try:
+                async with lock:
+                    temp_session = Session(key=session.key)
+                    temp_session.messages = messages_to_archive
+                    await self._consolidate_memory(temp_session, archive_all=True)
+            except Exception as e:
+                logger.error(f"/new archival failed for {session.key}: {e}")
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content="Could not start a new session because memory archival failed. Please try again.",
+                )
+
             session.clear()
             self.sessions.save(session)
             self.sessions.invalidate(session.key)
-
-            if session.key not in self._consolidating:
-                self._consolidating.add(session.key)
-
-                async def _consolidate_and_cleanup() -> None:
-                    try:
-                        temp_session = Session(key=session.key)
-                        temp_session.messages = messages_to_archive
-                        await self._consolidate_memory(temp_session, archive_all=True)
-                    finally:
-                        self._consolidating.discard(session.key)
-                        _task = asyncio.current_task()
-                        if _task is not None:
-                            self._consolidation_tasks.discard(_task)
-
-                _new_task = asyncio.create_task(_consolidate_and_cleanup())
-                self._consolidation_tasks.add(_new_task)
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -358,10 +363,12 @@ class AgentLoop:
 
         if len(session.messages) > self.memory_window and session.key not in self._consolidating:
             self._consolidating.add(session.key)
+            lock = self._get_consolidation_lock(session.key)
 
             async def _consolidate_and_unlock() -> None:
                 try:
-                    await self._consolidate_memory(session)
+                    async with lock:
+                        await self._consolidate_memory(session)
                 finally:
                     self._consolidating.discard(session.key)
                     _task = asyncio.current_task()
