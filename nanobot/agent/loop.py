@@ -468,7 +468,7 @@ class AgentLoop:
             channel=origin_channel, chat_id=origin_chat_id, content=final_content
         )
 
-    async def _consolidate_memory(self, session: Session, archive_all: bool = False) -> None:
+    async def _consolidate_memory(self, session: Session, archive_all: bool = False) -> bool:
         """Consolidate old messages into MEMORY.md + HISTORY.md.
 
         Args:
@@ -497,7 +497,8 @@ class AgentLoop:
                 )
                 return True
 
-            old_messages = session.messages[session.last_consolidated : -keep_count]
+            end_index = None if keep_count == 0 else -keep_count
+            old_messages = session.messages[session.last_consolidated : end_index]
             if not old_messages:
                 return True
             logger.info(

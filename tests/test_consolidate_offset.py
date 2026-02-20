@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from nanobot.agent.loop import AgentLoop
+from nanobot.bus.queue import MessageBus
+from nanobot.providers.base import LLMResponse
 from nanobot.session.manager import Session, SessionManager
 
 # Test constants
@@ -479,6 +482,38 @@ class TestEmptyAndBoundarySessions:
         expected_count = 60 - KEEP_COUNT - 10
         assert len(old_messages) == expected_count
         assert_messages_content(old_messages, 10, 34)
+
+
+@pytest.mark.asyncio
+async def test_consolidation_processes_messages_when_keep_count_zero(tmp_path: Path) -> None:
+    """Consolidation should still run when memory_window yields keep_count == 0."""
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(
+        bus=bus,
+        provider=provider,
+        workspace=tmp_path,
+        model="test-model",
+        memory_window=1,
+    )
+
+    loop.provider.chat = AsyncMock(
+        return_value=LLMResponse(
+            content='{"history_entry":"[2026-02-20 12:00] summarized","memory_update":""}',
+            tool_calls=[],
+        )
+    )
+
+    session = loop.sessions.get_or_create("cli:test")
+    for i in range(3):
+        session.add_message("user", f"msg{i}")
+    loop.sessions.save(session)
+
+    await loop._consolidate_memory(session)
+
+    assert loop.provider.chat.await_count == 1
+    assert session.last_consolidated == len(session.messages)
 
 
 class TestConsolidationDeduplicationGuard:
