@@ -67,6 +67,7 @@ class AgentLoop:
     ):
         """Wire core agent dependencies, runtime settings, and the tool registry."""
         from nanobot.config.schema import ExecToolConfig, WebSearchConfig
+
         self.bus = bus
         self.provider = provider
         self.workspace = workspace
@@ -100,6 +101,7 @@ class AgentLoop:
         self._mcp_stack: AsyncExitStack | None = None
         self._mcp_connected = False
         self._consolidating: set[str] = set()  # Session keys with consolidation in progress
+        self._consolidation_tasks: set[asyncio.Task] = set()  # Strong refs to prevent GC
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
@@ -113,11 +115,13 @@ class AgentLoop:
         self.tools.register(ListDirTool(allowed_dir=allowed_dir))
 
         # Shell tool
-        self.tools.register(ExecTool(
-            working_dir=str(self.workspace),
-            timeout=self.exec_config.timeout,
-            restrict_to_workspace=self.restrict_to_workspace,
-        ))
+        self.tools.register(
+            ExecTool(
+                working_dir=str(self.workspace),
+                timeout=self.exec_config.timeout,
+                restrict_to_workspace=self.restrict_to_workspace,
+            )
+        )
 
         # Web tools
         self.tools.register(WebSearchTool(config=self.web_search_config))
@@ -141,6 +145,7 @@ class AgentLoop:
             return
         self._mcp_connected = True
         from nanobot.agent.tools.mcp import connect_mcp_servers
+
         self._mcp_stack = AsyncExitStack()
         await self._mcp_stack.__aenter__()
         await connect_mcp_servers(self._mcp_servers, self.tools, self._mcp_stack)
@@ -207,15 +212,14 @@ class AgentLoop:
                     {
                         "id": tc.id,
                         "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments)
-                        }
+                        "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
                     }
                     for tc in response.tool_calls
                 ]
                 messages = self.context.add_assistant_message(
-                    messages, response.content, tool_call_dicts,
+                    messages,
+                    response.content,
+                    tool_call_dicts,
                     reasoning_content=response.reasoning_content,
                 )
 
@@ -237,7 +241,12 @@ class AgentLoop:
                     messages = self.context.add_tool_result(
                         messages, tool_call.id, tool_call.name, result
                     )
-                messages.append({"role": "user", "content": "Review the tool results and continue working toward the goal. Use more tools if needed. Only stop (without calling a tool) when the task is fully complete."})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Review the tool results and continue working toward the goal. Use more tools if needed. Only stop (without calling a tool) when the task is fully complete.",
+                    }
+                )
             else:
                 final_content = response.content
                 break
@@ -252,21 +261,20 @@ class AgentLoop:
 
         while self._running:
             try:
-                msg = await asyncio.wait_for(
-                    self.bus.consume_inbound(),
-                    timeout=1.0
-                )
+                msg = await asyncio.wait_for(self.bus.consume_inbound(), timeout=1.0)
                 try:
                     response = await self._process_message(msg)
                     if response:
                         await self.bus.publish_outbound(response)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
-                    await self.bus.publish_outbound(OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=f"Sorry, I encountered an error: {str(e)}"
-                    ))
+                    await self.bus.publish_outbound(
+                        OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=f"Sorry, I encountered an error: {str(e)}",
+                        )
+                    )
             except asyncio.TimeoutError:
                 continue
 
@@ -275,7 +283,7 @@ class AgentLoop:
         if self._mcp_stack:
             try:
                 await self._mcp_stack.aclose()
-            except (RuntimeError, BaseExceptionGroup):
+            except RuntimeError, BaseExceptionGroup:
                 pass  # MCP SDK cancel scope cleanup is noisy but harmless
             self._mcp_stack = None
 
@@ -320,17 +328,33 @@ class AgentLoop:
             self.sessions.save(session)
             self.sessions.invalidate(session.key)
 
-            async def _consolidate_and_cleanup():
-                temp_session = Session(key=session.key)
-                temp_session.messages = messages_to_archive
-                await self._consolidate_memory(temp_session, archive_all=True)
+            if session.key not in self._consolidating:
+                self._consolidating.add(session.key)
 
-            asyncio.create_task(_consolidate_and_cleanup())
-            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id,
-                                  content="New session started. Memory consolidation in progress.")
+                async def _consolidate_and_cleanup() -> None:
+                    try:
+                        temp_session = Session(key=session.key)
+                        temp_session.messages = messages_to_archive
+                        await self._consolidate_memory(temp_session, archive_all=True)
+                    finally:
+                        self._consolidating.discard(session.key)
+                        _task = asyncio.current_task()
+                        if _task is not None:
+                            self._consolidation_tasks.discard(_task)
+
+                _new_task = asyncio.create_task(_consolidate_and_cleanup())
+                self._consolidation_tasks.add(_new_task)
+            return OutboundMessage(
+                channel=msg.channel,
+                chat_id=msg.chat_id,
+                content="New session started. Memory consolidation in progress.",
+            )
         if cmd == "/help":
-            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id,
-                                  content="🐈 nanobot commands:\n/new — Start a new conversation\n/help — Show available commands")
+            return OutboundMessage(
+                channel=msg.channel,
+                chat_id=msg.chat_id,
+                content="🐈 nanobot commands:\n/new — Start a new conversation\n/help — Show available commands",
+            )
 
         if len(session.messages) > self.memory_window and session.key not in self._consolidating:
             self._consolidating.add(session.key)
@@ -340,8 +364,12 @@ class AgentLoop:
                     await self._consolidate_memory(session)
                 finally:
                     self._consolidating.discard(session.key)
+                    _task = asyncio.current_task()
+                    if _task is not None:
+                        self._consolidation_tasks.discard(_task)
 
-            asyncio.create_task(_consolidate_and_unlock())
+            _task = asyncio.create_task(_consolidate_and_unlock())
+            self._consolidation_tasks.add(_task)
 
         self._set_tool_context(msg.channel, msg.chat_id)
         initial_messages = self.context.build_messages(
@@ -351,7 +379,9 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
         )
-        final_content, tools_used = await self._run_agent_loop(initial_messages, on_progress=on_progress)
+        final_content, tools_used = await self._run_agent_loop(
+            initial_messages, on_progress=on_progress
+        )
 
         if final_content is None:
             final_content = "I've completed processing but have no response to give."
@@ -360,8 +390,9 @@ class AgentLoop:
         logger.info(f"Response to {msg.channel}:{msg.sender_id}: {preview}")
 
         session.add_message("user", msg.content)
-        session.add_message("assistant", final_content,
-                            tools_used=tools_used if tools_used else None)
+        session.add_message(
+            "assistant", final_content, tools_used=tools_used if tools_used else None
+        )
         self.sessions.save(session)
 
         return OutboundMessage(
@@ -409,9 +440,7 @@ class AgentLoop:
         self.sessions.save(session)
 
         return OutboundMessage(
-            channel=origin_channel,
-            chat_id=origin_chat_id,
-            content=final_content
+            channel=origin_channel, chat_id=origin_chat_id, content=final_content
         )
 
     async def _consolidate_memory(self, session, archive_all: bool = False) -> None:
@@ -426,29 +455,39 @@ class AgentLoop:
         if archive_all:
             old_messages = session.messages
             keep_count = 0
-            logger.info(f"Memory consolidation (archive_all): {len(session.messages)} total messages archived")
+            logger.info(
+                f"Memory consolidation (archive_all): {len(session.messages)} total messages archived"
+            )
         else:
             keep_count = self.memory_window // 2
             if len(session.messages) <= keep_count:
-                logger.debug(f"Session {session.key}: No consolidation needed (messages={len(session.messages)}, keep={keep_count})")
+                logger.debug(
+                    f"Session {session.key}: No consolidation needed (messages={len(session.messages)}, keep={keep_count})"
+                )
                 return
 
             messages_to_process = len(session.messages) - session.last_consolidated
             if messages_to_process <= 0:
-                logger.debug(f"Session {session.key}: No new messages to consolidate (last_consolidated={session.last_consolidated}, total={len(session.messages)})")
+                logger.debug(
+                    f"Session {session.key}: No new messages to consolidate (last_consolidated={session.last_consolidated}, total={len(session.messages)})"
+                )
                 return
 
-            old_messages = session.messages[session.last_consolidated:-keep_count]
+            old_messages = session.messages[session.last_consolidated : -keep_count]
             if not old_messages:
                 return
-            logger.info(f"Memory consolidation started: {len(session.messages)} total, {len(old_messages)} new to consolidate, {keep_count} keep")
+            logger.info(
+                f"Memory consolidation started: {len(session.messages)} total, {len(old_messages)} new to consolidate, {keep_count} keep"
+            )
 
         lines = []
         for m in old_messages:
             if not m.get("content"):
                 continue
             tools = f" [tools: {', '.join(m['tools_used'])}]" if m.get("tools_used") else ""
-            lines.append(f"[{m.get('timestamp', '?')[:16]}] {m['role'].upper()}{tools}: {m['content']}")
+            lines.append(
+                f"[{m.get('timestamp', '?')[:16]}] {m['role'].upper()}{tools}: {m['content']}"
+            )
         conversation = "\n".join(lines)
         current_memory = memory.read_long_term()
 
@@ -469,7 +508,10 @@ Respond with ONLY valid JSON, no markdown fences."""
         try:
             response = await self.provider.chat(
                 messages=[
-                    {"role": "system", "content": "You are a memory consolidation agent. Respond only with valid JSON."},
+                    {
+                        "role": "system",
+                        "content": "You are a memory consolidation agent. Respond only with valid JSON.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 model=self.model,
@@ -482,7 +524,9 @@ Respond with ONLY valid JSON, no markdown fences."""
                 text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             result = json_repair.loads(text)
             if not isinstance(result, dict):
-                logger.warning(f"Memory consolidation: unexpected response type, skipping. Response: {text[:200]}")
+                logger.warning(
+                    f"Memory consolidation: unexpected response type, skipping. Response: {text[:200]}"
+                )
                 return
 
             if entry := result.get("history_entry"):
@@ -495,7 +539,9 @@ Respond with ONLY valid JSON, no markdown fences."""
                 session.last_consolidated = 0
             else:
                 session.last_consolidated = len(session.messages) - keep_count
-            logger.info(f"Memory consolidation done: {len(session.messages)} messages, last_consolidated={session.last_consolidated}")
+            logger.info(
+                f"Memory consolidation done: {len(session.messages)} messages, last_consolidated={session.last_consolidated}"
+            )
         except Exception as e:
             logger.error(f"Memory consolidation failed: {e}")
 
@@ -521,12 +567,9 @@ Respond with ONLY valid JSON, no markdown fences."""
             The agent's response.
         """
         await self._connect_mcp()
-        msg = InboundMessage(
-            channel=channel,
-            sender_id="user",
-            chat_id=chat_id,
-            content=content
-        )
+        msg = InboundMessage(channel=channel, sender_id="user", chat_id=chat_id, content=content)
 
-        response = await self._process_message(msg, session_key=session_key, on_progress=on_progress)
+        response = await self._process_message(
+            msg, session_key=session_key, on_progress=on_progress
+        )
         return response.content if response else ""
