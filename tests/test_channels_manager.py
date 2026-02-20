@@ -82,14 +82,26 @@ async def test_start_channel_logs_error_on_exception(bus):
     await mgr._start_channel("matrix", fake_channel)
 
 
-def test_get_status_with_channels(bus):
+def test_get_status_with_channels(bus) -> None:
     mgr = ChannelManager(make_config(), bus)
     fake_channel = MagicMock()
-    fake_channel.is_running = True
+    fake_channel.is_running = MagicMock(return_value=True)
     mgr.channels["matrix"] = fake_channel
     status = mgr.get_status()
     assert "matrix" in status
     assert status["matrix"]["running"] is True
+    fake_channel.is_running.assert_called_once()
+
+
+def test_get_status_running_value_is_bool_not_method(bus) -> None:
+    """get_status must call is_running() and store the bool result, not the bound method."""
+    mgr = ChannelManager(make_config(), bus)
+    fake_channel = MagicMock()
+    fake_channel.is_running = MagicMock(return_value=False)
+    mgr.channels["matrix"] = fake_channel
+    status = mgr.get_status()
+    assert status["matrix"]["running"] is False
+    assert isinstance(status["matrix"]["running"], bool)
 
 
 @pytest.mark.asyncio

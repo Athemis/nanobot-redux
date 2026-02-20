@@ -863,3 +863,25 @@ def test_strip_tags_removes_style_with_whitespace_before_close() -> None:
     assert "color:red" not in result
     assert "before" in result
     assert "after" in result
+
+
+def test_strip_tags_removes_script_with_attributes_in_closing_tag() -> None:
+    """_strip_tags must strip <script> blocks with extra attributes before the closing >."""
+    from nanobot.agent.tools.web import _strip_tags
+
+    html = "before<script>alert(1)</script\t\n bar>after"
+    result = _strip_tags(html)
+    assert "alert(1)" not in result
+    assert "before" in result
+    assert "after" in result
+
+
+def test_strip_tags_removes_style_with_attributes_in_closing_tag() -> None:
+    """_strip_tags must strip <style> blocks with extra content before the closing >."""
+    from nanobot.agent.tools.web import _strip_tags
+
+    html = "before<style>body{color:red}</style type='text/css'>after"
+    result = _strip_tags(html)
+    assert "color:red" not in result
+    assert "before" in result
+    assert "after" in result

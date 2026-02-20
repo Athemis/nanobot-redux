@@ -1,6 +1,7 @@
 """Session management for conversation history."""
 
 import json
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -97,10 +98,11 @@ class SessionManager:
         if not path.exists():
             legacy_path = self._get_legacy_session_path(key)
             if legacy_path.exists():
-                import shutil
-
-                shutil.move(str(legacy_path), str(path))
-                logger.info("Migrated session {} from legacy path", key)
+                try:
+                    shutil.move(legacy_path, path)
+                    logger.info("Migrated session {} from legacy path", key)
+                except OSError as exc:
+                    logger.warning("Failed to migrate session {} from legacy path: {}", key, exc)
 
         if not path.exists():
             return None
@@ -148,6 +150,7 @@ class SessionManager:
         with open(path, "w", encoding="utf-8") as f:
             metadata_line = {
                 "_type": "metadata",
+                "key": session.key,
                 "created_at": session.created_at.isoformat(),
                 "updated_at": session.updated_at.isoformat(),
                 "metadata": session.metadata,
@@ -180,9 +183,11 @@ class SessionManager:
                     if first_line:
                         data = json.loads(first_line)
                         if data.get("_type") == "metadata":
+                            # Prefer the stored key; fall back to path-stem for old files
+                            key = data.get("key") or path.stem.replace("_", ":")
                             sessions.append(
                                 {
-                                    "key": path.stem.replace("_", ":"),
+                                    "key": key,
                                     "created_at": data.get("created_at"),
                                     "updated_at": data.get("updated_at"),
                                     "path": str(path),

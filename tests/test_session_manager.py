@@ -57,7 +57,7 @@ def test_legacy_session_fallback(tmp_path, monkeypatch):
     assert loaded.messages[0]["content"] == "legacy message"
 
 
-def test_workspace_session_takes_priority_over_legacy(tmp_path, monkeypatch):
+def test_workspace_session_takes_priority_over_legacy(tmp_path, monkeypatch) -> None:
     """workspace/sessions/ takes priority when both workspace and legacy sessions exist."""
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -79,3 +79,60 @@ def test_workspace_session_takes_priority_over_legacy(tmp_path, monkeypatch):
 
     loaded = manager.get_or_create("chan:both")
     assert loaded.messages[0]["content"] == "from workspace"
+
+
+def test_legacy_migration_failure_is_graceful(tmp_path, monkeypatch) -> None:
+    """If the legacy session file cannot be moved, _load falls back gracefully."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+    manager = SessionManager(workspace)
+
+    legacy_session = Session(key="chan:migrate")
+    legacy_session.add_message("user", "old message")
+    _write_session_to(manager._get_legacy_session_path("chan:migrate"), legacy_session)
+
+    # Simulate shutil.move raising an OSError (e.g., cross-device link)
+    def failing_move(*args, **kwargs):
+        raise OSError("cross-device link")
+
+    monkeypatch.setattr("nanobot.session.manager.shutil.move", failing_move)
+
+    # Should not raise — returns None gracefully
+    result = manager._load("chan:migrate")
+    assert result is None
+
+
+def test_list_sessions_returns_original_key_for_keys_with_underscores(tmp_path) -> None:
+    """list_sessions must return the exact original key, not a path-derived reconstruction."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    manager = SessionManager(workspace)
+
+    # Key with underscore — path-stem reconstruction would produce wrong result
+    session = manager.get_or_create("my_channel:chat_id")
+    session.add_message("user", "hello")
+    manager.save(session)
+
+    sessions = manager.list_sessions()
+    keys = [s["key"] for s in sessions]
+    assert "my_channel:chat_id" in keys
+    assert "my:channel:chat:id" not in keys
+
+
+def test_list_sessions_returns_original_key_for_simple_keys(tmp_path) -> None:
+    """list_sessions returns the correct key for a simple channel:id key."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    manager = SessionManager(workspace)
+
+    session = manager.get_or_create("matrix:!roomid")
+    session.add_message("user", "hi")
+    manager.save(session)
+
+    sessions = manager.list_sessions()
+    keys = [s["key"] for s in sessions]
+    assert "matrix:!roomid" in keys
