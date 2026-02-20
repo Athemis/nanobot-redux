@@ -148,7 +148,7 @@ def test_make_provider_defaults_openai_prompt_caching_enabled(
     assert captured["prompt_caching_enabled"] is True
 
 
-def test_make_provider_defaults_openrouter_prompt_caching_disabled(
+def test_make_provider_defaults_openrouter_prompt_caching_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
@@ -165,7 +165,7 @@ def test_make_provider_defaults_openrouter_prompt_caching_disabled(
 
     _make_provider(config)
 
-    assert captured["prompt_caching_enabled"] is False
+    assert captured["prompt_caching_enabled"] is True
 
 
 def test_make_provider_explicit_openai_prompt_caching_false_overrides_default(
@@ -269,3 +269,14 @@ def test_parse_raises_on_empty_choices(basic_provider: OpenAIProvider) -> None:
     fake_response.choices = []
     with pytest.raises(ValueError, match="no choices"):
         basic_provider._parse(fake_response)
+
+
+def test_openrouter_spec_has_prompt_caching_enabled() -> None:
+    """OpenRouter ProviderSpec must default prompt caching to enabled."""
+    from nanobot.providers.registry import PROVIDERS
+
+    spec = next((s for s in PROVIDERS if s.name == "openrouter"), None)
+    assert spec is not None, "OpenRouter ProviderSpec not found"
+    assert spec.default_prompt_caching_enabled is True, (
+        "OpenRouter supports cache_control; default_prompt_caching_enabled should be True"
+    )
