@@ -888,3 +888,82 @@ class TestConsolidationDeduplicationGuard:
         assert response is not None
         assert "new session started" in response.content.lower()
         assert session.key not in loop._consolidation_locks
+
+
+class TestSnapshotWatermark:
+    """Issue #63: last_consolidated must be bounded to snapshot_len, not post-await len."""
+
+    @pytest.mark.asyncio
+    async def test_mid_flight_messages_not_skipped(self, tmp_path: Path) -> None:
+        """Messages appended while LLM await is in-flight must not be skipped.
+
+        last_consolidated must advance to snapshot_len - keep_count (computed
+        before the await), not to len(session.messages) - keep_count (computed
+        after), which would silently skip messages that arrived mid-flight.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        keep_count = 2
+        memory_window = keep_count * 2  # 4 - consolidation triggers when >4 messages
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+
+        loop = AgentLoop(
+            bus=bus,
+            provider=provider,
+            workspace=tmp_path,
+            model="test-model",
+            memory_window=memory_window,
+        )
+
+        session = loop.sessions.get_or_create("cli:test")
+        # Pre-populate 6 messages so consolidation will trigger (> memory_window=4)
+        for i in range(6):
+            session.add_message("user" if i % 2 == 0 else "assistant", f"msg {i}")
+
+        # snapshot_len before await = 6, keep_count = 2
+        # correct new last_consolidated = 6 - 2 = 4
+        snapshot_len_before = len(session.messages)
+
+        provider.chat = AsyncMock(
+            return_value=LLMResponse(
+                content=(
+                    '{"history_entry": "[2026-02-20 00:00] Consolidated test messages", '
+                    '"memory_update": "- Test memory entry"}'
+                ),
+                tool_calls=[],
+            )
+        )
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        # Monkey-patch provider.chat to append mid-flight messages before returning
+        original_chat = provider.chat
+
+        async def _chat_with_midlift(*args: object, **kwargs: object) -> LLMResponse:
+            # Simulate new messages arriving while LLM is generating
+            session.add_message("user", "mid-flight 1")
+            session.add_message("assistant", "mid-flight 2")
+            return await original_chat(*args, **kwargs)
+
+        provider.chat = _chat_with_midlift
+
+        # Run consolidation directly
+        await loop._consolidate_memory(session)
+
+        # After: 6 original + 2 mid-flight = 8 messages total
+        assert len(session.messages) == 8, (
+            f"Expected 8 messages (6 original + 2 mid-flight), got {len(session.messages)}"
+        )
+
+        # last_consolidated must be bounded to snapshot (4 = 6-2), not post-flight (6 = 8-2)
+        assert session.last_consolidated == snapshot_len_before - keep_count, (
+            f"last_consolidated={session.last_consolidated} should be "
+            f"{snapshot_len_before - keep_count} (snapshot-based), "
+            f"not {len(session.messages) - keep_count} (post-flight, silently skips mid-flight msgs)"
+        )
