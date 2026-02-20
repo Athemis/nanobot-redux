@@ -524,119 +524,228 @@ def test_provider_login_openai_codex_import_error(monkeypatch):
 # ============================================================================
 
 
-def test_run_interactive_uses_bus_not_process_direct(tmp_path) -> None:
-    """run_interactive does NOT call process_direct — it routes through the bus.
+async def test_run_interactive_routes_user_input_through_bus(tmp_path) -> None:
+    """run_interactive publishes user input via bus.publish_inbound, not process_direct.
 
-    Upstream PR #908: the interactive CLI must use bus.publish_inbound / run()
-    rather than process_direct() so subagent replies are delivered correctly.
-    This verifies the contract: after cherry-pick, process_direct must NOT be
-    used inside the interactive mode inner loop.
-    """
-    import ast
-    import inspect
+    Upstream PR #908: interactive mode must use the MessageBus so subagent replies
+    are delivered correctly. This test exercises the actual run_interactive coroutine
+    end-to-end: verifies user message reaches bus.inbound and the agent response
+    (from bus.outbound) is displayed.
 
-    from nanobot.cli import commands
-
-    source = inspect.getsource(commands.agent)
-    tree = ast.parse(source)
-
-    # Find the run_interactive async function in the AST
-    run_interactive_node = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.AsyncFunctionDef) and node.name == "run_interactive":
-            run_interactive_node = node
-            break
-
-    assert run_interactive_node is not None, "run_interactive function not found in agent()"
-
-    # Collect all function calls inside run_interactive
-    call_names = set()
-    for node in ast.walk(run_interactive_node):
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute):
-                call_names.add(node.func.attr)
-            elif isinstance(node.func, ast.Name):
-                call_names.add(node.func.id)
-
-    # process_direct must NOT be called in the interactive loop
-    assert "process_direct" not in call_names, (
-        "run_interactive must use bus routing (publish_inbound), not process_direct"
-    )
-    # publish_inbound must be called (bus routing is active)
-    assert "publish_inbound" in call_names, (
-        "run_interactive must call bus.publish_inbound to route user messages"
-    )
-
-
-def test_run_interactive_waits_for_turn_done_not_process_direct(tmp_path) -> None:
-    """run_interactive waits on turn_done event (not process_direct result).
-
-    Upstream PR #908: the interactive mode must set/clear turn_done event and
-    wait for it to signal turn completion from the bus consumer.
-    """
-    import ast
-    import inspect
-
-    from nanobot.cli import commands
-
-    source = inspect.getsource(commands.agent)
-    tree = ast.parse(source)
-
-    run_interactive_node = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.AsyncFunctionDef) and node.name == "run_interactive":
-            run_interactive_node = node
-            break
-
-    assert run_interactive_node is not None
-
-    # Check that turn_done.wait() is awaited inside run_interactive
-    has_turn_done_wait = False
-    for node in ast.walk(run_interactive_node):
-        if isinstance(node, ast.Await):
-            if isinstance(node.value, ast.Call):
-                call = node.value
-                if isinstance(call.func, ast.Attribute) and call.func.attr == "wait":
-                    if isinstance(call.func.value, ast.Name) and call.func.value.id == "turn_done":
-                        has_turn_done_wait = True
-
-    assert has_turn_done_wait, (
-        "run_interactive must await turn_done.wait() to know when the bus has delivered the reply"
-    )
-
-
-async def test_consume_outbound_distinguishes_progress_from_final_messages() -> None:
-    """_consume_outbound routes messages by _progress metadata flag.
-
-    Upstream PR #908: outbound messages with metadata._progress=True are shown
-    as tool hints; messages without _progress (or _progress=False) are the final
-    turn response and set turn_done.
+    Regression detection: if process_direct() were re-introduced, bus.publish_inbound
+    would never be called and captured_inbound would stay empty — test fails.
     """
     import asyncio
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from nanobot.bus.events import InboundMessage, OutboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.config.schema import Config
+
+    captured_inbound: list[InboundMessage] = []
+    real_bus = MessageBus()
+    original_publish_inbound = real_bus.publish_inbound
+
+    async def _spy_publish_inbound(msg: InboundMessage) -> None:
+        captured_inbound.append(msg)
+        await original_publish_inbound(msg)
+
+    real_bus.publish_inbound = _spy_publish_inbound  # type: ignore[method-assign]
+
+    # Shared stop signal so mock stop() can terminate the fake agent run()
+    agent_stopped = asyncio.Event()
+
+    # Fake agent: reads inbound message, publishes a response to outbound
+    async def _fake_agent_run() -> None:
+        try:
+            while not agent_stopped.is_set():
+                try:
+                    inbound = await asyncio.wait_for(real_bus.consume_inbound(), timeout=0.1)
+                    await real_bus.publish_outbound(
+                        OutboundMessage(
+                            channel=inbound.channel,
+                            chat_id=inbound.chat_id,
+                            content="Mock agent response",
+                        )
+                    )
+                except asyncio.TimeoutError:
+                    continue
+        except asyncio.CancelledError:
+            pass
+
+    mock_loop = MagicMock()
+    mock_loop.run = _fake_agent_run
+    mock_loop.stop = lambda: agent_stopped.set()
+    mock_loop.close_mcp = AsyncMock()
+
+    printed_responses: list[str] = []
+    user_inputs = iter(["Hello agent", "exit"])
+
+    async def _mock_read_input() -> str:
+        try:
+            return next(user_inputs)
+        except StopIteration:
+            raise EOFError
+
+    # Capture the coroutine passed to asyncio.run so we can await it ourselves
+    captured_coros: list = []
+
+    def _capture_asyncio_run(coro):  # type: ignore[override]
+        captured_coros.append(coro)
+
+    with (
+        patch("nanobot.bus.queue.MessageBus", return_value=real_bus),
+        patch("nanobot.agent.loop.AgentLoop", return_value=mock_loop),
+        patch("nanobot.config.loader.load_config", return_value=Config()),
+        patch("nanobot.cli.commands._make_provider", return_value=MagicMock()),
+        patch("nanobot.cron.service.CronService", return_value=MagicMock()),
+        patch("nanobot.config.loader.get_data_dir", return_value=tmp_path),
+        patch("nanobot.cli.commands._read_interactive_input_async", side_effect=_mock_read_input),
+        patch("nanobot.cli.commands._init_prompt_session"),
+        patch("nanobot.cli.commands._flush_pending_tty_input"),
+        patch("nanobot.cli.commands._restore_terminal"),
+        patch(
+            "nanobot.cli.commands._print_agent_response",
+            side_effect=lambda r, **kw: printed_responses.append(r),
+        ),
+        patch("asyncio.run", side_effect=_capture_asyncio_run),
+    ):
+        from nanobot.cli.commands import agent
+
+        agent(  # type: ignore[arg-type]
+            message=None, session_id="cli:test", markdown=True, logs=False
+        )
+        # agent() called asyncio.run(run_interactive()) — await it while patches are active
+        assert len(captured_coros) == 1, "Expected asyncio.run called once for run_interactive"
+        await captured_coros[0]
+
+    # User message must have gone through bus.publish_inbound (not process_direct)
+    assert len(captured_inbound) == 1, (
+        f"Expected 1 inbound via bus.publish_inbound, got {len(captured_inbound)}. "
+        "A regression to process_direct() would leave this list empty."
+    )
+    assert captured_inbound[0].content == "Hello agent"
+    assert captured_inbound[0].channel == "cli"
+
+    # Agent response from bus.outbound must be displayed
+    assert len(printed_responses) == 1, (
+        f"Expected 1 printed response from bus outbound, got {len(printed_responses)}"
+    )
+    assert printed_responses[0] == "Mock agent response"
+
+
+async def test_run_interactive_displays_progress_hints_and_final_response(
+    tmp_path,
+) -> None:
+    """Progress messages (_progress=True) shown as hints; final message printed.
+
+    Upstream PR #908: _consume_outbound must route messages with metadata._progress=True
+    to dim-text hints and route the final turn response to _print_agent_response.
+    """
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock, patch
 
     from nanobot.bus.events import OutboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.config.schema import Config
 
-    turn_done = asyncio.Event()
-    turn_done.clear()  # Simulating an active turn
-    turn_response: list[str] = []
+    real_bus = MessageBus()
+    agent_stopped2 = asyncio.Event()
+
+    async def _fake_agent_run() -> None:
+        try:
+            while not agent_stopped2.is_set():
+                try:
+                    inbound = await asyncio.wait_for(real_bus.consume_inbound(), timeout=0.1)
+                    # First: a progress hint
+                    await real_bus.publish_outbound(
+                        OutboundMessage(
+                            channel=inbound.channel,
+                            chat_id=inbound.chat_id,
+                            content="Calling tool: shell",
+                            metadata={"_progress": True},
+                        )
+                    )
+                    # Then: the final answer
+                    await real_bus.publish_outbound(
+                        OutboundMessage(
+                            channel=inbound.channel,
+                            chat_id=inbound.chat_id,
+                            content="The answer is 42",
+                        )
+                    )
+                except asyncio.TimeoutError:
+                    continue
+        except asyncio.CancelledError:
+            pass
+
+    mock_loop = MagicMock()
+    mock_loop.run = _fake_agent_run
+    mock_loop.stop = lambda: agent_stopped2.set()
+    mock_loop.close_mcp = AsyncMock()
+
+    printed_responses: list[str] = []
+    user_inputs = iter(["What is 6 * 7?", "exit"])
+
+    async def _mock_read_input() -> str:
+        try:
+            return next(user_inputs)
+        except StopIteration:
+            raise EOFError
+
+    captured_coros2: list = []
+
+    def _capture_asyncio_run2(coro):  # type: ignore[override]
+        captured_coros2.append(coro)
+
+    import nanobot.cli.commands as cmd_mod
+
     printed_hints: list[str] = []
+    original_print = cmd_mod.console.print
 
-    # Simulate _consume_outbound processing loop logic
-    messages = [
-        OutboundMessage(
-            channel="cli", chat_id="s1", content="Calling tool X", metadata={"_progress": True}
-        ),
-        OutboundMessage(channel="cli", chat_id="s1", content="Final answer", metadata={}),
-    ]
+    def _capture_print(s, *a, **kw):
+        if isinstance(s, str) and "[dim]↳" in s:
+            printed_hints.append(s)
+        return original_print(s, *a, **kw)
 
-    for msg in messages:
-        if msg.metadata.get("_progress"):
-            printed_hints.append(msg.content)
-        elif not turn_done.is_set():
-            if msg.content:
-                turn_response.append(msg.content)
-            turn_done.set()
+    cmd_mod.console.print = _capture_print  # type: ignore[method-assign]
+    try:
+        with (
+            patch("nanobot.bus.queue.MessageBus", return_value=real_bus),
+            patch("nanobot.agent.loop.AgentLoop", return_value=mock_loop),
+            patch("nanobot.config.loader.load_config", return_value=Config()),
+            patch("nanobot.cli.commands._make_provider", return_value=MagicMock()),
+            patch("nanobot.cron.service.CronService", return_value=MagicMock()),
+            patch("nanobot.config.loader.get_data_dir", return_value=tmp_path),
+            patch(
+                "nanobot.cli.commands._read_interactive_input_async",
+                side_effect=_mock_read_input,
+            ),
+            patch("nanobot.cli.commands._init_prompt_session"),
+            patch("nanobot.cli.commands._flush_pending_tty_input"),
+            patch("nanobot.cli.commands._restore_terminal"),
+            patch(
+                "nanobot.cli.commands._print_agent_response",
+                side_effect=lambda r, **kw: printed_responses.append(r),
+            ),
+            patch("asyncio.run", side_effect=_capture_asyncio_run2),
+        ):
+            from nanobot.cli.commands import agent
 
-    assert printed_hints == ["Calling tool X"], "Progress message should be shown as hint"
-    assert turn_response == ["Final answer"], "Final message should be stored as turn response"
-    assert turn_done.is_set(), "turn_done should be set after receiving final message"
+            agent(  # type: ignore[arg-type]
+                message=None, session_id="cli:test", markdown=True, logs=False
+            )
+
+            # agent() called asyncio.run(run_interactive()) — await it while patches are active
+            assert len(captured_coros2) == 1, "Expected asyncio.run called once for run_interactive"
+            await captured_coros2[0]
+    finally:
+        cmd_mod.console.print = original_print
+
+    # Progress hint must be displayed via console.print with Rich markup
+    assert len(printed_hints) == 1, f"Expected 1 progress hint, got {printed_hints}"
+    assert "Calling tool: shell" in printed_hints[0]
+
+    # Final response must be routed to _print_agent_response
+    assert len(printed_responses) == 1, f"Expected 1 response, got {printed_responses}"
+    assert printed_responses[0] == "The answer is 42"

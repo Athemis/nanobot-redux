@@ -5,6 +5,7 @@ import os
 import select
 import signal
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 import typer
@@ -533,8 +534,6 @@ def agent(
     # Show spinner when logs are off (no output to miss); skip when logs are on
     def _thinking_ctx():
         if logs:
-            from contextlib import nullcontext
-
             return nullcontext()
         # Animated spinner is safe to use with prompt_toolkit input handling
         return console.status("[dim]nanobot is thinking...[/dim]", spinner="dots")
@@ -577,17 +576,17 @@ def agent(
             bus_task = asyncio.create_task(agent_loop.run())
             turn_done = asyncio.Event()
             turn_done.set()
-            turn_response: list[str] = []
+            turn_response: list[str | None] = [None]
 
             async def _consume_outbound():
                 while True:
                     try:
                         msg = await asyncio.wait_for(bus.consume_outbound(), timeout=1.0)
                         if msg.metadata.get("_progress"):
-                            console.print(f"  [dim]↳ {msg.content}[/dim]")
+                            console.print(f"  [dim]↳ {escape(msg.content)}[/dim]")
                         elif not turn_done.is_set():
                             if msg.content:
-                                turn_response.append(msg.content)
+                                turn_response[0] = msg.content
                             turn_done.set()
                         elif msg.content:
                             console.print()
@@ -614,7 +613,7 @@ def agent(
                             break
 
                         turn_done.clear()
-                        turn_response.clear()
+                        turn_response[0] = None
 
                         await bus.publish_inbound(
                             InboundMessage(
@@ -628,7 +627,7 @@ def agent(
                         with _thinking_ctx():
                             await turn_done.wait()
 
-                        if turn_response:
+                        if turn_response[0] is not None:
                             _print_agent_response(turn_response[0], render_markdown=markdown)
                     except KeyboardInterrupt:
                         _restore_terminal()
