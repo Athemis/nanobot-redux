@@ -76,6 +76,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         default_api_base="https://openrouter.ai/api/v1",
         strip_model_prefix=False,
         model_overrides=(),
+        default_prompt_caching_enabled=True,  # OpenRouter supports cache_control
     ),
     # AiHubMix: global gateway, OpenAI-compatible interface.
     # model_prefix="" is intentionally empty — AiHubMix doesn't use a routing prefix.
