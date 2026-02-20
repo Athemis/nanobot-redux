@@ -6,7 +6,7 @@ import re
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import json_repair
 from loguru import logger
@@ -301,6 +301,14 @@ class AgentLoop:
             self._consolidation_locks[session_key] = lock
         return lock
 
+    def _prune_consolidation_lock(self, session_key: str, lock: asyncio.Lock) -> None:
+        """Drop unused per-session lock entries to avoid unbounded growth."""
+        waiters = getattr(lock, "_waiters", None)
+        has_waiters = bool(waiters)
+        if lock.locked() or has_waiters:
+            return
+        self._consolidation_locks.pop(session_key, None)
+
     async def _process_message(
         self,
         msg: InboundMessage,
@@ -331,10 +339,11 @@ class AgentLoop:
         # Handle slash commands
         cmd = msg.content.strip().lower()
         if cmd == "/new":
-            messages_to_archive = session.messages.copy()
             lock = self._get_consolidation_lock(session.key)
+            messages_to_archive: list[dict[str, Any]] = []
             try:
                 async with lock:
+                    messages_to_archive = session.messages[session.last_consolidated :].copy()
                     temp_session = Session(key=session.key)
                     temp_session.messages = messages_to_archive
                     archived = await self._consolidate_memory(temp_session, archive_all=True)
@@ -356,6 +365,7 @@ class AgentLoop:
             session.clear()
             self.sessions.save(session)
             self.sessions.invalidate(session.key)
+            self._prune_consolidation_lock(session.key, lock)
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -378,6 +388,7 @@ class AgentLoop:
                         await self._consolidate_memory(session)
                 finally:
                     self._consolidating.discard(session.key)
+                    self._prune_consolidation_lock(session.key, lock)
                     _task = asyncio.current_task()
                     if _task is not None:
                         self._consolidation_tasks.discard(_task)
