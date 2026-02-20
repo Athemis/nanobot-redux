@@ -96,3 +96,12 @@ async def test_handle_message_passes_media_and_metadata(channel, bus):
     msg = bus.publish_inbound.call_args[0][0]
     assert msg.media == ["img.png"]
     assert msg.metadata == {"k": "v"}
+
+
+@pytest.mark.asyncio
+async def test_handle_message_blocked_logs_safely_with_curly_braces(channel, bus) -> None:
+    """Access-denied warning must not raise KeyError when sender_id has curly braces."""
+    channel.config.allow_from = ["alice"]
+    # f-string logger raises KeyError if sender contains "{" or "}"
+    await channel._handle_message("{evil}", "r1", "hack")
+    bus.publish_inbound.assert_not_awaited()
