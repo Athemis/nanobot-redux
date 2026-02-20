@@ -136,3 +136,67 @@ def test_list_sessions_returns_original_key_for_simple_keys(tmp_path) -> None:
     sessions = manager.list_sessions()
     keys = [s["key"] for s in sessions]
     assert "matrix:!roomid" in keys
+
+
+def test_list_sessions_legacy_fallback_replaces_first_underscore_only(tmp_path) -> None:
+    """Legacy files (no 'key' metadata) must use replace('_',':', 1), not replace-all."""
+    import json
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    sessions_dir = workspace / "sessions"
+    sessions_dir.mkdir()
+
+    # Write a legacy JSONL without a 'key' field — key would be "cli:user_name"
+    legacy_file = sessions_dir / "cli_user_name.jsonl"
+    legacy_file.write_text(
+        json.dumps(
+            {
+                "_type": "metadata",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+                "metadata": {},
+                "last_consolidated": 0,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    from nanobot.session.manager import SessionManager
+
+    manager = SessionManager(workspace)
+    sessions = manager.list_sessions()
+    keys = [s["key"] for s in sessions]
+
+    assert "cli:user_name" in keys, f"Expected 'cli:user_name', got {keys}"
+    assert "cli:user:name" not in keys, "replace-all produces wrong key for underscore in chat_id"
+
+
+def test_list_sessions_legacy_fallback_preserves_matrix_homeserver_separator(tmp_path) -> None:
+    """Legacy Matrix stems should restore the homeserver separator in room IDs."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    sessions_dir = workspace / "sessions"
+    sessions_dir.mkdir()
+
+    legacy_file = sessions_dir / "matrix_!room_example.org.jsonl"
+    legacy_file.write_text(
+        json.dumps(
+            {
+                "_type": "metadata",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+                "metadata": {},
+                "last_consolidated": 0,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    manager = SessionManager(workspace)
+    sessions = manager.list_sessions()
+    keys = [s["key"] for s in sessions]
+
+    assert "matrix:!room:example.org" in keys, f"Expected Matrix room key, got {keys}"
