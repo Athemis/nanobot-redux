@@ -60,6 +60,7 @@ Changes integrated after the initial fork:
 | [`9a31571`](https://github.com/HKUDS/nanobot/commit/9a31571) | Agent loop | Remove interim assistant message before retry to avoid prefill errors | low | 2026-02-20 | `pytest tests/test_on_progress.py --no-cov` |
 | [#832](https://github.com/HKUDS/nanobot/pull/832) (`ddae3e9` + `132807a`) | Agent / message tool | Suppress duplicate final reply when message tool already sent | low | 2026-02-20 | `pytest tests/test_message_tool.py tests/test_on_progress.py --no-cov` |
 | [#892](https://github.com/HKUDS/nanobot/pull/892) (`44f44b3` + `37222f9`) | MCP / loop | MCP retry on failed connection + concurrent-connect guard | low | 2026-02-20 | `pytest tests/test_mcp_tool.py --no-cov` |
+| [#903](https://github.com/HKUDS/nanobot/pull/903) partial (`f19baa8`) | channels/base | Loguru native format in BaseChannel access-denied warning | low | 2026-02-20 | `pytest tests/test_channels_base.py --no-cov` |
 
 ### Template for New Adoptions
 
