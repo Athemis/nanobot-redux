@@ -12,7 +12,6 @@ import json_repair
 from loguru import logger
 
 from nanobot.agent.context import ContextBuilder
-from nanobot.agent.memory import MemoryStore
 from nanobot.agent.subagent import SubagentManager
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.filesystem import (
@@ -100,7 +99,7 @@ class AgentLoop:
         self._mcp_servers = mcp_servers or {}
         self._mcp_stack: AsyncExitStack | None = None
         self._mcp_connected = False
-        self._consolidating: set[str] = set()  # Session keys with consolidation in progress
+        self._consolidating: set[str] = set()  # session keys with active consolidation
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
@@ -422,7 +421,7 @@ class AgentLoop:
             archive_all: If True, clear all messages and reset session (for /new command).
                        If False, only write to files without modifying session.
         """
-        memory = MemoryStore(self.workspace)
+        memory = self.context.memory
 
         if archive_all:
             old_messages = session.messages
