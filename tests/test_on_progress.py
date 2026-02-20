@@ -42,14 +42,16 @@ def test_strip_think_no_block():
 
 
 def test_tool_hint_formats_names(tmp_path):
-    """_tool_hint returns bare comma-separated names; caller adds decoration."""
+    """_tool_hint includes a concise preview of the first string argument."""
     loop = _make_loop(tmp_path)
     tc1 = MagicMock()
     tc1.name = "read_file"
     tc2 = MagicMock()
     tc2.name = "write_file"
+    tc2.arguments = {"path": "/tmp/out.txt"}
+    tc1.arguments = {"path": "/tmp/in.txt"}
     result = loop._tool_hint([tc1, tc2])
-    assert result == "read_file, write_file"
+    assert result == 'read_file("/tmp/in.txt"), write_file("/tmp/out.txt")'
 
 
 def test_tool_hint_empty_list(tmp_path):
@@ -90,7 +92,7 @@ async def test_run_agent_loop_calls_on_progress(tmp_path):
     # PR #833: on_progress fires twice — once with clean text, once with tool hint
     assert len(progress_calls) == 2
     assert progress_calls[0] == "I will read the file now."
-    assert "read_file" in progress_calls[1]
+    assert progress_calls[1] == 'read_file("/tmp/test")'
 
 
 async def test_run_agent_loop_uses_tool_hint_when_no_content(tmp_path):
@@ -121,7 +123,7 @@ async def test_run_agent_loop_uses_tool_hint_when_no_content(tmp_path):
 
     # PR #833: no clean text → only the tool hint fires (1 call)
     assert len(progress_calls) == 1
-    assert "web_search" in progress_calls[0]
+    assert progress_calls[0] == 'web_search("test")'
 
 
 async def test_run_agent_loop_no_progress_without_callback(tmp_path):
