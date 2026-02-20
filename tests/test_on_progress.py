@@ -171,7 +171,13 @@ async def test_process_message_publishes_progress_to_bus_by_default(tmp_path) ->
     loop.tools.execute = AsyncMock(return_value="file contents")
     loop.tools.get_definitions = MagicMock(return_value=[])
 
-    msg = InboundMessage(channel="matrix", sender_id="u1", chat_id="r1", content="read the file")
+    msg = InboundMessage(
+        channel="matrix",
+        sender_id="u1",
+        chat_id="r1",
+        content="read the file",
+        metadata={"thread_root_event_id": "$root123"},
+    )
     await loop._process_message(msg)
 
     # The bus outbound queue must contain at least one progress message
@@ -183,10 +189,13 @@ async def test_process_message_publishes_progress_to_bus_by_default(tmp_path) ->
     # _process_message returns the final response but does NOT publish it to the bus —
     # that's ChannelManager's job. The bus should contain only progress messages.
     assert len(outbound) >= 1, "Expected at least one progress message in bus, got none"
-    # All progress messages must target the correct channel/chat_id
+    # All progress messages must carry through channel/chat_id and metadata
     for m in outbound:
         assert m.channel == "matrix"
         assert m.chat_id == "r1"
+        assert m.metadata.get("thread_root_event_id") == "$root123", (
+            "metadata must be forwarded so Matrix can reply in the correct thread"
+        )
 
 
 async def test_run_agent_loop_strips_think_before_progress(tmp_path):

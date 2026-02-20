@@ -426,7 +426,12 @@ class AgentLoop:
 
         async def _bus_progress(content: str) -> None:
             await self.bus.publish_outbound(
-                OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=content)
+                OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content=content,
+                    metadata=msg.metadata or {},
+                )
             )
 
         final_content, tools_used = await self._run_agent_loop(
