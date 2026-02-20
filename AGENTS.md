@@ -124,7 +124,7 @@ Use `from typing import TYPE_CHECKING` and guard import-only dependencies behind
 - Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Scoped forms: `feat(matrix):`.
 - Imperative mood, concise titles (< 72 chars).
 - Before merging: `ruff check .` and `pytest` must pass.
-- Update `docs/redux-changes.md` for fork-specific changes and `docs/upstream-log.md` for upstream adopted, deferred, and rejected intake decisions.
+- Update fork documentation in the same PR — see **Fork Documentation** section below.
 
 ## Fork Documentation — Keeping the Logs Current
 
@@ -149,15 +149,13 @@ Keep the **"What This Fork Adds"** section current:
 - The **"Real-time line count"** line (`📏 Real-time line count: X lines`) must be updated whenever the core agent line count changes materially. Run `bash core_agent_lines.sh` to get the current count.
 - Do **not** add bullets for: internal refactors with no user-visible effect, CI-only changes, or doc-only changes.
 
-## Upstream Intake and Fork Documentation
+## Upstream Intake
 
 - For upstream adoption work, follow `docs/upstream-intake.md`.
 - Evaluate candidates against `docs/redux-manifest.md` criteria: testability, practical need, risk, compatibility.
 - Prefer selective cherry-picks over broad merges.
 - Use `git cherry-pick` so the source commit stays traceable in git history.
 - When upstream diffs conflict or need adaptation, use `git cherry-pick -n <sha>`, resolve, then commit.
-- For each adopted upstream change, record link, area, rationale, risk, date, and verification in `docs/upstream-log.md`.
-- For deferred/rejected upstream changes, record concise reasons in `docs/upstream-log.md`.
 - When preparing a release, use `docs/release-template.md`.
 
 ## Security
