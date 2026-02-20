@@ -44,7 +44,7 @@ Changes specific to this fork, not in upstream:
 **🤖 Agent reliability**
 - Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 - Agentic prompt hardening: loop-continuation nudge, heartbeat prompt, and spawn tool description rewritten to push the agent toward direct action over passive confirmation-seeking ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
-- Live progress for gateway users: Matrix and Email users now receive intermediate tool-hint messages during agent execution instead of waiting silently for the final response; `metadata` (e.g. Matrix thread IDs) is forwarded so replies land in the correct thread ([b41409e](https://github.com/Athemis/nanobot-redux/commit/b41409e))
+- Live progress for gateway users: Matrix and Email users receive intermediate progress hints during agent execution (upstream-style `tool("arg")` formatting), with `metadata` (e.g. Matrix thread IDs) forwarded so replies land in the correct thread ([b41409e](https://github.com/Athemis/nanobot-redux/commit/b41409e))
 - Memory consolidation snapshot safety: messages that arrive while consolidation is waiting on the LLM are no longer silently skipped by `last_consolidated` watermark drift ([#63](https://github.com/Athemis/nanobot-redux/issues/63))
 
 ## Key Features of nanobot:
@@ -187,6 +187,7 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
       "groupPolicy": "open",
       "groupAllowFrom": [],
       "allowRoomMentions": false,
+      "filterProgressToolHints": false,
       "maxMediaBytes": 20971520
     }
   }
@@ -197,6 +198,7 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
 > `groupPolicy`: `open`, `mention`, or `allowlist`.
 > `groupAllowFrom`: Room allowlist used when `groupPolicy` is `allowlist`.
 > `allowRoomMentions`: If `true`, accepts `@room` (`m.mentions.room`) in mention mode.
+> `filterProgressToolHints`: If `true`, suppresses Matrix progress-only tool hints (e.g. `exec("ls")`) while keeping normal progress text.
 > `e2eeEnabled`: Enables Matrix E2EE support (default `true`); set `false` only for plaintext-only setups.
 > `maxMediaBytes`: Max attachment size in bytes (default `20MB`) for inbound and outbound media handling; set to `0` to block all inbound and outbound attachment uploads.
 
