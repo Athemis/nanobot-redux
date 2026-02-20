@@ -44,6 +44,7 @@ Changes specific to this fork, not in upstream:
 **🤖 Agent reliability**
 - Subagent skill access: built-in skills are always readable even when `tools.restrictToWorkspace=true` — previously subagents silently lost access to all skills in restricted mode ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 - Agentic prompt hardening: loop-continuation nudge, heartbeat prompt, and spawn tool description rewritten to push the agent toward direct action over passive confirmation-seeking ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
+- Live progress for gateway users: Matrix and Email users now receive intermediate tool-hint messages during agent execution instead of waiting silently for the final response; `metadata` (e.g. Matrix thread IDs) is forwarded so replies land in the correct thread ([b41409e](https://github.com/Athemis/nanobot-redux/commit/b41409e))
 
 ## Key Features of nanobot:
 
