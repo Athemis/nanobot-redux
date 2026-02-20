@@ -337,9 +337,16 @@ class AgentLoop:
                 async with lock:
                     temp_session = Session(key=session.key)
                     temp_session.messages = messages_to_archive
-                    await self._consolidate_memory(temp_session, archive_all=True)
+                    archived = await self._consolidate_memory(temp_session, archive_all=True)
             except Exception as e:
                 logger.error(f"/new archival failed for {session.key}: {e}")
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content="Could not start a new session because memory archival failed. Please try again.",
+                )
+
+            if messages_to_archive and not archived:
                 return OutboundMessage(
                     channel=msg.channel,
                     chat_id=msg.chat_id,
@@ -450,7 +457,7 @@ class AgentLoop:
             channel=origin_channel, chat_id=origin_chat_id, content=final_content
         )
 
-    async def _consolidate_memory(self, session, archive_all: bool = False) -> None:
+    async def _consolidate_memory(self, session, archive_all: bool = False) -> bool:
         """Consolidate old messages into MEMORY.md + HISTORY.md.
 
         Args:
@@ -471,18 +478,18 @@ class AgentLoop:
                 logger.debug(
                     f"Session {session.key}: No consolidation needed (messages={len(session.messages)}, keep={keep_count})"
                 )
-                return
+                return True
 
             messages_to_process = len(session.messages) - session.last_consolidated
             if messages_to_process <= 0:
                 logger.debug(
                     f"Session {session.key}: No new messages to consolidate (last_consolidated={session.last_consolidated}, total={len(session.messages)})"
                 )
-                return
+                return True
 
             old_messages = session.messages[session.last_consolidated : -keep_count]
             if not old_messages:
-                return
+                return True
             logger.info(
                 f"Memory consolidation started: {len(session.messages)} total, {len(old_messages)} new to consolidate, {keep_count} keep"
             )
@@ -526,7 +533,7 @@ Respond with ONLY valid JSON, no markdown fences."""
             text = (response.content or "").strip()
             if not text:
                 logger.warning("Memory consolidation: LLM returned empty response, skipping")
-                return
+                return False
             if text.startswith("```"):
                 text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             result = json_repair.loads(text)
@@ -534,7 +541,7 @@ Respond with ONLY valid JSON, no markdown fences."""
                 logger.warning(
                     f"Memory consolidation: unexpected response type, skipping. Response: {text[:200]}"
                 )
-                return
+                return False
 
             if entry := result.get("history_entry"):
                 memory.append_history(entry)
@@ -549,8 +556,10 @@ Respond with ONLY valid JSON, no markdown fences."""
             logger.info(
                 f"Memory consolidation done: {len(session.messages)} messages, last_consolidated={session.last_consolidated}"
             )
+            return True
         except Exception as e:
             logger.error(f"Memory consolidation failed: {e}")
+            return False
 
     async def process_direct(
         self,
