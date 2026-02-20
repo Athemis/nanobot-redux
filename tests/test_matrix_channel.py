@@ -1250,15 +1250,14 @@ async def test_send_falls_back_to_plaintext_when_markdown_render_fails(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_typing_keepalive_starts_and_stops_independently_of_reasoning() -> None:
-    # Guarantee: typing keepalive is the baseline for ALL models.
-    # Typing must work correctly without any reasoning/progress involvement.
+async def test_typing_keepalive_start_stop_sequence() -> None:
+    # Guarantee: typing keepalive sends typing=True on start and typing=False on stop.
     channel = MatrixChannel(_make_config(), MessageBus())
     client = _FakeAsyncClient("", "", "", None)
     channel.client = client
     channel._running = True
 
-    # Start keepalive — must send typing=True immediately (no reasoning needed).
+    # Start keepalive — must send typing=True immediately.
     await channel._start_typing_keepalive("!room:matrix.org")
     assert client.typing_calls == [("!room:matrix.org", True, TYPING_NOTICE_TIMEOUT_MS)]
 
@@ -1273,34 +1272,44 @@ async def test_typing_keepalive_starts_and_stops_independently_of_reasoning() ->
 
 
 @pytest.mark.asyncio
-async def test_typing_keepalive_stops_correctly_after_reasoning_deltas() -> None:
-    # Guarantee: on_reasoning_delta callbacks firing multiple times must NOT
-    # interfere with or prevent the typing keepalive from stopping cleanly.
+async def test_send_stops_typing_keepalive_exactly_once_despite_reasoning_deltas() -> None:
+    # Guarantee: on_reasoning_delta callbacks firing during processing must NOT
+    # affect typing state — typing stops exactly once when the response is sent.
     channel = MatrixChannel(_make_config(), MessageBus())
     client = _FakeAsyncClient("", "", "", None)
     channel.client = client
     channel._running = True
 
-    # Simulate: message arrives, typing starts.
+    # Message arrives, typing starts.
     await channel._start_typing_keepalive("!room:matrix.org")
     assert client.typing_calls[0] == ("!room:matrix.org", True, TYPING_NOTICE_TIMEOUT_MS)
 
-    # Simulate: reasoning delta callbacks fire multiple times (as in streaming).
-    # These must NOT call _stop_typing_keepalive — keepalive must remain active.
-    # (In production code, reasoning deltas are not wired to typing at all.)
+    # Reasoning delta callbacks fire during processing (simulating streaming).
+    # They are plain callables with no typing side effects in the Matrix channel.
+    reasoning_received: list[str] = []
+
+    async def on_delta(text: str) -> None:
+        reasoning_received.append(text)
+
+    await on_delta("thinking step 1")
+    await on_delta("thinking step 2")
+
+    # Typing keepalive must still be alive — deltas have no effect on it.
     assert "!room:matrix.org" in channel._typing_tasks
 
-    # Simulate: response is sent — typing must stop exactly once, cleanly.
+    # Response is sent — typing must stop exactly once, cleanly.
     await channel.send(
         OutboundMessage(channel="matrix", chat_id="!room:matrix.org", content="Done")
     )
 
-    # Exactly one typing=False at the end — no double-stop, no leak.
+    # Exactly one typing=False — no double-stop from reasoning callbacks.
     false_calls = [call for call in client.typing_calls if call[1] is False]
     assert len(false_calls) == 1
     assert false_calls[-1] == ("!room:matrix.org", False, TYPING_NOTICE_TIMEOUT_MS)
-    # Task must be fully cleaned up.
+    # Task fully cleaned up.
     assert "!room:matrix.org" not in channel._typing_tasks
+    # Reasoning deltas arrived correctly and were orthogonal to typing.
+    assert reasoning_received == ["thinking step 1", "thinking step 2"]
 
 
 @pytest.mark.asyncio
