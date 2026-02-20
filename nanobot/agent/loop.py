@@ -197,6 +197,29 @@ class AgentLoop:
 
         return ", ".join(_fmt(tc) for tc in tool_calls)
 
+    def _is_tool_hint_progress(self, text: str) -> bool:
+        """Return True when text looks like a pure tool-hint progress message."""
+        stripped = text.strip()
+        if not stripped:
+            return False
+
+        known = set(self.tools.tool_names)
+        if not known:
+            return False
+
+        parts = [part.strip() for part in stripped.split(",")]
+        if any(not part for part in parts):
+            return False
+
+        for part in parts:
+            name = part.split("(", 1)[0]
+            if name not in known:
+                return False
+            if "(" in part and not re.fullmatch(r'\w+\(".*"\)', part):
+                return False
+
+        return True
+
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
@@ -321,7 +344,7 @@ class AgentLoop:
         if self._mcp_stack:
             try:
                 await self._mcp_stack.aclose()
-            except (RuntimeError, BaseExceptionGroup):
+            except RuntimeError, BaseExceptionGroup:
                 pass  # MCP SDK cancel scope cleanup is noisy but harmless
             self._mcp_stack = None
 
@@ -451,6 +474,13 @@ class AgentLoop:
                     target = (msg.channel, msg.chat_id)
                     if message_tool.sent_in_turn_target == target:
                         return
+            filter_tool_hints = bool((msg.metadata or {}).get("matrix_filter_progress_tool_hints"))
+            if (
+                msg.channel == "matrix"
+                and filter_tool_hints
+                and self._is_tool_hint_progress(content)
+            ):
+                return
             await self.bus.publish_outbound(
                 OutboundMessage(
                     channel=msg.channel,
