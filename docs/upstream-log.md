@@ -57,6 +57,13 @@ Changes integrated after the initial fork:
 | [#807](https://github.com/HKUDS/nanobot/pull/807) (`c5b4331` + `f5fe74f`) | MCP / Config | Add `headers: dict[str, str]` to `MCPServerConfig`; when present, creates an `httpx.AsyncClient` with those headers for the streamable HTTP MCP connection (e.g. `Authorization: Bearer ...`). Moves `httpx` import to top-level. Conflict resolved: upstream f-string warning already resolved by #864. | low | 2026-02-20 | `ruff check nanobot/agent/tools/mcp.py nanobot/config/schema.py` |
 | [#821](https://github.com/HKUDS/nanobot/pull/821) (`b97b1a5`) | CLI / Cron | Fix `nanobot cron run` to pass the full agent config: `temperature`, `max_tokens`, `web_search_config`, `mcp_servers`. Previously the manual run command ignored most config, so the agent ran with wrong defaults. Conflict resolved: `brave_api_key` → `web_search_config` (fork API); import sort fixed. | low | 2026-02-20 | `ruff check nanobot/cli/commands.py` |
 | [#833](https://github.com/HKUDS/nanobot/pull/833) (`523b298`) | Agent loop | Always fire `on_progress` with the tool hint when `response.has_tool_calls`, even when the model also sends preceding text. Previously `clean or tool_hint` caused the hint to be dropped if `clean` was truthy. Conflict resolved: HEAD lacked the `on_progress` block; took upstream version, applied style fix from `8db91f5`. | low | 2026-02-20 | `ruff check nanobot/agent/loop.py && pytest --no-cov -q tests/test_on_progress.py` |
+| PR #892 (`44f44b3` + `37222f9`) | MCP / loop | MCP retry on failed connection + concurrent-connect guard | low | 2026-02-20 | `pytest tests/test_mcp_tool.py --no-cov` |
+| PR #832 (`ddae3e9` + `132807a`) | Agent / message tool | Suppress duplicate final reply when message tool already sent | low | 2026-02-20 | `pytest tests/test_message_tool.py tests/test_on_progress.py --no-cov` |
+| `9a31571` | Agent loop | Remove interim assistant message before retry to avoid prefill errors | low | 2026-02-20 | `pytest tests/test_on_progress.py --no-cov` |
+| PR #903 partial (`f19baa8`) | channels/base | Loguru native format in BaseChannel access-denied warning | low | 2026-02-20 | `pytest tests/test_channels_base.py --no-cov` |
+| PR #902 partial (`73530d5`) | Session | Legacy session key fallback: replace first underscore only | low | 2026-02-20 | `pytest tests/test_session_manager.py --no-cov` |
+| PR #905 spirit (`b286457`) | Registry | OpenRouter: default_prompt_caching_enabled=True | low | 2026-02-20 | `pytest tests/test_onboard_openrouter_defaults.py --no-cov` |
+| PR #908 (`7279ff0`) | CLI / Agent loop | Route interactive CLI through message bus; subagent replies delivered | low | 2026-02-20 | `pytest tests/test_commands.py tests/test_on_progress.py --no-cov` |
 
 ### Template for New Adoptions
 
@@ -91,6 +98,10 @@ Changes I've explicitly decided not to adopt (for transparency and to avoid reco
 | ----------------------------------- | ---- | ------------ | -------- |
 | [#788](https://github.com/HKUDS/nanobot/pull/788) | Cron hot-reload | Adds `watchdog` dependency + async public API refactor for filesystem-event-driven store reload. Replaced in redux by lightweight mtime polling ([#22](https://github.com/Athemis/nanobot-redux/pull/22)) — no new dependency, 5-minute polling latency is sufficient for minute-granularity cron jobs. If upstream adopts #788, redux will likely follow and drop polling. | 2026-02-18 |
 | [#820](https://github.com/HKUDS/nanobot/pull/820) | Shell guard | Already covered in redux by the hardened exec safety regex (`nanobot/agent/tools/shell.py`) and existing guard allow-case for `?format=3` (`tests/test_shell_guard.py`); upstream's added networked curl tests are not aligned with redux's no-live-network test policy. | 2026-02-19 |
+| PR #795 | Context | LiteLLM-specific sanitization — no LiteLLMProvider in fork; context.py change conflicts with #748 | 2026-02-20 |
+| PR #900 | channels/discord | Discord message splitting — Discord removed from fork | 2026-02-20 |
+| PR #904 | channels/slack | Slack media upload — Slack removed from fork | 2026-02-20 |
+| PR #905 (LiteLLM part) | Provider | LiteLLM prompt caching — no LiteLLMProvider in fork | 2026-02-20 |
 
 ## Notes
 
