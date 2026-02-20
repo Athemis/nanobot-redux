@@ -60,6 +60,15 @@ def test_tool_hint_empty_list(tmp_path):
     assert loop._tool_hint([]) == ""
 
 
+def test_tool_hint_handles_non_dict_arguments(tmp_path) -> None:
+    """_tool_hint falls back to tool name when arguments are malformed."""
+    loop = _make_loop(tmp_path)
+    tc = MagicMock()
+    tc.name = "exec"
+    tc.arguments = ["not-a-dict"]
+    assert loop._tool_hint([tc]) == "exec"
+
+
 async def test_run_agent_loop_calls_on_progress(tmp_path):
     """on_progress is called with content before tool execution."""
     from nanobot.providers.base import LLMResponse
