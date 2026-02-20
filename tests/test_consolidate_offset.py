@@ -1,9 +1,14 @@
 """Test session management with cache-friendly message handling."""
 
+import asyncio
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from nanobot.agent.loop import AgentLoop
+from nanobot.bus.queue import MessageBus
+from nanobot.providers.base import LLMResponse
 from nanobot.session.manager import Session, SessionManager
 
 # Test constants
@@ -52,7 +57,8 @@ def get_old_messages(session: Session, last_consolidated: int, keep_count: int) 
     Returns:
         List of messages that would be consolidated
     """
-    return session.messages[last_consolidated:-keep_count]
+    end_index = None if keep_count == 0 else -keep_count
+    return session.messages[last_consolidated:end_index]
 
 
 class TestSessionLastConsolidated:
@@ -220,6 +226,14 @@ class TestConsolidationTriggerConditions:
         session.last_consolidated = total_messages - KEEP_COUNT
         old_messages = get_old_messages(session, session.last_consolidated, KEEP_COUNT)
         assert len(old_messages) == 0
+
+    def test_get_old_messages_keep_count_zero_returns_remaining(self) -> None:
+        """Helper should mirror production behavior when keep_count is zero."""
+        session = create_session_with_messages("test:keep_zero", 6)
+        old_messages = get_old_messages(session, last_consolidated=2, keep_count=0)
+
+        assert len(old_messages) == 4
+        assert_messages_content(old_messages, 2, 5)
 
 
 class TestLastConsolidatedEdgeCases:
@@ -477,3 +491,479 @@ class TestEmptyAndBoundarySessions:
         expected_count = 60 - KEEP_COUNT - 10
         assert len(old_messages) == expected_count
         assert_messages_content(old_messages, 10, 34)
+
+
+@pytest.mark.asyncio
+async def test_consolidation_processes_messages_when_keep_count_zero(tmp_path: Path) -> None:
+    """Consolidation should still run when memory_window yields keep_count == 0."""
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(
+        bus=bus,
+        provider=provider,
+        workspace=tmp_path,
+        model="test-model",
+        memory_window=1,
+    )
+
+    loop.provider.chat = AsyncMock(
+        return_value=LLMResponse(
+            content='{"history_entry":"[2026-02-20 12:00] summarized","memory_update":""}',
+            tool_calls=[],
+        )
+    )
+
+    session = loop.sessions.get_or_create("cli:test")
+    for i in range(3):
+        session.add_message("user", f"msg{i}")
+    loop.sessions.save(session)
+
+    await loop._consolidate_memory(session)
+
+    assert loop.provider.chat.await_count == 1
+    assert session.last_consolidated == len(session.messages)
+
+
+class TestConsolidationDeduplicationGuard:
+    """Test that the _consolidating guard prevents duplicate consolidation tasks."""
+
+    @pytest.mark.asyncio
+    async def test_consolidation_guard_prevents_duplicate_tasks(self, tmp_path: Path) -> None:
+        """Concurrent messages above memory_window spawn only one consolidation task."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        # Seed session with > memory_window messages
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(15):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        # Replace consolidation with a slow mock that counts calls
+        consolidation_calls = 0
+
+        async def _fake_consolidate(session, archive_all: bool = False) -> None:
+            nonlocal consolidation_calls
+            consolidation_calls += 1
+            await asyncio.sleep(0.05)
+
+        loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
+
+        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
+
+        # Process two messages back-to-back; guard must block the second consolidation
+        await loop._process_message(msg)
+        await loop._process_message(msg)
+
+        # Drain all pending tasks so the background consolidation can complete
+        await asyncio.sleep(0.1)
+
+        assert consolidation_calls == 1, (
+            f"Expected exactly 1 consolidation, got {consolidation_calls}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_new_command_guard_prevents_concurrent_consolidation(
+        self, tmp_path: Path
+    ) -> None:
+        """/new command does not run consolidation concurrently with in-flight consolidation."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        # Seed session with > memory_window messages so a normal consolidation triggers
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(15):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        consolidation_calls = 0
+        active = 0
+        max_active = 0
+
+        async def _fake_consolidate(sess, archive_all: bool = False) -> bool:
+            nonlocal consolidation_calls, active, max_active
+            consolidation_calls += 1
+            active += 1
+            max_active = max(max_active, active)
+            await asyncio.sleep(0.05)
+            active -= 1
+            return True
+
+        loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
+
+        # First message triggers a background consolidation and sets the guard
+        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
+        await loop._process_message(msg)
+
+        # /new while the guard is still active should serialize behind it
+        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
+        await loop._process_message(new_msg)
+
+        # Drain pending tasks
+        await asyncio.sleep(0.15)
+
+        assert consolidation_calls == 2, (
+            f"Expected normal + /new consolidations, got {consolidation_calls}"
+        )
+        assert max_active == 1, (
+            f"Expected serialized consolidation, observed concurrency={max_active}"
+        )
+        session_after = loop.sessions.get_or_create("cli:test")
+        assert session_after.messages == [], "/new should clear session after successful archival"
+
+    @pytest.mark.asyncio
+    async def test_consolidation_tasks_are_referenced(self, tmp_path: Path) -> None:
+        """asyncio.create_task results are stored in _consolidation_tasks to prevent GC."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        # Seed session so consolidation triggers
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(15):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        started = asyncio.Event()
+
+        async def _slow_consolidate(sess, archive_all: bool = False) -> None:
+            started.set()
+            await asyncio.sleep(0.1)
+
+        loop._consolidate_memory = _slow_consolidate  # type: ignore[method-assign]
+
+        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
+        await loop._process_message(msg)
+
+        # While task is in-flight, it must be tracked
+        await started.wait()
+        assert len(loop._consolidation_tasks) == 1, "Task must be referenced while in-flight"
+
+        # After completion, the set should be empty again
+        await asyncio.sleep(0.15)
+        assert len(loop._consolidation_tasks) == 0, (
+            "Task reference must be removed after completion"
+        )
+
+    @pytest.mark.asyncio
+    async def test_new_waits_for_inflight_consolidation_and_preserves_messages(
+        self, tmp_path: Path
+    ) -> None:
+        """/new must wait for in-flight consolidation and archive before clear."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(15):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        started = asyncio.Event()
+        release = asyncio.Event()
+        archived_count = 0
+
+        async def _fake_consolidate(sess, archive_all: bool = False) -> bool:
+            nonlocal archived_count
+            if archive_all:
+                archived_count = len(sess.messages)
+                return True
+            started.set()
+            await release.wait()
+            return True
+
+        loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
+
+        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
+        await loop._process_message(msg)
+        await started.wait()
+
+        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
+        pending_new = asyncio.create_task(loop._process_message(new_msg))
+
+        await asyncio.sleep(0.02)
+        assert not pending_new.done(), "/new should wait while consolidation is in-flight"
+
+        release.set()
+        response = await pending_new
+        assert response is not None
+        assert "new session started" in response.content.lower()
+        assert archived_count > 0, "Expected /new archival to process a non-empty snapshot"
+
+        session_after = loop.sessions.get_or_create("cli:test")
+        assert session_after.messages == [], "Session should be cleared after successful archival"
+
+    @pytest.mark.asyncio
+    async def test_new_does_not_clear_session_when_archive_fails(self, tmp_path: Path) -> None:
+        """/new must keep session data if archive step reports failure."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(5):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+        before_count = len(session.messages)
+
+        async def _failing_consolidate(sess, archive_all: bool = False) -> bool:
+            if archive_all:
+                return False
+            return True
+
+        loop._consolidate_memory = _failing_consolidate  # type: ignore[method-assign]
+
+        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
+        response = await loop._process_message(new_msg)
+
+        assert response is not None
+        assert "failed" in response.content.lower()
+        session_after = loop.sessions.get_or_create("cli:test")
+        assert len(session_after.messages) == before_count, (
+            "Session must remain intact when /new archival fails"
+        )
+
+    @pytest.mark.asyncio
+    async def test_new_archives_only_unconsolidated_messages_after_inflight_task(
+        self, tmp_path: Path
+    ) -> None:
+        """/new should archive only messages not yet consolidated by prior task."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(15):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        started = asyncio.Event()
+        release = asyncio.Event()
+        archived_count = -1
+
+        async def _fake_consolidate(sess, archive_all: bool = False) -> bool:
+            nonlocal archived_count
+            if archive_all:
+                archived_count = len(sess.messages)
+                return True
+
+            started.set()
+            await release.wait()
+            sess.last_consolidated = len(sess.messages) - 3
+            return True
+
+        loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
+
+        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
+        await loop._process_message(msg)
+        await started.wait()
+
+        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
+        pending_new = asyncio.create_task(loop._process_message(new_msg))
+        await asyncio.sleep(0.02)
+        assert not pending_new.done()
+
+        release.set()
+        response = await pending_new
+
+        assert response is not None
+        assert "new session started" in response.content.lower()
+        assert archived_count == 3, (
+            f"Expected only unconsolidated tail to archive, got {archived_count}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_new_cleans_up_consolidation_lock_for_invalidated_session(
+        self, tmp_path: Path
+    ) -> None:
+        """/new should remove lock entry for fully invalidated session key."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(3):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        # Ensure lock exists before /new.
+        _ = loop._get_consolidation_lock(session.key)
+        assert session.key in loop._consolidation_locks
+
+        async def _ok_consolidate(sess, archive_all: bool = False) -> bool:
+            return True
+
+        loop._consolidate_memory = _ok_consolidate  # type: ignore[method-assign]
+
+        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
+        response = await loop._process_message(new_msg)
+
+        assert response is not None
+        assert "new session started" in response.content.lower()
+        assert session.key not in loop._consolidation_locks
+
+
+class TestSnapshotWatermark:
+    """Issue #63: last_consolidated must be bounded to snapshot_len, not post-await len."""
+
+    @pytest.mark.asyncio
+    async def test_mid_flight_messages_not_skipped(self, tmp_path: Path) -> None:
+        """Messages appended while LLM await is in-flight must not be skipped.
+
+        last_consolidated must advance to snapshot_len - keep_count (computed
+        before the await), not to len(session.messages) - keep_count (computed
+        after), which would silently skip messages that arrived mid-flight.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        keep_count = 2
+        memory_window = keep_count * 2  # 4 - consolidation triggers when >4 messages
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+
+        loop = AgentLoop(
+            bus=bus,
+            provider=provider,
+            workspace=tmp_path,
+            model="test-model",
+            memory_window=memory_window,
+        )
+
+        session = loop.sessions.get_or_create("cli:test")
+        # Pre-populate 6 messages so consolidation will trigger (> memory_window=4)
+        for i in range(6):
+            session.add_message("user" if i % 2 == 0 else "assistant", f"msg {i}")
+
+        # snapshot_len before await = 6, keep_count = 2
+        # correct new last_consolidated = 6 - 2 = 4
+        snapshot_len_before = len(session.messages)
+
+        provider.chat = AsyncMock(
+            return_value=LLMResponse(
+                content=(
+                    '{"history_entry": "[2026-02-20 00:00] Consolidated test messages", '
+                    '"memory_update": "- Test memory entry"}'
+                ),
+                tool_calls=[],
+            )
+        )
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        # Monkey-patch provider.chat to append mid-flight messages before returning
+        original_chat = provider.chat
+
+        async def _chat_with_midlift(*args: object, **kwargs: object) -> LLMResponse:
+            # Simulate new messages arriving while LLM is generating
+            session.add_message("user", "mid-flight 1")
+            session.add_message("assistant", "mid-flight 2")
+            return await original_chat(*args, **kwargs)
+
+        provider.chat = _chat_with_midlift
+
+        # Run consolidation directly
+        await loop._consolidate_memory(session)
+
+        # After: 6 original + 2 mid-flight = 8 messages total
+        assert len(session.messages) == 8, (
+            f"Expected 8 messages (6 original + 2 mid-flight), got {len(session.messages)}"
+        )
+
+        # last_consolidated must be bounded to snapshot (4 = 6-2), not post-flight (6 = 8-2)
+        assert session.last_consolidated == snapshot_len_before - keep_count, (
+            f"last_consolidated={session.last_consolidated} should be "
+            f"{snapshot_len_before - keep_count} (snapshot-based), "
+            f"not {len(session.messages) - keep_count} (post-flight, silently skips mid-flight msgs)"
+        )

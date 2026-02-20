@@ -164,6 +164,9 @@ class MCPServerConfig(Base):
     args: list[str] = Field(default_factory=list)  # Stdio: command arguments
     env: dict[str, str] = Field(default_factory=dict)  # Stdio: extra env vars
     url: str = ""  # HTTP: streamable HTTP endpoint URL
+    headers: dict[str, str] = Field(
+        default_factory=dict
+    )  # HTTP: custom headers (e.g. Authorization)
 
 
 class ToolsConfig(Base):

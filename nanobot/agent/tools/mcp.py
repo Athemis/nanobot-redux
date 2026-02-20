@@ -3,6 +3,7 @@
 from contextlib import AsyncExitStack
 from typing import Any
 
+import httpx
 from loguru import logger
 
 from nanobot.agent.tools.base import Tool
@@ -35,6 +36,7 @@ class MCPToolWrapper(Tool):
     async def execute(self, **kwargs: Any) -> str:
         """Call the underlying MCP tool and flatten structured content into plain text."""
         from mcp import types
+
         result = await self._session.call_tool(self._original_name, arguments=kwargs)
         parts = []
         for block in result.content:
@@ -61,11 +63,20 @@ async def connect_mcp_servers(
                 read, write = await stack.enter_async_context(stdio_client(params))
             elif cfg.url:
                 from mcp.client.streamable_http import streamable_http_client
-                read, write, _ = await stack.enter_async_context(
-                    streamable_http_client(cfg.url)
-                )
+
+                if cfg.headers:
+                    http_client = await stack.enter_async_context(
+                        httpx.AsyncClient(headers=cfg.headers, follow_redirects=True)
+                    )
+                    read, write, _ = await stack.enter_async_context(
+                        streamable_http_client(cfg.url, http_client=http_client)
+                    )
+                else:
+                    read, write, _ = await stack.enter_async_context(
+                        streamable_http_client(cfg.url)
+                    )
             else:
-                logger.warning(f"MCP server '{name}': no command or url configured, skipping")
+                logger.warning("MCP server '{}': no command or url configured, skipping", name)
                 continue
 
             session = await stack.enter_async_context(ClientSession(read, write))
@@ -75,8 +86,8 @@ async def connect_mcp_servers(
             for tool_def in tools.tools:
                 wrapper = MCPToolWrapper(session, name, tool_def)
                 registry.register(wrapper)
-                logger.debug(f"MCP: registered tool '{wrapper.name}' from server '{name}'")
+                logger.debug("MCP: registered tool '{}' from server '{}'", wrapper.name, name)
 
-            logger.info(f"MCP server '{name}': connected, {len(tools.tools)} tools registered")
+            logger.info("MCP server '{}': connected, {} tools registered", name, len(tools.tools))
         except Exception as e:
             logger.error(f"MCP server '{name}': failed to connect: {e}")

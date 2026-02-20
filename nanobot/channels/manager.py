@@ -38,6 +38,7 @@ class ChannelManager:
         if self.config.channels.matrix.enabled:
             try:
                 from nanobot.channels.matrix import MatrixChannel
+
                 self.channels["matrix"] = MatrixChannel(
                     self.config.channels.matrix,
                     self.bus,
@@ -46,18 +47,17 @@ class ChannelManager:
                 )
                 logger.info("Matrix channel enabled")
             except ImportError as e:
-                logger.warning(f"Matrix channel not available: {e}")
+                logger.warning("Matrix channel not available: {}", e)
 
         # Email channel
         if self.config.channels.email.enabled:
             try:
                 from nanobot.channels.email import EmailChannel
-                self.channels["email"] = EmailChannel(
-                    self.config.channels.email, self.bus
-                )
+
+                self.channels["email"] = EmailChannel(self.config.channels.email, self.bus)
                 logger.info("Email channel enabled")
             except ImportError as e:
-                logger.warning(f"Email channel not available: {e}")
+                logger.warning("Email channel not available: {}", e)
 
     async def _start_channel(self, name: str, channel: BaseChannel) -> None:
         """Start a channel and log any exceptions."""
@@ -78,7 +78,7 @@ class ChannelManager:
         # Start channels
         tasks = []
         for name, channel in self.channels.items():
-            logger.info(f"Starting {name} channel...")
+            logger.info("Starting {} channel...", name)
             tasks.append(asyncio.create_task(self._start_channel(name, channel)))
 
         # Wait for all to complete (they should run forever)
@@ -100,7 +100,7 @@ class ChannelManager:
         for name, channel in self.channels.items():
             try:
                 await channel.stop()
-                logger.info(f"Stopped {name} channel")
+                logger.info("Stopped {} channel", name)
             except Exception as e:
                 logger.error(f"Error stopping {name}: {e}")
 
@@ -110,10 +110,7 @@ class ChannelManager:
 
         while True:
             try:
-                msg = await asyncio.wait_for(
-                    self.bus.consume_outbound(),
-                    timeout=1.0
-                )
+                msg = await asyncio.wait_for(self.bus.consume_outbound(), timeout=1.0)
 
                 channel = self.channels.get(msg.channel)
                 if channel:
@@ -122,7 +119,7 @@ class ChannelManager:
                     except Exception as e:
                         logger.error(f"Error sending to {msg.channel}: {e}")
                 else:
-                    logger.warning(f"Unknown channel: {msg.channel}")
+                    logger.warning("Unknown channel: {}", msg.channel)
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -135,10 +132,7 @@ class ChannelManager:
     def get_status(self) -> dict[str, Any]:
         """Get status of all channels."""
         return {
-            name: {
-                "enabled": True,
-                "running": channel.is_running
-            }
+            name: {"enabled": True, "running": channel.is_running()}
             for name, channel in self.channels.items()
         }
 

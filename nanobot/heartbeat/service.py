@@ -68,7 +68,7 @@ class HeartbeatService:
         """Read HEARTBEAT.md content."""
         if self.heartbeat_file.exists():
             try:
-                return self.heartbeat_file.read_text()
+                return self.heartbeat_file.read_text(encoding="utf-8")
             except Exception:
                 return None
         return None
@@ -81,7 +81,7 @@ class HeartbeatService:
 
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
-        logger.info(f"Heartbeat started (every {self.interval_s}s)")
+        logger.info("Heartbeat started (every {}s)", self.interval_s)
 
     def stop(self) -> None:
         """Stop the heartbeat service."""

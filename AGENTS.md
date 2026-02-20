@@ -124,17 +124,38 @@ Use `from typing import TYPE_CHECKING` and guard import-only dependencies behind
 - Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Scoped forms: `feat(matrix):`.
 - Imperative mood, concise titles (< 72 chars).
 - Before merging: `ruff check .` and `pytest` must pass.
-- Update `docs/redux-changes.md` for fork-specific changes and `docs/upstream-log.md` for upstream adopted, deferred, and rejected intake decisions.
+- Update fork documentation in the same PR — see **Fork Documentation** section below.
 
-## Upstream Intake and Fork Documentation
+## Fork Documentation — Keeping the Logs Current
+
+These three files must be kept up to date whenever code changes land. Update them **in the same PR** as the code change, not as a follow-up.
+
+### `docs/redux-changes.md`
+
+Add a row to the **Changes** table for every fork-specific change (features, bugfixes, refactors, CI changes) that originates in this repository and is not a direct upstream adoption. Columns: Change, PR/Commit, Area, Why, Risk, Added (YYYY-MM-DD), Verification.
+
+Do **not** add entries for: minor doc edits, workspace content, style-only formatting, or changes that are pure upstream cherry-picks (those go in `upstream-log.md`).
+
+### `docs/upstream-log.md`
+
+Add a row to the **Adopted Changes** table for every upstream commit or PR cherry-picked into this fork. Record: upstream PR/commit link, area, why adopted, risk, date, and verification command. When a change is partially adopted, note which parts were excluded and why. When upstream changes are evaluated but not adopted, record them in the **Deferred** or **Rejected** table with a brief reason.
+
+### `README.md`
+
+Keep the **"What This Fork Adds"** section current:
+
+- Add a bullet for every new user-visible feature or behaviour change merged to `main`.
+- Update or remove bullets when features are removed or substantially changed.
+- The **"Real-time line count"** line (`📏 Real-time line count: X lines`) must be updated whenever the core agent line count changes materially. Run `bash core_agent_lines.sh` to get the current count.
+- Do **not** add bullets for: internal refactors with no user-visible effect, CI-only changes, or doc-only changes.
+
+## Upstream Intake
 
 - For upstream adoption work, follow `docs/upstream-intake.md`.
 - Evaluate candidates against `docs/redux-manifest.md` criteria: testability, practical need, risk, compatibility.
 - Prefer selective cherry-picks over broad merges.
 - Use `git cherry-pick` so the source commit stays traceable in git history.
 - When upstream diffs conflict or need adaptation, use `git cherry-pick -n <sha>`, resolve, then commit.
-- For each adopted upstream change, record link, area, rationale, risk, date, and verification in `docs/upstream-log.md`.
-- For deferred/rejected upstream changes, record concise reasons in `docs/upstream-log.md`.
 - When preparing a release, use `docs/release-template.md`.
 
 ## Security
