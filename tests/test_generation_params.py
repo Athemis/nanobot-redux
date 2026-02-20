@@ -395,7 +395,9 @@ async def test_codex_chat_sets_reasoning_content(monkeypatch) -> None:
         lambda: SimpleNamespace(account_id="acc", access="tok"),
     )
 
-    async def _fake_request_codex(url, headers, body, verify):
+    async def _fake_request_codex(
+        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+    ):
         return "ok", [], "stop", "reasoning summary"
 
     monkeypatch.setattr(
@@ -404,4 +406,6 @@ async def test_codex_chat_sets_reasoning_content(monkeypatch) -> None:
 
     provider = OpenAICodexProvider(default_model="openai-codex/gpt-5.1-codex")
     result = await provider.chat(messages=[{"role": "user", "content": "hello"}])
+    assert result.content == "ok"
+    assert result.finish_reason == "stop"
     assert result.reasoning_content == "reasoning summary"
