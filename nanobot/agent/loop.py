@@ -284,7 +284,7 @@ class AgentLoop:
         if self._mcp_stack:
             try:
                 await self._mcp_stack.aclose()
-            except (RuntimeError, BaseExceptionGroup):
+            except RuntimeError, BaseExceptionGroup:
                 pass  # MCP SDK cancel scope cleanup is noisy but harmless
             self._mcp_stack = None
 
@@ -359,7 +359,7 @@ class AgentLoop:
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
-                content="New session started. Memory consolidation in progress.",
+                content="New session started. Previous conversation has been archived.",
             )
         if cmd == "/help":
             return OutboundMessage(
