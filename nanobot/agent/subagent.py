@@ -50,6 +50,7 @@ class SubagentManager:
     ):
         """Store shared runtime dependencies and defaults for spawned subagents."""
         from nanobot.config.schema import ExecToolConfig
+
         self.provider = provider
         self.workspace = workspace
         self.bus = bus
@@ -90,9 +91,7 @@ class SubagentManager:
         }
 
         # Create background task
-        bg_task = asyncio.create_task(
-            self._run_subagent(task_id, task, display_label, origin)
-        )
+        bg_task = asyncio.create_task(self._run_subagent(task_id, task, display_label, origin))
         self._running_tasks[task_id] = bg_task
 
         # Cleanup when done
@@ -116,16 +115,22 @@ class SubagentManager:
             tools = ToolRegistry()
             allowed_dir = self.workspace if self.restrict_to_workspace else None
             skill_dirs = [BUILTIN_SKILLS_DIR] if self.restrict_to_workspace else None
-            tools.register(ReadFileTool(allowed_dir=allowed_dir, extra_allowed_dirs=skill_dirs))
-            tools.register(WriteFileTool(allowed_dir=allowed_dir))
-            tools.register(EditFileTool(allowed_dir=allowed_dir))
+            tools.register(
+                ReadFileTool(
+                    workspace=self.workspace, allowed_dir=allowed_dir, extra_allowed_dirs=skill_dirs
+                )
+            )
+            tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
+            tools.register(EditFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
             tools.register(DeleteFileTool(allowed_dir=allowed_dir))
-            tools.register(ListDirTool(allowed_dir=allowed_dir))
-            tools.register(ExecTool(
-                working_dir=str(self.workspace),
-                timeout=self.exec_config.timeout,
-                restrict_to_workspace=self.restrict_to_workspace,
-            ))
+            tools.register(ListDirTool(workspace=self.workspace, allowed_dir=allowed_dir))
+            tools.register(
+                ExecTool(
+                    working_dir=str(self.workspace),
+                    timeout=self.exec_config.timeout,
+                    restrict_to_workspace=self.restrict_to_workspace,
+                )
+            )
             tools.register(WebSearchTool(config=self.web_search_config))
             tools.register(WebFetchTool())
 
@@ -165,23 +170,29 @@ class SubagentManager:
                         }
                         for tc in response.tool_calls
                     ]
-                    messages.append({
-                        "role": "assistant",
-                        "content": response.content or "",
-                        "tool_calls": tool_call_dicts,
-                    })
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": response.content or "",
+                            "tool_calls": tool_call_dicts,
+                        }
+                    )
 
                     # Execute tools
                     for tool_call in response.tool_calls:
                         args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
-                        logger.debug(f"Subagent [{task_id}] executing: {tool_call.name} with arguments: {args_str}")
+                        logger.debug(
+                            f"Subagent [{task_id}] executing: {tool_call.name} with arguments: {args_str}"
+                        )
                         result = await tools.execute(tool_call.name, tool_call.arguments)
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "name": tool_call.name,
-                            "content": result,
-                        })
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": tool_call.name,
+                                "content": result,
+                            }
+                        )
                 else:
                     final_result = response.content
                     break
@@ -227,12 +238,15 @@ Summarize this naturally for the user. Keep it brief (1-2 sentences). Do not men
         )
 
         await self.bus.publish_inbound(msg)
-        logger.debug(f"Subagent [{task_id}] announced result to {origin['channel']}:{origin['chat_id']}")
+        logger.debug(
+            f"Subagent [{task_id}] announced result to {origin['channel']}:{origin['chat_id']}"
+        )
 
     def _build_subagent_prompt(self, task: str) -> str:
         """Build a focused system prompt for the subagent."""
         import time as _time
         from datetime import datetime
+
         now = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
         tz = _time.strftime("%Z") or "UTC"
 
