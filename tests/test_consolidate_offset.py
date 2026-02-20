@@ -1,6 +1,8 @@
 """Test session management with cache-friendly message handling."""
 
+import asyncio
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -477,3 +479,51 @@ class TestEmptyAndBoundarySessions:
         expected_count = 60 - KEEP_COUNT - 10
         assert len(old_messages) == expected_count
         assert_messages_content(old_messages, 10, 34)
+
+
+class TestConsolidationDeduplicationGuard:
+    """Test that the _consolidating guard prevents duplicate consolidation tasks."""
+
+    @pytest.mark.asyncio
+    async def test_consolidation_guard_prevents_duplicate_tasks(self, tmp_path: Path) -> None:
+        """Concurrent messages above memory_window spawn only one consolidation task."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.events import InboundMessage
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10)
+
+        loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        # Seed session with > memory_window messages
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(15):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        # Replace consolidation with a slow mock that counts calls
+        consolidation_calls = 0
+
+        async def _fake_consolidate(session, archive_all: bool = False) -> None:
+            nonlocal consolidation_calls
+            consolidation_calls += 1
+            await asyncio.sleep(0.05)
+
+        loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
+
+        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
+
+        # Process two messages back-to-back; guard must block the second consolidation
+        await loop._process_message(msg)
+        await loop._process_message(msg)
+
+        # Drain all pending tasks so the background consolidation can complete
+        await asyncio.sleep(0.1)
+
+        assert consolidation_calls == 1, f"Expected exactly 1 consolidation, got {consolidation_calls}"
