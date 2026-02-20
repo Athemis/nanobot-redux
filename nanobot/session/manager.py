@@ -166,6 +166,20 @@ class SessionManager:
         """Remove a session from the in-memory cache."""
         self._cache.pop(key, None)
 
+    @staticmethod
+    def _legacy_key_from_stem(stem: str) -> str:
+        """Best-effort reconstruction for legacy files missing metadata.key."""
+        channel, sep, chat_id = stem.partition("_")
+        if not sep:
+            return stem
+
+        if channel == "matrix" and chat_id.startswith(("!", "#", "@")) and "_" in chat_id:
+            local, server = chat_id.rsplit("_", 1)
+            if server:
+                chat_id = f"{local}:{server}"
+
+        return f"{channel}:{chat_id}"
+
     def list_sessions(self) -> list[dict[str, Any]]:
         """
         List all sessions.
@@ -183,8 +197,8 @@ class SessionManager:
                     if first_line:
                         data = json.loads(first_line)
                         if data.get("_type") == "metadata":
-                            # Prefer the stored key; fall back to path-stem for old files
-                            key = data.get("key") or path.stem.replace("_", ":")
+                            # Prefer the stored key; fall back to path-stem for old files.
+                            key = data.get("key") or self._legacy_key_from_stem(path.stem)
                             sessions.append(
                                 {
                                     "key": key,
