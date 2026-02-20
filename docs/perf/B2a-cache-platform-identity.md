@@ -75,22 +75,12 @@ No new tests needed. Run `pytest` to confirm nothing regressed.
 ## Session Prompt
 
 ```
-I want to make a trivial performance fix in nanobot/agent/context.py in nanobot-redux.
+Read `docs/perf/B2a-cache-platform-identity.md` first — it contains the full implementation
+plan and the exact lines to change.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "refactor(context): cache platform identity as module constants"
 
-Problem: _get_identity() in ContextBuilder calls platform.system(), platform.machine(), and
-platform.python_version() on every invocation, even though these values are constant for the
-entire process lifetime.
-
-Task:
-1. Define module-level constants _RUNTIME_STRING (and any sub-constants needed) after the imports
-2. Replace the computation in _get_identity() with the constant
-3. Update or remove the import platform statement accordingly
-4. ruff check . and pytest must be green
-5. Commit with "refactor(context): cache platform identity as module constants"
-6. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/agent/context.py in full first, then make the change.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

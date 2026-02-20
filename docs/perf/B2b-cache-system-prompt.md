@@ -129,27 +129,12 @@ def test_invalidate_cache_forces_fresh_read(tmp_path: Path) -> None:
 ## Session Prompt
 
 ```
-I want to add a TTL cache for the system prompt in nanobot-redux's ContextBuilder.
+Read `docs/perf/B2b-cache-system-prompt.md` first — it contains the full implementation plan,
+invalidation points, and tests to add.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "perf(context): add TTL cache for bootstrap files and skills summary"
 
-Problem: build_system_prompt() in nanobot/agent/context.py reads bootstrap files (AGENTS.md,
-SOUL.md, USER.md, TOOLS.md, IDENTITY.md) and skills from disk on every agent loop iteration.
-A typical 3-iteration request reads these files 3 times unnecessarily.
-
-Task:
-1. Add _bootstrap_cache, _bootstrap_cache_time, _skills_summary_cache,
-   _skills_summary_cache_time instance attributes to ContextBuilder.__init__
-2. Wrap _load_bootstrap_files() with a 30-second TTL (use time.monotonic())
-3. Wrap the skills summary computation with the same TTL
-4. Add an invalidate_cache() method that resets both timestamps to 0.0
-5. Call self.context.invalidate_cache() at the end of _consolidate_memory() in loop.py
-6. Do NOT cache datetime.now() — the current time must stay fresh
-7. Add tests in tests/test_context.py
-8. ruff check . and pytest must be green
-9. Commit with "perf(context): add TTL cache for bootstrap files and skills summary"
-10. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/agent/context.py in full first, then loop.py from line 409.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

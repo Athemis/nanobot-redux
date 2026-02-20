@@ -88,25 +88,12 @@ async def test_consolidation_falls_back_to_main_model() -> None:
 ## Session Prompt
 
 ```
-I want to add a memory_model config option to nanobot-redux so memory consolidation uses
-a cheaper model.
+Read `docs/perf/P2-memory-model-selection.md` first — it contains the full implementation
+plan, cost example, and tests to add.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "feat(loop): add memory_model config option for cheaper consolidation"
 
-Problem: _consolidate_memory() in nanobot/agent/loop.py:462 uses self.model (the main agent
-model) for summarising conversations and returning JSON. This is overkill — a small model like
-gpt-4o-mini or claude-haiku is more than capable and costs 20-50x less.
-
-Task:
-1. Add memory_model: str | None = None to AgentConfig in nanobot/config/schema.py
-2. In AgentLoop.__init__, read self.memory_model = config.agent.memory_model (or equivalent)
-3. In _consolidate_memory(), change model=self.model to model=self.memory_model or self.model
-4. Add tests verifying the model selection logic
-5. ruff check . and pytest must be green
-6. Commit with "feat(loop): add memory_model config option for cheaper consolidation"
-7. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/config/schema.py and nanobot/agent/loop.py (especially __init__ and
-_consolidate_memory()) first.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

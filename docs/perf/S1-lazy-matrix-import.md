@@ -102,24 +102,12 @@ def test_matrix_not_imported_without_config(monkeypatch: pytest.MonkeyPatch) -> 
 ## Session Prompt
 
 ```
-I want to make the Matrix channel import lazy in nanobot-redux's CLI.
+Read `docs/perf/S1-lazy-matrix-import.md` first — it contains the investigation step,
+implementation plan, and test to add.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "perf(cli): lazy-import MatrixChannel behind config check"
 
-Problem: matrix-nio[e2e] imports Olm cryptography C bindings that take 150-300 ms on first load.
-This cost is paid on every nanobot CLI invocation even when Matrix is not configured.
-
-Task:
-1. First, find where MatrixChannel is imported in the CLI:
-   grep -rn "MatrixChannel\|nanobot.channels.matrix" nanobot/cli/ nanobot/
-2. Move the import inside the code path that is only reached when matrix is configured
-   (guard: if config.matrix and config.matrix.enabled)
-3. If MatrixChannel is used as a type annotation only, use TYPE_CHECKING guard instead
-4. Add a test that verifies matrix_nio is not in sys.modules when Matrix is disabled
-5. ruff check . and pytest must be green
-6. Commit with "perf(cli): lazy-import MatrixChannel behind config check"
-7. Push to branch claude/analyze-performance-options-URI5W
-
-Please search for the import locations before implementing.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

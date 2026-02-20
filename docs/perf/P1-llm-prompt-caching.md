@@ -108,28 +108,12 @@ enough (> 1,024 tokens). Optionally log it for observability.
 ## Session Prompt
 
 ```
-I want to add optional LLM prompt caching to nanobot-redux for Anthropic providers.
+Read `docs/perf/P1-llm-prompt-caching.md` first — it contains the full implementation plan,
+provider constraints, and the datetime.now() caveat.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "feat(providers): add optional prompt caching for Anthropic"
 
-Background: Anthropic supports "cache_control": {"type": "ephemeral"} on message content blocks.
-When the system prompt is marked this way, repeated calls with the same prefix cost 90% less and
-have lower latency. OpenAI caches automatically for long prefixes.
-
-Task:
-1. Add use_prompt_cache: bool = False to the agent config in nanobot/config/schema.py
-2. In the provider's chat() method (nanobot/providers/openai_provider.py), add a helper that
-   wraps the system message content in array format with cache_control when enabled
-3. Apply the helper before sending messages to the API
-4. Add a test that verifies the cache_control field is present when use_prompt_cache=True
-   and absent when False
-5. ruff check . and pytest must be green
-6. Commit with "feat(providers): add optional prompt caching for Anthropic"
-7. Push to branch claude/analyze-performance-options-URI5W
-
-Important: the change must be opt-in (use_prompt_cache: false by default) and must not break
-OpenAI or other providers that ignore unknown message fields.
-
-Please read nanobot/providers/openai_provider.py and nanobot/config/schema.py first.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

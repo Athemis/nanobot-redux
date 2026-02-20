@@ -126,27 +126,12 @@ async def test_web_search_client_closed_on_close() -> None:
 ## Session Prompt
 
 ```
-I want to add HTTP connection pooling to the web tools in nanobot-redux.
+Read `docs/perf/B4-http-client-pooling.md` first — it contains the full implementation plan,
+lifecycle management details, and tests to add.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "perf(web): reuse httpx.AsyncClient across tool calls"
 
-Problem: WebSearchTool and WebFetchTool in nanobot/agent/tools/web.py create a new
-httpx.AsyncClient on every call with "async with httpx.AsyncClient(...) as client:".
-This discards the connection pool, causing a fresh TLS handshake (50-300 ms) on every web
-search or fetch.
-
-Task:
-1. Add self._client: httpx.AsyncClient as an instance attribute in WebSearchTool.__init__
-   (and WebFetchTool if it has its own class)
-2. Replace all "async with httpx.AsyncClient(...):" blocks with direct self._client usage
-3. Add an async close() method (calls self._client.aclose())
-4. Register the close() callback in AgentLoop's AsyncExitStack (in _connect_mcp or similar)
-5. Add tests verifying client reuse and proper cleanup
-6. ruff check . and pytest must be green
-7. Commit with "perf(web): reuse httpx.AsyncClient across tool calls"
-8. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/agent/tools/web.py in full first, then nanobot/agent/loop.py for the
-exit stack pattern.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

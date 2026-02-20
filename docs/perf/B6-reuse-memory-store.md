@@ -59,22 +59,13 @@ If `MemoryStore` ever gains internal state (e.g. a read cache), add a test then.
 ## Session Prompt
 
 ```
-I want to fix a minor inefficiency in nanobot-redux's agent loop.
+Read `docs/perf/B6-reuse-memory-store.md` first — it contains the exact line to change and
+the rationale.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "refactor(loop): reuse context.memory in _consolidate_memory"
 
-Problem: _consolidate_memory() in nanobot/agent/loop.py line 416 creates a new MemoryStore
-instance on every call ("memory = MemoryStore(self.workspace)"), which triggers a mkdir syscall
-each time. AgentLoop already has self.context.memory pointing to the same workspace — there is
-no reason to create a second instance.
-
-Task:
-1. Replace "memory = MemoryStore(self.workspace)" with "memory = self.context.memory" at line 416
-2. Verify the MemoryStore import at the top of loop.py is still needed elsewhere; remove if not
-3. ruff check . and pytest must be green
-4. Commit with "refactor(loop): reuse context.memory in _consolidate_memory"
-5. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/agent/loop.py lines 409-493 to understand the consolidation method first.
+Implement the one-line change described in the plan, then run `ruff check .` and `pytest`,
+and push.
 ```

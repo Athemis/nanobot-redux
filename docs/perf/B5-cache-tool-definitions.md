@@ -97,23 +97,12 @@ def test_register_invalidates_cache() -> None:
 ## Session Prompt
 
 ```
-I want to cache tool definitions in nanobot-redux's ToolRegistry.
+Read `docs/perf/B5-cache-tool-definitions.md` first — it contains the full implementation
+plan and tests to add.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "perf(registry): cache tool definitions between LLM calls"
 
-Problem: ToolRegistry.get_definitions() in nanobot/agent/tools/registry.py is called on every
-LLM API call (every agent loop iteration). It re-serialises all tool schemas every time, even
-though tools are registered once at startup and never change during a session.
-
-Task:
-1. Add _definitions_cache: list[dict[str, Any]] | None = None to ToolRegistry.__init__
-2. Set _definitions_cache = None in register() and unregister()
-3. In get_definitions(), return cached result if not None; otherwise compute and cache
-4. Add tests verifying caching and cache invalidation on register/unregister
-5. ruff check . and pytest must be green
-6. Commit with "perf(registry): cache tool definitions between LLM calls"
-7. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/agent/tools/registry.py in full first.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

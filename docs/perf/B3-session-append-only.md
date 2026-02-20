@@ -188,31 +188,12 @@ def test_clear_triggers_full_rewrite(tmp_path: Path) -> None:
 ## Session Prompt
 
 ```
-I want to fix the session storage in nanobot-redux so saves are truly append-only.
+Read `docs/perf/B3-session-append-only.md` first — it contains the full implementation plan,
+the metadata staleness trade-off, edge cases, and tests to add.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "perf(session): switch save() to append-only writes"
 
-Problem: SessionManager.save() in nanobot/session/manager.py:142 opens the JSONL file with "w"
-and rewrites ALL messages on every save, even though the Session docstring says "Messages are
-append-only for LLM cache efficiency." For a 200-message session this is a 100 KB rewrite per
-exchange.
-
-Task:
-1. Add _saved_count: int = field(default=0, repr=False) as a transient field to Session
-   (not persisted to JSONL)
-2. At the end of _load(), set session._saved_count = len(messages)
-3. In Session.clear(), add self._saved_count = 0
-4. Rewrite save() so that:
-   - If _saved_count == 0 or the file does not exist: full rewrite (existing behaviour)
-   - Otherwise: open with "a" and write only messages[_saved_count:]
-   - Set session._saved_count = len(session.messages) at the end of save()
-5. Accept that on-disk metadata (updated_at, last_consolidated) will be slightly stale
-   in append mode — this is an acceptable trade-off
-6. Add tests in tests/test_session_manager.py
-7. ruff check . and pytest must be green
-8. Commit with "perf(session): switch save() to append-only writes"
-9. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/session/manager.py in full first, then implement.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```

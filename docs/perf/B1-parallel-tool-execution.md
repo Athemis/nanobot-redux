@@ -116,27 +116,13 @@ async def test_tool_results_preserve_order() -> None:
 
 ## Session Prompt
 
-Copy this prompt into a fresh session to implement B1 directly:
-
 ```
-I want to parallelize tool execution in the nanobot-redux agent loop.
+Read `docs/perf/B1-parallel-tool-execution.md` first — it contains the full implementation
+plan, edge cases, and test requirements.
 
 Repository: /home/user/nanobot-redux
 Branch: claude/analyze-performance-options-URI5W
+Commit message: "perf(loop): run tool calls concurrently with asyncio.gather"
 
-Problem: nanobot/agent/loop.py around line 232 has a sequential for-loop over
-response.tool_calls. When the LLM returns multiple independent tool calls (e.g. web_search +
-read_file), their latencies add up instead of overlapping.
-
-Goal:
-1. Run all tool calls with asyncio.gather concurrently
-2. Insert results into messages in the ORIGINAL order of tool_calls (OpenAI API requirement)
-3. Keep tools_used list correct
-4. Preserve error behaviour: execute() returns "Error: ..." strings, never raises
-5. Add tests in tests/test_agent_loop.py covering parallelism and result ordering
-6. ruff check . and pytest must be green
-7. Commit with "perf(loop): run tool calls concurrently with asyncio.gather"
-8. Push to branch claude/analyze-performance-options-URI5W
-
-Please read nanobot/agent/loop.py first (especially _run_agent_loop), then implement.
+Implement the changes described in the plan, then run `ruff check .` and `pytest`, and push.
 ```
