@@ -277,12 +277,8 @@ class AgentLoop:
                 if not tools_used and not text_only_retried and final_content:
                     text_only_retried = True
                     logger.debug(
-                        f"Interim text response (no tools used yet), retrying: {final_content[:80]}"
-                    )
-                    messages = self.context.add_assistant_message(
-                        messages,
-                        response.content,
-                        reasoning_content=response.reasoning_content,
+                        "Interim text response (no tools used yet), retrying: {}",
+                        final_content[:80],
                     )
                     final_content = None
                     continue
@@ -320,7 +316,7 @@ class AgentLoop:
         if self._mcp_stack:
             try:
                 await self._mcp_stack.aclose()
-            except RuntimeError, BaseExceptionGroup:
+            except (RuntimeError, BaseExceptionGroup):
                 pass  # MCP SDK cancel scope cleanup is noisy but harmless
             self._mcp_stack = None
 
