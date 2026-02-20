@@ -1,5 +1,6 @@
 """Tests for the on_progress callback in the agent loop."""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from nanobot.agent.loop import AgentLoop
@@ -227,3 +228,135 @@ async def test_run_agent_loop_strips_think_before_progress(tmp_path):
     await loop._run_agent_loop([{"role": "user", "content": "read"}], on_progress=capture_progress)
 
     assert progress_calls[0] == "Reading the requested file."
+
+
+async def test_process_message_suppresses_reply_when_message_tool_sent(tmp_path) -> None:
+    """_process_message returns None when the message tool already replied in this turn."""
+    from nanobot.agent.tools.message import MessageTool
+    from nanobot.bus.events import InboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.providers.base import LLMResponse
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    tool_call = MagicMock()
+    tool_call.id = "tc1"
+    tool_call.name = "message"
+    tool_call.arguments = {"content": "I already replied!"}
+
+    async def _fake_execute(name: str, arguments: Any) -> str:
+        mt = loop.tools.get("message")
+        if isinstance(mt, MessageTool):
+            return await mt.execute(content="I already replied!")
+        return ""
+
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(content="", tool_calls=[tool_call]),
+            LLMResponse(content="done", tool_calls=[]),
+        ]
+    )
+    loop.tools.execute = AsyncMock(side_effect=_fake_execute)
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    msg = InboundMessage(channel="ch", sender_id="u1", chat_id="id", content="hi")
+    result = await loop._process_message(msg)
+    assert result is None, "Should return None when message tool already sent a reply"
+
+
+async def test_process_message_keeps_reply_when_message_tool_targets_other_chat(tmp_path) -> None:
+    """Cross-chat message tool sends must not suppress the current chat's final response."""
+    from nanobot.agent.tools.message import MessageTool
+    from nanobot.bus.events import InboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.providers.base import LLMResponse
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    tool_call = MagicMock()
+    tool_call.id = "tc1"
+    tool_call.name = "message"
+    tool_call.arguments = {
+        "content": "Sent elsewhere",
+        "channel": "matrix",
+        "chat_id": "!other:example.org",
+    }
+
+    async def _fake_execute(name: str, arguments: Any) -> str:
+        mt = loop.tools.get("message")
+        if isinstance(mt, MessageTool):
+            return await mt.execute(**arguments)
+        return ""
+
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(content="", tool_calls=[tool_call]),
+            LLMResponse(content="done", tool_calls=[]),
+        ]
+    )
+    loop.tools.execute = AsyncMock(side_effect=_fake_execute)
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    msg = InboundMessage(channel="ch", sender_id="u1", chat_id="id", content="hi")
+    result = await loop._process_message(msg)
+
+    assert result is not None
+    assert result.content == "done"
+
+
+async def test_bus_progress_stops_after_message_tool_replies_in_turn(tmp_path) -> None:
+    """Progress hints after an in-turn message send should be suppressed for the same chat."""
+    from nanobot.agent.tools.message import MessageTool
+    from nanobot.bus.events import InboundMessage, OutboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.providers.base import LLMResponse
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    message_call = MagicMock()
+    message_call.id = "tc1"
+    message_call.name = "message"
+    message_call.arguments = {"content": "Direct reply"}
+
+    read_call = MagicMock()
+    read_call.id = "tc2"
+    read_call.name = "read_file"
+    read_call.arguments = {"path": "/tmp/x"}
+
+    async def _fake_execute(name: str, arguments: Any) -> str:
+        mt = loop.tools.get("message")
+        if name == "message" and isinstance(mt, MessageTool):
+            return await mt.execute(**arguments)
+        return "ok"
+
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(content="", tool_calls=[message_call]),
+            LLMResponse(content="", tool_calls=[read_call]),
+            LLMResponse(content="final", tool_calls=[]),
+        ]
+    )
+    loop.tools.execute = AsyncMock(side_effect=_fake_execute)
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    msg = InboundMessage(channel="ch", sender_id="u1", chat_id="id", content="hi")
+    result = await loop._process_message(msg)
+
+    assert result is None
+
+    outbound: list[OutboundMessage] = []
+    while not bus.outbound.empty():
+        outbound.append(bus.outbound.get_nowait())
+
+    hints = [m.content for m in outbound]
+    assert any("message" in h for h in hints)
+    assert all("read_file" not in h for h in hints)

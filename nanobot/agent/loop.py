@@ -433,6 +433,9 @@ class AgentLoop:
             self._consolidation_tasks.add(_task)
 
         self._set_tool_context(msg.channel, msg.chat_id)
+        if message_tool := self.tools.get("message"):
+            if isinstance(message_tool, MessageTool):
+                message_tool.start_turn()
         initial_messages = self.context.build_messages(
             history=session.get_history(max_messages=self.memory_window),
             current_message=msg.content,
@@ -442,6 +445,11 @@ class AgentLoop:
         )
 
         async def _bus_progress(content: str) -> None:
+            if message_tool := self.tools.get("message"):
+                if isinstance(message_tool, MessageTool):
+                    target = (msg.channel, msg.chat_id)
+                    if message_tool.sent_in_turn_target == target:
+                        return
             await self.bus.publish_outbound(
                 OutboundMessage(
                     channel=msg.channel,
@@ -468,6 +476,12 @@ class AgentLoop:
             "assistant", final_content, tools_used=tools_used if tools_used else None
         )
         self.sessions.save(session)
+
+        if message_tool := self.tools.get("message"):
+            if isinstance(message_tool, MessageTool):
+                target = (msg.channel, msg.chat_id)
+                if message_tool.sent_in_turn_target == target:
+                    return None
 
         return OutboundMessage(
             channel=msg.channel,

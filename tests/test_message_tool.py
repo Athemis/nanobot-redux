@@ -75,3 +75,43 @@ async def test_message_tool_uses_singular_attachment_label_for_one_media_path() 
     assert result == "Message sent to matrix:!room:example.org with 1 attachment"
     assert len(sent) == 1
     assert sent[0].media == ["/tmp/one.txt"]
+
+
+def test_message_tool_has_sent_in_turn_flag() -> None:
+    """MessageTool must expose _sent_in_turn and start_turn() for duplicate-reply guard."""
+    tool = MessageTool(default_channel="ch", default_chat_id="id")
+    assert hasattr(tool, "_sent_in_turn")
+    assert tool._sent_in_turn is False
+    assert tool.sent_in_turn is False
+    assert tool.sent_in_turn_target is None
+
+
+@pytest.mark.asyncio
+async def test_start_turn_resets_sent_flag() -> None:
+    """start_turn() must reset _sent_in_turn to False."""
+    sent: list[OutboundMessage] = []
+
+    async def _send(msg: OutboundMessage) -> None:
+        sent.append(msg)
+
+    tool = MessageTool(send_callback=_send, default_channel="ch", default_chat_id="id")
+    await tool.execute(content="hello")
+    assert tool._sent_in_turn is True
+    assert tool.sent_in_turn_target == ("ch", "id")
+    tool.start_turn()
+    assert tool._sent_in_turn is False
+    assert tool.sent_in_turn_target is None
+
+
+@pytest.mark.asyncio
+async def test_execute_sets_sent_in_turn() -> None:
+    """execute() must set _sent_in_turn=True after a successful send."""
+    sent: list[OutboundMessage] = []
+
+    async def _send(msg: OutboundMessage) -> None:
+        sent.append(msg)
+
+    tool = MessageTool(send_callback=_send, default_channel="ch", default_chat_id="id")
+    assert tool._sent_in_turn is False
+    await tool.execute(content="hi")
+    assert tool._sent_in_turn is True
