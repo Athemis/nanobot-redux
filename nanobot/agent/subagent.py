@@ -155,6 +155,7 @@ class SubagentManager:
                     model=self.model,
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
+                    prompt_cache_key=f"subagent:{task_id}",
                 )
 
                 if response.has_tool_calls:

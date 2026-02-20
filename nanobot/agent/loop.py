@@ -180,6 +180,7 @@ class AgentLoop:
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
+        prompt_cache_key: str | None = None,
         on_progress: Callable[[str], Awaitable[None]] | None = None,
     ) -> tuple[str | None, list[str]]:
         """
@@ -207,11 +208,12 @@ class AgentLoop:
                 model=self.model,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
+                prompt_cache_key=prompt_cache_key,
             )
 
             if response.has_tool_calls:
                 if on_progress:
-                    clean = self._strip_think(response.content)
+                    clean = self._strip_think(response.content or "")
                     if clean:
                         await on_progress(clean)
                     await on_progress(self._tool_hint(response.tool_calls))
@@ -435,7 +437,9 @@ class AgentLoop:
             )
 
         final_content, tools_used = await self._run_agent_loop(
-            initial_messages, on_progress=on_progress or _bus_progress
+            initial_messages,
+            prompt_cache_key=key,
+            on_progress=on_progress or _bus_progress,
         )
 
         if final_content is None:
@@ -485,7 +489,10 @@ class AgentLoop:
             channel=origin_channel,
             chat_id=origin_chat_id,
         )
-        final_content, _ = await self._run_agent_loop(initial_messages)
+        final_content, _ = await self._run_agent_loop(
+            initial_messages,
+            prompt_cache_key=session_key,
+        )
 
         if final_content is None:
             final_content = "Background task completed."
@@ -506,6 +513,7 @@ class AgentLoop:
                        If False, only write to files without modifying session.
         """
         memory = self.context.memory
+        snapshot_len = len(session.messages)
         if archive_all:
             old_messages = session.messages
             keep_count = 0
@@ -589,6 +597,7 @@ Respond with ONLY valid JSON, no markdown fences."""
                     {"role": "user", "content": prompt},
                 ],
                 model=self.model,
+                prompt_cache_key=session.key,
             )
             text = (response.content or "").strip()
             if not text:

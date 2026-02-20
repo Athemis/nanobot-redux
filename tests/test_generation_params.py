@@ -9,7 +9,7 @@ from nanobot.config.schema import AgentDefaults
 from nanobot.providers import openai_codex_provider as codex_provider
 from nanobot.providers.base import LLMProvider, LLMResponse
 from nanobot.providers.openai_codex_provider import OpenAICodexProvider
-from nanobot.providers.openai_provider import OpenAIProvider
+from nanobot.providers.openai_provider import OpenAIProvider, _hash_prompt_cache_key
 from nanobot.session.manager import Session
 
 
@@ -25,6 +25,7 @@ class _RecordingProvider(LLMProvider):
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        prompt_cache_key: str | None = None,
     ) -> LLMResponse:
         self.calls.append(
             {
@@ -33,6 +34,7 @@ class _RecordingProvider(LLMProvider):
                 "model": model,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "prompt_cache_key": prompt_cache_key,
             }
         )
         return LLMResponse(content="ok")
@@ -74,6 +76,7 @@ async def test_agent_loop_forwards_generation_parameters(tmp_path) -> None:
     call = provider.calls[0]
     assert call["max_tokens"] == 1234
     assert call["temperature"] == 0.25
+    assert call["prompt_cache_key"] == "cli:direct"
 
 
 @pytest.mark.asyncio
@@ -99,6 +102,7 @@ async def test_subagent_forwards_generation_parameters(tmp_path) -> None:
     call = provider.calls[0]
     assert call["max_tokens"] == 2222
     assert call["temperature"] == 0.15
+    assert call["prompt_cache_key"] == "subagent:task1234"
 
 
 @pytest.mark.asyncio
@@ -130,6 +134,122 @@ async def test_openai_provider_chat_uses_passed_generation_parameters(
     assert result.content == "ok"
     assert captured["max_tokens"] == 987
     assert captured["temperature"] == 0.42
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_adds_prompt_cache_key_when_stable_key_is_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def _fake_create(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        msg = SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
+        choice = SimpleNamespace(message=msg, finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_provider.AsyncOpenAI",
+        lambda **_: SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=_fake_create))
+        ),
+    )
+
+    provider = OpenAIProvider(
+        default_model="gpt-4o",
+        prompt_caching_enabled=True,
+    )
+    await provider.chat(
+        messages=[{"role": "user", "content": "hello"}],
+        prompt_cache_key="session-123",
+    )
+
+    assert captured["prompt_cache_key"] == _hash_prompt_cache_key("session-123", None)
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_omits_prompt_cache_fields_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def _fake_create(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        msg = SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
+        choice = SimpleNamespace(message=msg, finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_provider.AsyncOpenAI",
+        lambda **_: SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=_fake_create))
+        ),
+    )
+
+    provider = OpenAIProvider(default_model="gpt-4o", prompt_caching_enabled=False)
+    await provider.chat(messages=[{"role": "user", "content": "hello"}])
+
+    assert "prompt_cache_key" not in captured
+    assert "prompt_cache_retention" not in captured
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_omits_prompt_cache_key_when_enabled_without_stable_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def _fake_create(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        msg = SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
+        choice = SimpleNamespace(message=msg, finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_provider.AsyncOpenAI",
+        lambda **_: SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=_fake_create))
+        ),
+    )
+
+    provider = OpenAIProvider(default_model="gpt-4o", prompt_caching_enabled=True)
+    await provider.chat(messages=[{"role": "user", "content": "hello"}])
+
+    assert "prompt_cache_key" not in captured
+    assert "prompt_cache_retention" not in captured
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_passes_prompt_cache_retention_when_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def _fake_create(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        msg = SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
+        choice = SimpleNamespace(message=msg, finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_provider.AsyncOpenAI",
+        lambda **_: SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=_fake_create))
+        ),
+    )
+
+    provider = OpenAIProvider(
+        default_model="gpt-4o",
+        prompt_caching_enabled=True,
+        prompt_cache_retention="24h",
+    )
+    await provider.chat(
+        messages=[{"role": "user", "content": "hello"}],
+        prompt_cache_key="session-123",
+    )
+
+    assert captured["prompt_cache_key"] == _hash_prompt_cache_key("session-123", None)
+    assert captured["prompt_cache_retention"] == "24h"
 
 
 def test_agent_defaults_max_tokens_default_is_4096() -> None:

@@ -335,12 +335,21 @@ def _make_provider(config: Config):
         console.print("Set one in ~/.nanobot/config.json under providers section")
         raise typer.Exit(1)
 
+    config_prompt_caching_enabled = getattr(p, "prompt_caching_enabled", None) if p else None
+    effective_prompt_caching_enabled = (
+        config_prompt_caching_enabled
+        if config_prompt_caching_enabled is not None
+        else (spec.default_prompt_caching_enabled if spec else False)
+    )
+
     return OpenAIProvider(
         api_key=p.api_key if p else None,
         api_base=config.get_api_base(model),
         default_model=model,
         extra_headers=_resolve_runtime_extra_headers(provider_name, p.extra_headers if p else None),
         provider_name=provider_name,
+        prompt_caching_enabled=effective_prompt_caching_enabled,
+        prompt_cache_retention=(getattr(p, "prompt_cache_retention", None) if p else None),
     )
 
 
