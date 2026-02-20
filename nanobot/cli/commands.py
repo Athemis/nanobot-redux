@@ -779,9 +779,10 @@ def cron_run(
 ):
     """Manually run a job."""
     from loguru import logger
-    from nanobot.config.loader import get_data_dir, load_config
+
     from nanobot.agent.loop import AgentLoop
     from nanobot.bus.queue import MessageBus
+    from nanobot.config.loader import get_data_dir, load_config
     from nanobot.cron.service import CronService
     from nanobot.cron.types import CronJob
 
