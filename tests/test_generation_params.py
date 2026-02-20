@@ -268,7 +268,7 @@ async def test_codex_chat_omits_token_limit_fields_and_ignores_temperature(monke
         captured["headers"] = headers
         captured["body"] = body
         captured["verify"] = verify
-        return "ok", [], "stop"
+        return "ok", [], "stop", None
 
     monkeypatch.setattr(
         "nanobot.providers.openai_codex_provider.get_codex_token",
@@ -303,7 +303,7 @@ async def test_codex_chat_disables_ssl_verify_only_when_provider_configured(monk
         url: str, headers: dict[str, str], body: dict[str, object], verify: bool
     ):
         captured["verify"] = verify
-        return "ok", [], "stop"
+        return "ok", [], "stop", None
 
     monkeypatch.setattr(
         "nanobot.providers.openai_codex_provider.get_codex_token",
