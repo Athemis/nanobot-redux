@@ -534,7 +534,8 @@ class AgentLoop:
                 )
                 return True
 
-            end_index = None if keep_count == 0 else -keep_count
+            snapshot_len = len(session.messages)
+            end_index = snapshot_len - keep_count
             old_messages = session.messages[session.last_consolidated : end_index]
             if not old_messages:
                 return True
@@ -617,7 +618,7 @@ Respond with ONLY valid JSON, no markdown fences."""
             if archive_all:
                 session.last_consolidated = 0
             else:
-                session.last_consolidated = len(session.messages) - keep_count
+                session.last_consolidated = snapshot_len - keep_count
             logger.info(
                 "Memory consolidation done: {} messages, last_consolidated={}",
                 len(session.messages),
