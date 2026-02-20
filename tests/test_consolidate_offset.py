@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from nanobot.agent.loop import AgentLoop
+from nanobot.bus.queue import MessageBus
+from nanobot.providers.base import LLMResponse
 from nanobot.session.manager import Session, SessionManager
 
 # Test constants
@@ -484,12 +487,6 @@ class TestEmptyAndBoundarySessions:
 @pytest.mark.asyncio
 async def test_consolidation_processes_messages_when_keep_count_zero(tmp_path: Path) -> None:
     """Consolidation should still run when memory_window yields keep_count == 0."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    from nanobot.agent.loop import AgentLoop
-    from nanobot.bus.queue import MessageBus
-    from nanobot.providers.base import LLMResponse
-
     bus = MessageBus()
     provider = MagicMock()
     provider.get_default_model.return_value = "test-model"
