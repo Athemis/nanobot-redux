@@ -218,7 +218,7 @@ class CronService:
         self._save_store()
         self._arm_timer()
         logger.info(
-            f"Cron service started with {len(self._store.jobs if self._store else [])} jobs"
+            "Cron service started with {} jobs", len(self._store.jobs if self._store else [])
         )
 
     def stop(self) -> None:
@@ -299,7 +299,7 @@ class CronService:
     async def _execute_job(self, job: CronJob) -> None:
         """Execute a single job."""
         start_ms = _now_ms()
-        logger.info(f"Cron: executing job '{job.name}' ({job.id})")
+        logger.info("Cron: executing job '{}' ({})", job.name, job.id)
 
         try:
             if self.on_job:
@@ -307,7 +307,7 @@ class CronService:
 
             job.state.last_status = "ok"
             job.state.last_error = None
-            logger.info(f"Cron: job '{job.name}' completed")
+            logger.info("Cron: job '{}' completed", job.name)
 
         except Exception as e:
             job.state.last_status = "error"
@@ -377,7 +377,7 @@ class CronService:
         self._save_store()
         self._arm_timer()
 
-        logger.info(f"Cron: added job '{name}' ({job.id})")
+        logger.info("Cron: added job '{}' ({})", name, job.id)
         return job
 
     def remove_job(self, job_id: str) -> bool:
@@ -390,7 +390,7 @@ class CronService:
         if removed:
             self._save_store()
             self._arm_timer()
-            logger.info(f"Cron: removed job {job_id}")
+            logger.info("Cron: removed job {}", job_id)
 
         return removed
 

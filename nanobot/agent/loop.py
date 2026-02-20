@@ -457,7 +457,7 @@ class AgentLoop:
         The chat_id field contains "original_channel:original_chat_id" to route
         the response back to the correct destination.
         """
-        logger.info(f"Processing system message from {msg.sender_id}")
+        logger.info("Processing system message from {}", msg.sender_id)
 
         # Parse origin from chat_id (format: "channel:chat_id")
         if ":" in msg.chat_id:
@@ -503,20 +503,27 @@ class AgentLoop:
             old_messages = session.messages
             keep_count = 0
             logger.info(
-                f"Memory consolidation (archive_all): {len(session.messages)} total messages archived"
+                "Memory consolidation (archive_all): {} total messages archived",
+                len(session.messages),
             )
         else:
             keep_count = self.memory_window // 2
             if len(session.messages) <= keep_count:
                 logger.debug(
-                    f"Session {session.key}: No consolidation needed (messages={len(session.messages)}, keep={keep_count})"
+                    "Session {}: No consolidation needed (messages={}, keep={})",
+                    session.key,
+                    len(session.messages),
+                    keep_count,
                 )
                 return True
 
             messages_to_process = len(session.messages) - session.last_consolidated
             if messages_to_process <= 0:
                 logger.debug(
-                    f"Session {session.key}: No new messages to consolidate (last_consolidated={session.last_consolidated}, total={len(session.messages)})"
+                    "Session {}: No new messages to consolidate (last_consolidated={}, total={})",
+                    session.key,
+                    session.last_consolidated,
+                    len(session.messages),
                 )
                 return True
 
@@ -525,7 +532,10 @@ class AgentLoop:
             if not old_messages:
                 return True
             logger.info(
-                f"Memory consolidation started: {len(session.messages)} total, {len(old_messages)} new to consolidate, {keep_count} keep"
+                "Memory consolidation started: {} total, {} new to consolidate, {} keep",
+                len(session.messages),
+                len(old_messages),
+                keep_count,
             )
 
         lines = []
@@ -602,7 +612,9 @@ Respond with ONLY valid JSON, no markdown fences."""
             else:
                 session.last_consolidated = len(session.messages) - keep_count
             logger.info(
-                f"Memory consolidation done: {len(session.messages)} messages, last_consolidated={session.last_consolidated}"
+                "Memory consolidation done: {} messages, last_consolidated={}",
+                len(session.messages),
+                session.last_consolidated,
             )
             return True
         except Exception as e:

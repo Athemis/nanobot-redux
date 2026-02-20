@@ -97,7 +97,7 @@ class SubagentManager:
         # Cleanup when done
         bg_task.add_done_callback(lambda _: self._running_tasks.pop(task_id, None))
 
-        logger.info(f"Spawned subagent [{task_id}]: {display_label}")
+        logger.info("Spawned subagent [{}]: {}", task_id, display_label)
         return f"Subagent [{display_label}] started (id: {task_id}). I'll notify you when it completes."
 
     async def _run_subagent(
@@ -108,7 +108,7 @@ class SubagentManager:
         origin: dict[str, str],
     ) -> None:
         """Execute the subagent task and announce the result."""
-        logger.info(f"Subagent [{task_id}] starting task: {label}")
+        logger.info("Subagent [{}] starting task: {}", task_id, label)
 
         try:
             # Build subagent tools (no message tool, no spawn tool)
@@ -200,7 +200,7 @@ class SubagentManager:
             if final_result is None:
                 final_result = "Task completed but no final response was generated."
 
-            logger.info(f"Subagent [{task_id}] completed successfully")
+            logger.info("Subagent [{}] completed successfully", task_id)
             await self._announce_result(task_id, label, task, final_result, origin, "ok")
 
         except Exception as e:
@@ -239,7 +239,10 @@ Summarize this naturally for the user. Keep it brief (1-2 sentences). Do not men
 
         await self.bus.publish_inbound(msg)
         logger.debug(
-            f"Subagent [{task_id}] announced result to {origin['channel']}:{origin['chat_id']}"
+            "Subagent [{}] announced result to {}:{}",
+            task_id,
+            origin["channel"],
+            origin["chat_id"],
         )
 
     def _build_subagent_prompt(self, task: str) -> str:
