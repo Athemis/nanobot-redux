@@ -219,8 +219,9 @@ class ListDirTool(Tool):
 class DeleteFileTool(Tool):
     """Tool to delete a file."""
 
-    def __init__(self, allowed_dir: Path | None = None):
+    def __init__(self, workspace: Path | None = None, allowed_dir: Path | None = None):
         """Optionally restrict deletion targets to the configured directory subtree."""
+        self._workspace = workspace
         self._allowed_dir = allowed_dir
 
     @property
@@ -247,8 +248,13 @@ class DeleteFileTool(Tool):
     async def execute(self, path: str, **kwargs: Any) -> str:
         """Delete a file or symlink at `path`, blocking workspace-escape attempts."""
         try:
-            # Keep lexical path (no resolve) so symlink entries can be deleted as links.
-            file_path = Path(os.path.abspath(str(Path(path).expanduser())))
+            # Resolve relative paths against workspace (like other filesystem tools).
+            p = Path(path).expanduser()
+            if not p.is_absolute() and self._workspace:
+                p = self._workspace / p
+            # Keep lexical (non-resolved) path so symlink entries can be deleted as links.
+            file_path = Path(os.path.abspath(str(p)))
+
             if self._allowed_dir:
                 # Support both configured symlink workspace path (alias) and its real path.
                 allowed_alias = Path(os.path.abspath(str(self._allowed_dir.expanduser())))

@@ -122,7 +122,7 @@ class SubagentManager:
             )
             tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
             tools.register(EditFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-            tools.register(DeleteFileTool(allowed_dir=allowed_dir))
+            tools.register(DeleteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
             tools.register(ListDirTool(workspace=self.workspace, allowed_dir=allowed_dir))
             tools.register(
                 ExecTool(

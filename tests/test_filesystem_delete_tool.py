@@ -369,6 +369,41 @@ async def test_list_dir_blocks_path_outside_allowed_dir(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# DeleteFileTool workspace-relative path resolution (Copilot P1 fix)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_delete_file_resolves_relative_path_against_workspace(tmp_path: Path) -> None:
+    """DeleteFileTool with workspace= should resolve bare filename to workspace, not process CWD."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    file_path = workspace / "data.txt"
+    file_path.write_text("content", encoding="utf-8")
+
+    tool = DeleteFileTool(workspace=workspace)
+    result = await tool.execute(path="data.txt")
+
+    assert "Successfully deleted" in result
+    assert not file_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_delete_file_workspace_rejects_escape_via_relative_path(tmp_path: Path) -> None:
+    """DeleteFileTool must reject relative paths that escape the workspace."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "secret.txt"
+    outside.write_text("secret", encoding="utf-8")
+
+    tool = DeleteFileTool(workspace=workspace, allowed_dir=workspace)
+    result = await tool.execute(path="../secret.txt")
+
+    assert result.startswith("Error:")
+    assert outside.exists()
+
+
+# ---------------------------------------------------------------------------
 # DeleteFileTool broken symlink coverage (lines 290-291 in filesystem.py)
 # ---------------------------------------------------------------------------
 
