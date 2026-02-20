@@ -423,8 +423,14 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
         )
+
+        async def _bus_progress(content: str) -> None:
+            await self.bus.publish_outbound(
+                OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=content)
+            )
+
         final_content, tools_used = await self._run_agent_loop(
-            initial_messages, on_progress=on_progress
+            initial_messages, on_progress=on_progress or _bus_progress
         )
 
         if final_content is None:

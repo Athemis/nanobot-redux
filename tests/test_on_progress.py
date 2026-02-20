@@ -146,6 +146,49 @@ async def test_run_agent_loop_no_progress_without_callback(tmp_path):
     assert content == "Done!"
 
 
+async def test_process_message_publishes_progress_to_bus_by_default(tmp_path) -> None:
+    """Without an explicit on_progress, _process_message publishes tool hints via the bus."""
+    from nanobot.bus.events import InboundMessage, OutboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.providers.base import LLMResponse
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    tool_call = MagicMock()
+    tool_call.id = "tc1"
+    tool_call.name = "read_file"
+    tool_call.arguments = {"path": "/tmp/test"}
+
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(content="Let me read that.", tool_calls=[tool_call]),
+            LLMResponse(content="Done!", tool_calls=[]),
+        ]
+    )
+    loop.tools.execute = AsyncMock(return_value="file contents")
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    msg = InboundMessage(channel="matrix", sender_id="u1", chat_id="r1", content="read the file")
+    await loop._process_message(msg)
+
+    # The bus outbound queue must contain at least one progress message
+    # (tool hint) before the final response.
+    outbound: list[OutboundMessage] = []
+    while not bus.outbound.empty():
+        outbound.append(bus.outbound.get_nowait())
+
+    # _process_message returns the final response but does NOT publish it to the bus —
+    # that's ChannelManager's job. The bus should contain only progress messages.
+    assert len(outbound) >= 1, "Expected at least one progress message in bus, got none"
+    # All progress messages must target the correct channel/chat_id
+    for m in outbound:
+        assert m.channel == "matrix"
+        assert m.chat_id == "r1"
+
+
 async def test_run_agent_loop_strips_think_before_progress(tmp_path):
     """on_progress receives content with <think> blocks stripped."""
     from nanobot.providers.base import LLMResponse
