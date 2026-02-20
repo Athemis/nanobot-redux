@@ -53,6 +53,7 @@ def _flush_pending_tty_input() -> None:
 
     try:
         import termios
+
         termios.tcflush(fd, termios.TCIFLUSH)
         return
     except Exception:
@@ -75,6 +76,7 @@ def _restore_terminal() -> None:
         return
     try:
         import termios
+
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, _SAVED_TERM_ATTRS)
     except Exception:
         pass
@@ -87,6 +89,7 @@ def _init_prompt_session() -> None:
     # Save terminal state so we can restore it on exit
     try:
         import termios
+
         _SAVED_TERM_ATTRS = termios.tcgetattr(sys.stdin.fileno())
     except Exception:
         pass
@@ -97,7 +100,7 @@ def _init_prompt_session() -> None:
     _PROMPT_SESSION = PromptSession(
         history=FileHistory(str(history_file)),
         enable_open_in_editor=False,
-        multiline=False,   # Enter submits (single line mode)
+        multiline=False,  # Enter submits (single line mode)
     )
 
 
@@ -122,7 +125,9 @@ def _seed_openrouter_attribution_headers(config) -> None:
         config.providers.openrouter.extra_headers = dict(OPENROUTER_DEFAULT_EXTRA_HEADERS)
 
 
-def _resolve_runtime_extra_headers(provider_name: str | None, extra_headers: dict[str, str] | None) -> dict[str, str] | None:
+def _resolve_runtime_extra_headers(
+    provider_name: str | None, extra_headers: dict[str, str] | None
+) -> dict[str, str] | None:
     """Apply runtime OpenRouter attribution fallback when headers are unset."""
     if provider_name == "openrouter" and extra_headers is None:
         return dict(OPENROUTER_DEFAULT_EXTRA_HEADERS)
@@ -148,7 +153,6 @@ async def _read_interactive_input_async() -> str:
         raise KeyboardInterrupt from exc
 
 
-
 def version_callback(value: bool):
     """Print version and exit when `--version`/`-v` is provided."""
     if value:
@@ -158,9 +162,7 @@ def version_callback(value: bool):
 
 @app.callback()
 def main(
-    version: bool = typer.Option(
-        None, "--version", "-v", callback=version_callback, is_eager=True
-    ),
+    version: bool = typer.Option(None, "--version", "-v", callback=version_callback, is_eager=True),
 ):
     """nanobot - Personal AI Assistant."""
     pass
@@ -183,7 +185,9 @@ def onboard():
     if config_path.exists():
         console.print(f"[yellow]Config already exists at {config_path}[/yellow]")
         console.print("  [bold]y[/bold] = overwrite with defaults (existing values will be lost)")
-        console.print("  [bold]N[/bold] = refresh config, keeping existing values and adding new fields")
+        console.print(
+            "  [bold]N[/bold] = refresh config, keeping existing values and adding new fields"
+        )
         if typer.confirm("Overwrite?"):
             config = Config()
             _seed_openrouter_attribution_headers(config)
@@ -192,7 +196,9 @@ def onboard():
         else:
             config = load_config()
             save_config(config)
-            console.print(f"[green]✓[/green] Config refreshed at {config_path} (existing values preserved)")
+            console.print(
+                f"[green]✓[/green] Config refreshed at {config_path} (existing values preserved)"
+            )
     else:
         save_config(Config())
         console.print(f"[green]✓[/green] Created config at {config_path}")
@@ -211,10 +217,10 @@ def onboard():
     console.print("\nNext steps:")
     console.print("  1. Add your API key to [cyan]~/.nanobot/config.json[/cyan]")
     console.print("     Get one at: https://openrouter.ai/keys")
-    console.print("  2. Chat: [cyan]nanobot agent -m \"Hello!\"[/cyan]")
-    console.print("\n[dim]Want Matrix/Email channels? See: https://github.com/HKUDS/nanobot#-chat-apps[/dim]")
-
-
+    console.print('  2. Chat: [cyan]nanobot agent -m "Hello!"[/cyan]')
+    console.print(
+        "\n[dim]Want Matrix/Email channels? See: https://github.com/HKUDS/nanobot#-chat-apps[/dim]"
+    )
 
 
 def _create_workspace_templates(workspace: Path):
@@ -270,7 +276,8 @@ Information about the user goes here.
     memory_dir.mkdir(exist_ok=True)
     memory_file = memory_dir / "MEMORY.md"
     if not memory_file.exists():
-        memory_file.write_text("""# Long-term Memory
+        memory_file.write_text(
+            """# Long-term Memory
 
 This file stores important information that should persist across sessions.
 
@@ -285,7 +292,9 @@ This file stores important information that should persist across sessions.
 ## Important Notes
 
 (Things to remember)
-""", encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
         console.print("  [dim]Created memory/MEMORY.md[/dim]")
 
     history_file = memory_dir / "HISTORY.md"
@@ -357,6 +366,7 @@ def gateway(
 
     if verbose:
         import logging
+
         logging.basicConfig(level=logging.DEBUG)
 
     console.print(f"{__logo__} Starting nanobot gateway on port {port}...")
@@ -399,12 +409,16 @@ def gateway(
         )
         if job.payload.deliver and job.payload.to:
             from nanobot.bus.events import OutboundMessage
-            await bus.publish_outbound(OutboundMessage(
-                channel=job.payload.channel or "cli",
-                chat_id=job.payload.to,
-                content=response or ""
-            ))
+
+            await bus.publish_outbound(
+                OutboundMessage(
+                    channel=job.payload.channel or "cli",
+                    chat_id=job.payload.to,
+                    content=response or "",
+                )
+            )
         return response
+
     cron.on_job = on_cron_job
 
     # Create heartbeat service
@@ -416,7 +430,7 @@ def gateway(
         workspace=config.workspace_path,
         on_heartbeat=on_heartbeat,
         interval_s=30 * 60,  # 30 minutes
-        enabled=True
+        enabled=True,
     )
 
     # Create channel manager
@@ -453,8 +467,6 @@ def gateway(
     asyncio.run(run())
 
 
-
-
 # ============================================================================
 # Agent Commands
 # ============================================================================
@@ -464,8 +476,12 @@ def gateway(
 def agent(
     message: str = typer.Option(None, "--message", "-m", help="Message to send to the agent"),
     session_id: str = typer.Option("cli:direct", "--session", "-s", help="Session ID"),
-    markdown: bool = typer.Option(True, "--markdown/--no-markdown", help="Render assistant output as Markdown"),
-    logs: bool = typer.Option(False, "--logs/--no-logs", help="Show nanobot runtime logs during chat"),
+    markdown: bool = typer.Option(
+        True, "--markdown/--no-markdown", help="Render assistant output as Markdown"
+    ),
+    logs: bool = typer.Option(
+        False, "--logs/--no-logs", help="Show nanobot runtime logs during chat"
+    ),
 ):
     """Interact with the agent directly."""
     from loguru import logger
@@ -511,7 +527,9 @@ def agent(
     if message:
         # Single message mode
         async def run_once():
-            response = await agent_loop.process_direct(message, session_id, on_progress=_cli_progress)
+            response = await agent_loop.process_direct(
+                message, session_id, on_progress=_cli_progress
+            )
             _print_agent_response(response, render_markdown=markdown)
             await agent_loop.close_mcp()
 
@@ -519,7 +537,9 @@ def agent(
     else:
         # Interactive mode
         _init_prompt_session()
-        console.print(f"{__logo__} Interactive mode (type [bold]exit[/bold] or [bold]Ctrl+C[/bold] to quit)\n")
+        console.print(
+            f"{__logo__} Interactive mode (type [bold]exit[/bold] or [bold]Ctrl+C[/bold] to quit)\n"
+        )
 
         def _exit_on_sigint(signum, frame):
             _restore_terminal()
@@ -543,7 +563,9 @@ def agent(
                             console.print("\nGoodbye!")
                             break
 
-                        response = await agent_loop.process_direct(user_input, session_id, on_progress=_cli_progress)
+                        response = await agent_loop.process_direct(
+                            user_input, session_id, on_progress=_cli_progress
+                        )
                         _print_agent_response(response, render_markdown=markdown)
                     except KeyboardInterrupt:
                         _restore_terminal()
@@ -581,19 +603,11 @@ def channels_status():
     table.add_column("Configuration", style="yellow")
 
     matrix = config.channels.matrix
-    table.add_row(
-        "Matrix",
-        "✓" if matrix.enabled else "✗",
-        matrix.homeserver
-    )
+    table.add_row("Matrix", "✓" if matrix.enabled else "✗", matrix.homeserver)
 
     email = config.channels.email
     email_config = email.imap_host if email.imap_host else "[dim]not configured[/dim]"
-    table.add_row(
-        "Email",
-        "✓" if email.enabled else "✗",
-        email_config
-    )
+    table.add_row("Email", "✓" if email.enabled else "✗", email_config)
 
     console.print(table)
 
@@ -632,12 +646,17 @@ def cron_list(
     import time
     from datetime import datetime as _dt
     from zoneinfo import ZoneInfo
+
     for job in jobs:
         # Format schedule
         if job.schedule.kind == "every":
             sched = f"every {(job.schedule.every_ms or 0) // 1000}s"
         elif job.schedule.kind == "cron":
-            sched = f"{job.schedule.expr or ''} ({job.schedule.tz})" if job.schedule.tz else (job.schedule.expr or "")
+            sched = (
+                f"{job.schedule.expr or ''} ({job.schedule.tz})"
+                if job.schedule.tz
+                else (job.schedule.expr or "")
+            )
         else:
             sched = "one-time"
 
@@ -664,11 +683,15 @@ def cron_add(
     message: str = typer.Option(..., "--message", "-m", help="Message for agent"),
     every: int = typer.Option(None, "--every", "-e", help="Run every N seconds"),
     cron_expr: str = typer.Option(None, "--cron", "-c", help="Cron expression (e.g. '0 9 * * *')"),
-    tz: str | None = typer.Option(None, "--tz", help="IANA timezone for cron (e.g. 'America/Vancouver')"),
+    tz: str | None = typer.Option(
+        None, "--tz", help="IANA timezone for cron (e.g. 'America/Vancouver')"
+    ),
     at: str = typer.Option(None, "--at", help="Run once at time (ISO format)"),
     deliver: bool = typer.Option(False, "--deliver", "-d", help="Deliver response to channel"),
     to: str = typer.Option(None, "--to", help="Recipient for delivery"),
-    channel: str = typer.Option(None, "--channel", help="Channel for delivery (e.g. 'matrix', 'email')"),
+    channel: str = typer.Option(
+        None, "--channel", help="Channel for delivery (e.g. 'matrix', 'email')"
+    ),
 ):
     """Add a scheduled job, failing fast on invalid timezone/schedule input."""
     from nanobot.config.loader import get_data_dir
@@ -686,6 +709,7 @@ def cron_add(
         schedule = CronSchedule(kind="cron", expr=cron_expr, tz=tz)
     elif at:
         import datetime
+
         dt = datetime.datetime.fromisoformat(at)
         schedule = CronSchedule(kind="at", at_ms=int(dt.timestamp() * 1000))
     else:
@@ -754,11 +778,49 @@ def cron_run(
     force: bool = typer.Option(False, "--force", "-f", help="Run even if disabled"),
 ):
     """Manually run a job."""
-    from nanobot.config.loader import get_data_dir
+    from loguru import logger
+    from nanobot.config.loader import get_data_dir, load_config
+    from nanobot.agent.loop import AgentLoop
+    from nanobot.bus.queue import MessageBus
     from nanobot.cron.service import CronService
+    from nanobot.cron.types import CronJob
+
+    logger.disable("nanobot")
+
+    config = load_config()
+    provider = _make_provider(config)
+    bus = MessageBus()
+    agent_loop = AgentLoop(
+        bus=bus,
+        provider=provider,
+        workspace=config.workspace_path,
+        model=config.agents.defaults.model,
+        temperature=config.agents.defaults.temperature,
+        max_tokens=config.agents.defaults.max_tokens,
+        max_iterations=config.agents.defaults.max_tool_iterations,
+        memory_window=config.agents.defaults.memory_window,
+        web_search_config=config.tools.web.search,
+        exec_config=config.tools.exec,
+        restrict_to_workspace=config.tools.restrict_to_workspace,
+        mcp_servers=config.tools.mcp_servers,
+    )
 
     store_path = get_data_dir() / "cron" / "jobs.json"
     service = CronService(store_path)
+
+    result_holder = []
+
+    async def on_job(job: CronJob) -> str | None:
+        response = await agent_loop.process_direct(
+            job.payload.message,
+            session_key=f"cron:{job.id}",
+            channel=job.payload.channel or "cli",
+            chat_id=job.payload.to or "direct",
+        )
+        result_holder.append(response)
+        return response
+
+    service.on_job = on_job
 
     async def run():
         return await service.run_job(job_id, force=force)
@@ -785,8 +847,12 @@ def status():
 
     console.print(f"{__logo__} nanobot Status\n")
 
-    console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
-    console.print(f"Workspace: {workspace} {'[green]✓[/green]' if workspace.exists() else '[red]✗[/red]'}")
+    console.print(
+        f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}"
+    )
+    console.print(
+        f"Workspace: {workspace} {'[green]✓[/green]' if workspace.exists() else '[red]✗[/red]'}"
+    )
 
     if config_path.exists():
         from nanobot.providers.registry import PROVIDERS
@@ -806,7 +872,9 @@ def status():
                     console.print(f"{spec.label}: [dim]not set[/dim]")
             else:
                 has_key = bool(p.api_key)
-                console.print(f"{spec.label}: {'[green]✓[/green]' if has_key else '[dim]not set[/dim]'}")
+                console.print(
+                    f"{spec.label}: {'[green]✓[/green]' if has_key else '[dim]not set[/dim]'}"
+                )
 
 
 # ============================================================================
@@ -819,7 +887,9 @@ app.add_typer(provider_app, name="provider")
 
 @provider_app.command("login")
 def provider_login(
-    provider: str = typer.Argument(..., help="OAuth provider to authenticate with (e.g., 'openai-codex')"),
+    provider: str = typer.Argument(
+        ..., help="OAuth provider to authenticate with (e.g., 'openai-codex')"
+    ),
 ):
     """Authenticate with an OAuth provider."""
     console.print(f"{__logo__} OAuth Login - {provider}\n")
@@ -827,13 +897,16 @@ def provider_login(
     if provider == "openai-codex":
         try:
             from oauth_cli_kit import get_token, login_oauth_interactive
+
             token = None
             try:
                 token = get_token()
             except Exception:
                 token = None
             if not (token and token.access):
-                console.print("[cyan]No valid token found. Starting interactive OAuth login...[/cyan]")
+                console.print(
+                    "[cyan]No valid token found. Starting interactive OAuth login...[/cyan]"
+                )
                 console.print("A browser window may open for you to authenticate.\n")
                 token = login_oauth_interactive(
                     print_fn=lambda s: console.print(s),
