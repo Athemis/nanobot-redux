@@ -234,16 +234,6 @@ class AgentLoop:
                     reasoning_content=response.reasoning_content,
                 )
 
-                if on_progress:
-                    clean = self._strip_think(response.content or "")
-                    names = self._tool_hint(response.tool_calls)
-                    hint = clean or ("→ " + names if names else "")
-                    if hint:
-                        try:
-                            await on_progress(hint)
-                        except Exception:
-                            logger.warning("on_progress callback raised; continuing")
-
                 for tool_call in response.tool_calls:
                     tools_used.append(tool_call.name)
                     args_str = json.dumps(tool_call.arguments, ensure_ascii=False)

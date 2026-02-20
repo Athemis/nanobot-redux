@@ -86,8 +86,10 @@ async def test_run_agent_loop_calls_on_progress(tmp_path):
     messages = [{"role": "user", "content": "read the file"}]
     await loop._run_agent_loop(messages, on_progress=capture_progress)
 
-    assert len(progress_calls) == 1
+    # PR #833: on_progress fires twice — once with clean text, once with tool hint
+    assert len(progress_calls) == 2
     assert progress_calls[0] == "I will read the file now."
+    assert "read_file" in progress_calls[1]
 
 
 async def test_run_agent_loop_uses_tool_hint_when_no_content(tmp_path):
@@ -116,6 +118,7 @@ async def test_run_agent_loop_uses_tool_hint_when_no_content(tmp_path):
     messages = [{"role": "user", "content": "search for something"}]
     await loop._run_agent_loop(messages, on_progress=capture_progress)
 
+    # PR #833: no clean text → only the tool hint fires (1 call)
     assert len(progress_calls) == 1
     assert "web_search" in progress_calls[0]
 
@@ -169,8 +172,6 @@ async def test_run_agent_loop_strips_think_before_progress(tmp_path):
     async def capture_progress(text: str) -> None:
         progress_calls.append(text)
 
-    await loop._run_agent_loop(
-        [{"role": "user", "content": "read"}], on_progress=capture_progress
-    )
+    await loop._run_agent_loop([{"role": "user", "content": "read"}], on_progress=capture_progress)
 
     assert progress_calls[0] == "Reading the requested file."
