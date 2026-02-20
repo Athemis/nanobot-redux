@@ -738,3 +738,54 @@ class TestConsolidationDeduplicationGuard:
         assert len(session_after.messages) == before_count, (
             "Session must remain intact when /new archival fails"
         )
+
+    @pytest.mark.asyncio
+    async def test_consolidation_does_not_skip_messages_added_during_llm_call(
+        self, tmp_path: Path
+    ) -> None:
+        """last_consolidated should advance only to the pre-await snapshot boundary."""
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.bus.queue import MessageBus
+        from nanobot.providers.base import LLMResponse
+
+        bus = MessageBus()
+        provider = MagicMock()
+        provider.get_default_model.return_value = "test-model"
+        loop = AgentLoop(
+            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+        )
+
+        loop.tools.get_definitions = MagicMock(return_value=[])
+
+        session = loop.sessions.get_or_create("cli:test")
+        for i in range(15):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+        loop.sessions.save(session)
+
+        release = asyncio.Event()
+
+        async def _delayed_chat(*args, **kwargs) -> LLMResponse:
+            await release.wait()
+            return LLMResponse(
+                content='{"history_entry":"[2026-01-01 00:00] x","memory_update":""}',
+                tool_calls=[],
+            )
+
+        loop.provider.chat = AsyncMock(side_effect=_delayed_chat)
+
+        task = asyncio.create_task(loop._consolidate_memory(session))
+        await asyncio.sleep(0.01)
+
+        for i in range(15, 17):
+            session.add_message("user", f"msg{i}")
+            session.add_message("assistant", f"resp{i}")
+
+        release.set()
+        ok = await task
+
+        assert ok is True
+        # Initial 30 messages, keep_count=5 => snapshot boundary should be 25.
+        assert session.last_consolidated == 25, (
+            f"Expected snapshot boundary 25, got {session.last_consolidated}"
+        )

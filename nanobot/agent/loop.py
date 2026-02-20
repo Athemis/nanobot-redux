@@ -457,7 +457,7 @@ class AgentLoop:
             channel=origin_channel, chat_id=origin_chat_id, content=final_content
         )
 
-    async def _consolidate_memory(self, session, archive_all: bool = False) -> bool:
+    async def _consolidate_memory(self, session: Session, archive_all: bool = False) -> bool:
         """Consolidate old messages into MEMORY.md + HISTORY.md.
 
         Args:
@@ -465,6 +465,7 @@ class AgentLoop:
                        If False, only write to files without modifying session.
         """
         memory = self.context.memory
+        snapshot_end = 0
 
         if archive_all:
             old_messages = session.messages
@@ -474,6 +475,7 @@ class AgentLoop:
             )
         else:
             keep_count = self.memory_window // 2
+            snapshot_end = len(session.messages) - keep_count
             if len(session.messages) <= keep_count:
                 logger.debug(
                     f"Session {session.key}: No consolidation needed (messages={len(session.messages)}, keep={keep_count})"
@@ -487,7 +489,7 @@ class AgentLoop:
                 )
                 return True
 
-            old_messages = session.messages[session.last_consolidated : -keep_count]
+            old_messages = session.messages[session.last_consolidated : snapshot_end]
             if not old_messages:
                 return True
             logger.info(
@@ -552,7 +554,7 @@ Respond with ONLY valid JSON, no markdown fences."""
             if archive_all:
                 session.last_consolidated = 0
             else:
-                session.last_consolidated = len(session.messages) - keep_count
+                session.last_consolidated = snapshot_end
             logger.info(
                 f"Memory consolidation done: {len(session.messages)} messages, last_consolidated={session.last_consolidated}"
             )
