@@ -57,7 +57,8 @@ def get_old_messages(session: Session, last_consolidated: int, keep_count: int) 
     Returns:
         List of messages that would be consolidated
     """
-    return session.messages[last_consolidated:-keep_count]
+    end_index = None if keep_count == 0 else -keep_count
+    return session.messages[last_consolidated:end_index]
 
 
 class TestSessionLastConsolidated:
@@ -225,6 +226,14 @@ class TestConsolidationTriggerConditions:
         session.last_consolidated = total_messages - KEEP_COUNT
         old_messages = get_old_messages(session, session.last_consolidated, KEEP_COUNT)
         assert len(old_messages) == 0
+
+    def test_get_old_messages_keep_count_zero_returns_remaining(self) -> None:
+        """Helper should mirror production behavior when keep_count is zero."""
+        session = create_session_with_messages("test:keep_zero", 6)
+        old_messages = get_old_messages(session, last_consolidated=2, keep_count=0)
+
+        assert len(old_messages) == 4
+        assert_messages_content(old_messages, 2, 5)
 
 
 class TestLastConsolidatedEdgeCases:
