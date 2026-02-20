@@ -126,6 +126,29 @@ Use `from typing import TYPE_CHECKING` and guard import-only dependencies behind
 - Before merging: `ruff check .` and `pytest` must pass.
 - Update `docs/redux-changes.md` for fork-specific changes and `docs/upstream-log.md` for upstream adopted, deferred, and rejected intake decisions.
 
+## Fork Documentation — Keeping the Logs Current
+
+These three files must be kept up to date whenever code changes land. Update them **in the same PR** as the code change, not as a follow-up.
+
+### `docs/redux-changes.md`
+
+Add a row to the **Changes** table for every fork-specific change (features, bugfixes, refactors, CI changes) that originates in this repository and is not a direct upstream adoption. Columns: Change, PR/Commit, Area, Why, Risk, Added (YYYY-MM-DD), Verification.
+
+Do **not** add entries for: minor doc edits, workspace content, style-only formatting, or changes that are pure upstream cherry-picks (those go in `upstream-log.md`).
+
+### `docs/upstream-log.md`
+
+Add a row to the **Adopted Changes** table for every upstream commit or PR cherry-picked into this fork. Record: upstream PR/commit link, area, why adopted, risk, date, and verification command. When a change is partially adopted, note which parts were excluded and why. When upstream changes are evaluated but not adopted, record them in the **Deferred** or **Rejected** table with a brief reason.
+
+### `README.md`
+
+Keep the **"What This Fork Adds"** section current:
+
+- Add a bullet for every new user-visible feature or behaviour change merged to `main`.
+- Update or remove bullets when features are removed or substantially changed.
+- The **"Real-time line count"** line (`📏 Real-time line count: X lines`) must be updated whenever the core agent line count changes materially. Run `bash core_agent_lines.sh` to get the current count.
+- Do **not** add bullets for: internal refactors with no user-visible effect, CI-only changes, or doc-only changes.
+
 ## Upstream Intake and Fork Documentation
 
 - For upstream adoption work, follow `docs/upstream-intake.md`.
