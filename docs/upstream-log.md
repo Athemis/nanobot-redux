@@ -63,6 +63,7 @@ Changes integrated after the initial fork:
 | [#903](https://github.com/HKUDS/nanobot/pull/903) partial (`f19baa8`) | channels/base | Loguru native format in BaseChannel access-denied warning | low | 2026-02-20 | `pytest tests/test_channels_base.py --no-cov` |
 | [#902](https://github.com/HKUDS/nanobot/pull/902) partial (`73530d5`) | Session | Legacy session key fallback: replace first underscore only | low | 2026-02-20 | `pytest tests/test_session_manager.py --no-cov` |
 | [#905](https://github.com/HKUDS/nanobot/pull/905) spirit (`b286457`) | Registry | OpenRouter: default_prompt_caching_enabled=True | low | 2026-02-20 | `pytest tests/test_onboard_openrouter_defaults.py --no-cov` |
+| [#908](https://github.com/HKUDS/nanobot/pull/908) (`7279ff0`) | CLI / Agent loop | Route interactive CLI through message bus; subagent replies delivered; thinking spinner in run_once | low | 2026-02-20 | `pytest tests/test_commands.py tests/test_on_progress.py --no-cov` |
 
 ### Template for New Adoptions
 

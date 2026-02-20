@@ -297,8 +297,15 @@ class AgentLoop:
                 msg = await asyncio.wait_for(self.bus.consume_inbound(), timeout=1.0)
                 try:
                     response = await self._process_message(msg)
-                    if response:
-                        await self.bus.publish_outbound(response)
+                    await self.bus.publish_outbound(
+                        response
+                        or OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content="",
+                            metadata=msg.metadata or {},
+                        )
+                    )
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     await self.bus.publish_outbound(
@@ -446,12 +453,14 @@ class AgentLoop:
                     target = (msg.channel, msg.chat_id)
                     if message_tool.sent_in_turn_target == target:
                         return
+            meta = dict(msg.metadata or {})
+            meta["_progress"] = True
             await self.bus.publish_outbound(
                 OutboundMessage(
                     channel=msg.channel,
                     chat_id=msg.chat_id,
                     content=content,
-                    metadata=msg.metadata or {},
+                    metadata=meta,
                 )
             )
 
