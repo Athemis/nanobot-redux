@@ -370,3 +370,38 @@ async def test_codex_consume_sse_response_failed_uses_nested_error(monkeypatch) 
 
     with pytest.raises(RuntimeError, match="Codex response failed: quota exceeded"):
         await codex_provider._consume_sse(object())
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_collects_reasoning_content(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {"type": "response.reasoning_text.delta", "delta": "Thinking "}
+        yield {"type": "response.reasoning_text.delta", "delta": "step-by-step"}
+        yield {"type": "response.completed", "response": {"status": "completed"}}
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    content, tool_calls, finish_reason, reasoning = await codex_provider._consume_sse(object())
+    assert content == ""
+    assert tool_calls == []
+    assert finish_reason == "stop"
+    assert reasoning == "Thinking step-by-step"
+
+
+@pytest.mark.asyncio
+async def test_codex_chat_sets_reasoning_content(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider.get_codex_token",
+        lambda: SimpleNamespace(account_id="acc", access="tok"),
+    )
+
+    async def _fake_request_codex(url, headers, body, verify):
+        return "ok", [], "stop", "reasoning summary"
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider._request_codex", _fake_request_codex
+    )
+
+    provider = OpenAICodexProvider(default_model="openai-codex/gpt-5.1-codex")
+    result = await provider.chat(messages=[{"role": "user", "content": "hello"}])
+    assert result.reasoning_content == "reasoning summary"
