@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from collections.abc import Awaitable, Callable
 from typing import Any, AsyncGenerator
 
 import httpx
@@ -36,6 +37,7 @@ class OpenAICodexProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
         prompt_cache_key: str | None = None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> LLMResponse:
         """Send a chat request to Codex Responses API and normalize the result."""
         model = model or self.default_model
@@ -76,13 +78,14 @@ class OpenAICodexProvider(LLMProvider):
             self._logged_insecure_ssl_warning = True
 
         try:
-            content, tool_calls, finish_reason = await _request_codex(
-                url, headers, body, verify=ssl_verify
+            content, tool_calls, finish_reason, reasoning_content = await _request_codex(
+                url, headers, body, verify=ssl_verify, on_reasoning_delta=on_reasoning_delta
             )
             return LLMResponse(
                 content=content,
                 tool_calls=tool_calls,
                 finish_reason=finish_reason,
+                reasoning_content=reasoning_content,
             )
         except Exception as e:
             return LLMResponse(
@@ -120,7 +123,8 @@ async def _request_codex(
     headers: dict[str, str],
     body: dict[str, Any],
     verify: bool,
-) -> tuple[str, list[ToolCallRequest], str]:
+    on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
+) -> tuple[str, list[ToolCallRequest], str, str | None]:
     """Execute the streaming Codex request and parse its SSE response."""
     async with httpx.AsyncClient(timeout=60.0, verify=verify) as client:
         async with client.stream("POST", url, headers=headers, json=body) as response:
@@ -129,7 +133,7 @@ async def _request_codex(
                 raise RuntimeError(
                     _friendly_error(response.status_code, text.decode("utf-8", "ignore"))
                 )
-            return await _consume_sse(response)
+            return await _consume_sse(response, on_reasoning_delta=on_reasoning_delta)
 
 
 def _convert_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -270,9 +274,13 @@ async def _iter_sse(response: httpx.Response) -> AsyncGenerator[dict[str, Any], 
         buffer.append(line)
 
 
-async def _consume_sse(response: httpx.Response) -> tuple[str, list[ToolCallRequest], str]:
+async def _consume_sse(
+    response: httpx.Response,
+    on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
+) -> tuple[str, list[ToolCallRequest], str, str | None]:
     """Aggregate text/tool events from Codex SSE into a final response tuple."""
     content = ""
+    reasoning_content = ""
     tool_calls: list[ToolCallRequest] = []
     tool_call_buffers: dict[str, dict[str, Any]] = {}
     finish_reason = "stop"
@@ -290,6 +298,11 @@ async def _consume_sse(response: httpx.Response) -> tuple[str, list[ToolCallRequ
                     "name": item.get("name"),
                     "arguments": item.get("arguments") or "",
                 }
+        elif event_type == "response.reasoning_text.delta":
+            delta = event.get("delta") or ""
+            reasoning_content += delta
+            if delta and on_reasoning_delta:
+                await on_reasoning_delta(delta)
         elif event_type == "response.output_text.delta":
             content += event.get("delta") or ""
         elif event_type == "response.function_call_arguments.delta":
@@ -325,7 +338,7 @@ async def _consume_sse(response: httpx.Response) -> tuple[str, list[ToolCallRequ
         elif event_type in {"error", "response.failed"}:
             raise RuntimeError(f"Codex response failed: {_extract_event_error_message(event)}")
 
-    return content, tool_calls, finish_reason
+    return content, tool_calls, finish_reason, reasoning_content or None
 
 
 _FINISH_REASON_MAP = {

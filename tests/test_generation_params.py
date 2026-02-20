@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 
 import pytest
@@ -26,6 +27,7 @@ class _RecordingProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
         prompt_cache_key: str | None = None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> LLMResponse:
         self.calls.append(
             {
@@ -262,13 +264,17 @@ async def test_codex_chat_omits_token_limit_fields_and_ignores_temperature(monke
     captured: dict[str, object] = {}
 
     async def _fake_request_codex(
-        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ):
         captured["url"] = url
         captured["headers"] = headers
         captured["body"] = body
         captured["verify"] = verify
-        return "ok", [], "stop"
+        return "ok", [], "stop", None
 
     monkeypatch.setattr(
         "nanobot.providers.openai_codex_provider.get_codex_token",
@@ -300,10 +306,14 @@ async def test_codex_chat_disables_ssl_verify_only_when_provider_configured(monk
     captured: dict[str, object] = {}
 
     async def _fake_request_codex(
-        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ):
         captured["verify"] = verify
-        return "ok", [], "stop"
+        return "ok", [], "stop", None
 
     monkeypatch.setattr(
         "nanobot.providers.openai_codex_provider.get_codex_token",
@@ -326,7 +336,11 @@ async def test_codex_chat_no_longer_auto_retries_without_ssl_verify(monkeypatch)
     calls: list[bool] = []
 
     async def _fake_request_codex(
-        url: str, headers: dict[str, str], body: dict[str, object], verify: bool
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ):
         calls.append(verify)
         raise RuntimeError("CERTIFICATE_VERIFY_FAILED")
@@ -370,3 +384,69 @@ async def test_codex_consume_sse_response_failed_uses_nested_error(monkeypatch) 
 
     with pytest.raises(RuntimeError, match="Codex response failed: quota exceeded"):
         await codex_provider._consume_sse(object())
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_collects_reasoning_content(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {"type": "response.reasoning_text.delta", "delta": "Thinking "}
+        yield {"type": "response.reasoning_text.delta", "delta": "step-by-step"}
+        yield {"type": "response.completed", "response": {"status": "completed"}}
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    content, tool_calls, finish_reason, reasoning = await codex_provider._consume_sse(object())
+    assert content == ""
+    assert tool_calls == []
+    assert finish_reason == "stop"
+    assert reasoning == "Thinking step-by-step"
+
+
+@pytest.mark.asyncio
+async def test_codex_chat_sets_reasoning_content(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider.get_codex_token",
+        lambda: SimpleNamespace(account_id="acc", access="tok"),
+    )
+
+    async def _fake_request_codex(
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, object],
+        verify: bool,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
+    ):
+        return "ok", [], "stop", "reasoning summary"
+
+    monkeypatch.setattr(
+        "nanobot.providers.openai_codex_provider._request_codex", _fake_request_codex
+    )
+
+    provider = OpenAICodexProvider(default_model="openai-codex/gpt-5.1-codex")
+    result = await provider.chat(messages=[{"role": "user", "content": "hello"}])
+    assert result.content == "ok"
+    assert result.finish_reason == "stop"
+    assert result.reasoning_content == "reasoning summary"
+
+
+@pytest.mark.asyncio
+async def test_codex_consume_sse_fires_on_reasoning_delta_callback(monkeypatch) -> None:
+    async def _fake_iter_sse(_response):
+        yield {"type": "response.reasoning_text.delta", "delta": "first "}
+        yield {"type": "response.reasoning_text.delta", "delta": "second"}
+        yield {"type": "response.output_text.delta", "delta": "answer"}
+        yield {"type": "response.completed", "response": {"status": "completed"}}
+
+    monkeypatch.setattr("nanobot.providers.openai_codex_provider._iter_sse", _fake_iter_sse)
+
+    fired: list[str] = []
+
+    async def _capture(delta: str) -> None:
+        fired.append(delta)
+
+    content, tool_calls, finish_reason, reasoning = await codex_provider._consume_sse(
+        object(), on_reasoning_delta=_capture
+    )
+    assert content == "answer"
+    assert reasoning == "first second"
+    assert fired == ["first ", "second"]

@@ -182,13 +182,17 @@ class AgentLoop:
         initial_messages: list[dict],
         prompt_cache_key: str | None = None,
         on_progress: Callable[[str], Awaitable[None]] | None = None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> tuple[str | None, list[str]]:
         """
         Run the agent iteration loop.
 
         Args:
             initial_messages: Starting messages for the LLM conversation.
-            on_progress: Optional async callback fired with reasoning text before each tool call.
+            on_progress: Optional async callback fired with tool-hint text before each tool call.
+            on_reasoning_delta: Optional async callback fired for each reasoning delta during
+                generation. Intentionally separate from on_progress so that bus-backed channels
+                (Matrix, Email) are not flooded with individual reasoning chunks.
 
         Returns:
             Tuple of (final_content, list_of_tools_used).
@@ -209,6 +213,7 @@ class AgentLoop:
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 prompt_cache_key=prompt_cache_key,
+                on_reasoning_delta=on_reasoning_delta,
             )
 
             if response.has_tool_calls:
@@ -305,7 +310,7 @@ class AgentLoop:
         if self._mcp_stack:
             try:
                 await self._mcp_stack.aclose()
-            except (RuntimeError, BaseExceptionGroup):
+            except RuntimeError, BaseExceptionGroup:
                 pass  # MCP SDK cancel scope cleanup is noisy but harmless
             self._mcp_stack = None
 
@@ -440,6 +445,10 @@ class AgentLoop:
             initial_messages,
             prompt_cache_key=key,
             on_progress=on_progress or _bus_progress,
+            # Reasoning deltas are NOT forwarded to bus channels (Matrix/Email) to avoid
+            # message floods and typing-indicator disruption. Each send() call clears the
+            # typing keepalive, so streaming individual reasoning chunks would break UX.
+            on_reasoning_delta=on_progress,  # only set when caller explicitly provides one (CLI)
         )
 
         if final_content is None:

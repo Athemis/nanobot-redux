@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 import json_repair
 from openai import AsyncOpenAI
@@ -82,9 +85,11 @@ class OpenAIProvider(LLMProvider):
         max_tokens: int = 4096,
         temperature: float = 0.7,
         prompt_cache_key: str | None = None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> LLMResponse:
         """Send a chat completion request. max_tokens is clamped to ≥1. API errors are
-        caught and returned as LLMResponse(finish_reason="error") rather than raised."""
+        caught and returned as LLMResponse(finish_reason="error") rather than raised.
+        on_reasoning_delta is accepted but ignored (OpenAI does not stream reasoning text)."""
         model = self._resolve_model(model or self.default_model)
         kwargs: dict[str, Any] = {
             "model": model,

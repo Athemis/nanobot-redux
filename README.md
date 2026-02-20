@@ -11,7 +11,7 @@
 
 ⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
 
-📏 Real-time line count: **4,010 lines** (run `bash core_agent_lines.sh` to verify anytime)
+📏 Real-time line count: **4,247 lines** (run `bash core_agent_lines.sh` to verify anytime)
 
 ## 📍 Fork Baseline
 
@@ -46,6 +46,7 @@ Changes specific to this fork, not in upstream:
 - Agentic prompt hardening: loop-continuation nudge, heartbeat prompt, and spawn tool description rewritten to push the agent toward direct action over passive confirmation-seeking ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 - Live progress for gateway users: Matrix and Email users now receive intermediate tool-hint messages during agent execution instead of waiting silently for the final response; `metadata` (e.g. Matrix thread IDs) is forwarded so replies land in the correct thread ([b41409e](https://github.com/Athemis/nanobot-redux/commit/b41409e))
 - Memory consolidation snapshot safety: messages that arrive while consolidation is waiting on the LLM are no longer silently skipped by `last_consolidated` watermark drift ([#63](https://github.com/Athemis/nanobot-redux/issues/63))
+- **Codex reasoning streaming:** Live reasoning text from Codex models surfaces as progress updates in CLI and Matrix channels; typing indicators remain accurate for all models ([9683e2d](https://github.com/Athemis/nanobot-redux/commit/9683e2d))
 
 ## Key Features of nanobot:
 

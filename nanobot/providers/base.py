@@ -1,6 +1,7 @@
 """Base LLM provider interface."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -52,6 +53,7 @@ class LLMProvider(ABC):
         max_tokens: int = 4096,
         temperature: float = 0.7,
         prompt_cache_key: str | None = None,
+        on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request.
@@ -62,6 +64,7 @@ class LLMProvider(ABC):
             model: Model identifier (provider-specific).
             max_tokens: Maximum tokens in response.
             temperature: Sampling temperature.
+            on_reasoning_delta: Optional async callback fired with each reasoning text chunk.
 
         Returns:
             LLMResponse with content and/or tool calls.
