@@ -14,11 +14,12 @@ runner = CliRunner()
 @pytest.fixture
 def mock_paths():
     """Mock config/workspace paths for test isolation."""
-    with patch("nanobot.config.loader.get_config_path") as mock_cp, \
-         patch("nanobot.config.loader.save_config") as mock_sc, \
-         patch("nanobot.config.loader.load_config"), \
-         patch("nanobot.utils.helpers.get_workspace_path") as mock_ws:
-
+    with (
+        patch("nanobot.config.loader.get_config_path") as mock_cp,
+        patch("nanobot.config.loader.save_config") as mock_sc,
+        patch("nanobot.config.loader.load_config"),
+        patch("nanobot.utils.helpers.get_workspace_path") as mock_ws,
+    ):
         base_dir = Path("./test_onboard_data")
         if base_dir.exists():
             shutil.rmtree(base_dir)
@@ -265,7 +266,18 @@ def test_cron_add_cron_expr_with_tz(monkeypatch, tmp_path):
     monkeypatch.setattr("nanobot.config.loader.get_data_dir", lambda: tmp_path)
     result = runner.invoke(
         app,
-        ["cron", "add", "--name", "tz job", "--message", "hi", "--cron", "0 9 * * *", "--tz", "UTC"],
+        [
+            "cron",
+            "add",
+            "--name",
+            "tz job",
+            "--message",
+            "hi",
+            "--cron",
+            "0 9 * * *",
+            "--tz",
+            "UTC",
+        ],
     )
     assert result.exit_code == 0
     assert "Added job" in result.stdout
@@ -369,7 +381,10 @@ def test_cron_enable_not_found(monkeypatch, tmp_path):
 # ============================================================================
 
 
-def test_cron_run_success(monkeypatch, tmp_path):
+def test_cron_run_success(monkeypatch, tmp_path) -> None:
+    from unittest.mock import AsyncMock, MagicMock
+
+    from nanobot.config.schema import Config
     from nanobot.cron.service import CronService
     from nanobot.cron.types import CronSchedule
 
@@ -378,19 +393,34 @@ def test_cron_run_success(monkeypatch, tmp_path):
     job = svc.add_job("runnable", CronSchedule(kind="every", every_ms=60000), "do it")
 
     monkeypatch.setattr("nanobot.config.loader.get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("nanobot.config.loader.load_config", lambda *a, **kw: Config())
+    mock_provider = MagicMock()
+    mock_provider.chat = AsyncMock(
+        return_value=MagicMock(content="done", tool_calls=[], has_tool_calls=False)
+    )
+    monkeypatch.setattr("nanobot.cli.commands._make_provider", lambda cfg: mock_provider)
     result = runner.invoke(app, ["cron", "run", job.id])
     assert result.exit_code == 0
     assert "Job executed" in result.stdout
 
 
-def test_cron_run_not_found(monkeypatch, tmp_path):
+def test_cron_run_not_found(monkeypatch, tmp_path) -> None:
+    from unittest.mock import MagicMock
+
+    from nanobot.config.schema import Config
+
     monkeypatch.setattr("nanobot.config.loader.get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("nanobot.config.loader.load_config", lambda *a, **kw: Config())
+    monkeypatch.setattr("nanobot.cli.commands._make_provider", lambda cfg: MagicMock())
     result = runner.invoke(app, ["cron", "run", "bad-id"])
     assert result.exit_code == 0
     assert "Failed to run job" in result.stdout
 
 
-def test_cron_run_disabled_without_force(monkeypatch, tmp_path):
+def test_cron_run_disabled_without_force(monkeypatch, tmp_path) -> None:
+    from unittest.mock import MagicMock
+
+    from nanobot.config.schema import Config
     from nanobot.cron.service import CronService
     from nanobot.cron.types import CronSchedule
 
@@ -400,6 +430,8 @@ def test_cron_run_disabled_without_force(monkeypatch, tmp_path):
     svc.enable_job(job.id, enabled=False)
 
     monkeypatch.setattr("nanobot.config.loader.get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("nanobot.config.loader.load_config", lambda *a, **kw: Config())
+    monkeypatch.setattr("nanobot.cli.commands._make_provider", lambda cfg: MagicMock())
     result = runner.invoke(app, ["cron", "run", job.id])
     assert result.exit_code == 0
     assert "Failed to run job" in result.stdout
