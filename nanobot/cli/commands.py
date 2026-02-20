@@ -544,9 +544,10 @@ def agent(
     if message:
         # Single message mode — direct call, no bus needed
         async def run_once():
-            response = await agent_loop.process_direct(
-                message, session_id, on_progress=_cli_progress
-            )
+            with _thinking_ctx():
+                response = await agent_loop.process_direct(
+                    message, session_id, on_progress=_cli_progress
+                )
             _print_agent_response(response, render_markdown=markdown)
             await agent_loop.close_mcp()
 

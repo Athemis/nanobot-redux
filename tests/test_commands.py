@@ -524,6 +524,68 @@ def test_provider_login_openai_codex_import_error(monkeypatch):
 # ============================================================================
 
 
+async def test_run_once_uses_thinking_ctx(tmp_path) -> None:
+    """run_once must wrap process_direct in _thinking_ctx so the spinner appears.
+
+    Upstream 7279ff0: single-message mode should also show the thinking spinner.
+    This test verifies that the _thinking_ctx context manager is entered when
+    running in non-interactive (run_once) mode.
+
+    _thinking_ctx (when logs=False) delegates to console.status(). We spy on
+    console.status to detect whether the spinner is entered during run_once.
+
+    Regression detection: if the with _thinking_ctx(): wrapper is absent,
+    console.status will never be entered and the assertion fails.
+    """
+    from contextlib import contextmanager
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from nanobot.config.schema import Config
+
+    status_entered = []
+
+    @contextmanager
+    def _spy_status(*args, **kwargs):
+        status_entered.append(args[0] if args else kwargs)
+        yield MagicMock()
+
+    captured_coros: list = []
+
+    def _capture_asyncio_run(coro):  # type: ignore[override]
+        captured_coros.append(coro)
+
+    import nanobot.cli.commands as cmd_mod
+
+    with (
+        patch("nanobot.agent.loop.AgentLoop") as mock_agent_loop_cls,
+        patch("nanobot.config.loader.load_config", return_value=Config()),
+        patch("nanobot.cli.commands._make_provider", return_value=MagicMock()),
+        patch("nanobot.cron.service.CronService", return_value=MagicMock()),
+        patch("nanobot.config.loader.get_data_dir", return_value=tmp_path),
+        patch("asyncio.run", side_effect=_capture_asyncio_run),
+        patch.object(cmd_mod.console, "status", side_effect=_spy_status),
+    ):
+        mock_loop = MagicMock()
+        mock_loop.process_direct = AsyncMock(return_value="Agent reply")
+        mock_loop.close_mcp = AsyncMock()
+        mock_agent_loop_cls.return_value = mock_loop
+
+        from nanobot.cli.commands import agent
+
+        agent(  # type: ignore[arg-type]
+            message="hello", session_id="cli:test", markdown=True, logs=False
+        )
+        # agent() called asyncio.run(run_once()) — await it while patches are active
+        assert len(captured_coros) == 1, "Expected asyncio.run called once for run_once"
+        await captured_coros[0]
+
+    assert len(status_entered) == 1, (
+        f"Expected console.status (the spinner) to be entered once during run_once, "
+        f"got {len(status_entered)}. "
+        "The with _thinking_ctx(): wrapper is missing from run_once."
+    )
+
+
 async def test_run_interactive_routes_user_input_through_bus(tmp_path) -> None:
     """run_interactive publishes user input via bus.publish_inbound, not process_direct.
 
