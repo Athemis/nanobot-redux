@@ -6,7 +6,7 @@ import re
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import json_repair
 from loguru import logger
@@ -340,7 +340,7 @@ class AgentLoop:
         cmd = msg.content.strip().lower()
         if cmd == "/new":
             lock = self._get_consolidation_lock(session.key)
-            messages_to_archive: list[dict[str, Any]] = []
+            messages_to_archive = []
             try:
                 async with lock:
                     messages_to_archive = session.messages[session.last_consolidated :].copy()
