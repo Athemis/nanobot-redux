@@ -46,6 +46,7 @@ Changes specific to this fork, not in upstream:
 - Agentic prompt hardening: loop-continuation nudge, heartbeat prompt, and spawn tool description rewritten to push the agent toward direct action over passive confirmation-seeking ([#18](https://github.com/Athemis/nanobot-redux/pull/18))
 - Live progress for gateway users: Matrix and Email users receive intermediate progress hints during agent execution (upstream-style `tool("arg")` formatting), with `metadata` (e.g. Matrix thread IDs) forwarded so replies land in the correct thread ([b41409e](https://github.com/Athemis/nanobot-redux/commit/b41409e))
 - Memory consolidation snapshot safety: messages that arrive while consolidation is waiting on the LLM are no longer silently skipped by `last_consolidated` watermark drift ([#63](https://github.com/Athemis/nanobot-redux/issues/63))
+- Matrix attachment reply hygiene: when the message tool already replies (for example with file attachments), non-CLI channels no longer receive an extra empty fallback message; CLI keeps the sentinel event for interactive turn completion.
 
 ## Key Features of nanobot:
 

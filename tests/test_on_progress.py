@@ -499,3 +499,39 @@ async def test_run_always_publishes_outbound_for_none_response(tmp_path) -> None
     assert msg.chat_id == "session1"
     assert msg.content == ""  # empty sentinel message
     assert msg.metadata == {"thread_root_event_id": "$root"}
+
+
+async def test_run_skips_empty_sentinel_for_non_cli_channels(tmp_path) -> None:
+    """run() does not publish empty fallback messages for non-CLI channels."""
+    import asyncio
+
+    from nanobot.bus.events import InboundMessage
+    from nanobot.bus.queue import MessageBus
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    loop._process_message = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    loop._connect_mcp = AsyncMock()  # type: ignore[method-assign]
+
+    inbound = InboundMessage(
+        channel="matrix",
+        sender_id="user",
+        chat_id="!room:matrix.org",
+        content="hello",
+        metadata={"thread_root_event_id": "$root"},
+    )
+    await bus.publish_inbound(inbound)
+
+    async def _run_and_stop() -> None:
+        task = asyncio.create_task(loop.run())
+        for _ in range(40):
+            await asyncio.sleep(0.05)
+        loop.stop()
+        await asyncio.gather(task, return_exceptions=True)
+
+    await _run_and_stop()
+
+    assert bus.outbound.empty()

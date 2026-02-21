@@ -303,15 +303,19 @@ class AgentLoop:
                 msg = await asyncio.wait_for(self.bus.consume_inbound(), timeout=1.0)
                 try:
                     response = await self._process_message(msg)
-                    await self.bus.publish_outbound(
-                        response
-                        or OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content="",
-                            metadata=msg.metadata or {},
+                    if response is not None:
+                        await self.bus.publish_outbound(response)
+                    elif msg.channel == "cli":
+                        # CLI interactive mode waits for an outbound event to mark
+                        # turn completion when the message tool already replied.
+                        await self.bus.publish_outbound(
+                            OutboundMessage(
+                                channel=msg.channel,
+                                chat_id=msg.chat_id,
+                                content="",
+                                metadata=msg.metadata or {},
+                            )
                         )
-                    )
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     await self.bus.publish_outbound(
