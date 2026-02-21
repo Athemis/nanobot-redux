@@ -487,8 +487,8 @@ class AgentLoop:
         final_content, tools_used = await self._run_agent_loop(
             initial_messages,
             prompt_cache_key=key,
-            on_progress=on_progress or _bus_progress,
-            on_progress_kind=None if on_progress else _bus_progress_kind,
+            on_progress=on_progress,
+            on_progress_kind=_bus_progress_kind if on_progress is None else None,
         )
 
         if final_content is None:

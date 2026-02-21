@@ -472,7 +472,7 @@ async def test_bus_progress_sets_progress_metadata(tmp_path) -> None:
     while not bus.outbound.empty():
         outbound.append(bus.outbound.get_nowait())
 
-    assert len(outbound) >= 1, "Expected at least one progress message"
+    assert len(outbound) == 2
     for m in outbound:
         assert m.metadata.get("_progress") is True
         assert m.metadata.get("extra") == "data"
