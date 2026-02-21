@@ -608,6 +608,49 @@ async def test_consolidation_tool_args_are_stringified(tmp_path: Path) -> None:
     assert '["item1", "item2"]' == loop.context.memory.read_long_term()
 
 
+@pytest.mark.asyncio
+async def test_consolidation_selects_valid_save_memory_call(tmp_path: Path) -> None:
+    """Consolidation should select a valid save_memory call, not blindly first call."""
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(
+        bus=bus,
+        provider=provider,
+        workspace=tmp_path,
+        model="test-model",
+        memory_window=1,
+    )
+
+    loop.provider.chat = AsyncMock(
+        return_value=LLMResponse(
+            content=None,
+            tool_calls=[
+                ToolCallRequest(id="t1", name="other_tool", arguments={"k": "v"}),
+                ToolCallRequest(
+                    id="t2",
+                    name="save_memory",
+                    arguments={
+                        "history_entry": "[2026-02-21 10:00] consolidated",
+                        "memory_update": "- fact: retained",
+                    },
+                ),
+            ],
+        )
+    )
+
+    session = loop.sessions.get_or_create("cli:test-valid-call")
+    for i in range(3):
+        session.add_message("user", f"msg{i}")
+    loop.sessions.save(session)
+
+    ok = await loop._consolidate_memory(session)
+
+    assert ok is True
+    assert session.last_consolidated == len(session.messages)
+    assert "consolidated" in loop.context.memory.history_file.read_text(encoding="utf-8")
+
+
 class TestConsolidationDeduplicationGuard:
     """Test that the _consolidating guard prevents duplicate consolidation tasks."""
 

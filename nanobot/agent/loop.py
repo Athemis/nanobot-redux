@@ -657,9 +657,20 @@ class AgentLoop:
                 logger.warning("Memory consolidation: LLM did not call save_memory tool, skipping")
                 return False
 
-            call = response.tool_calls[0]
-            if call.name != "save_memory":
-                logger.warning("Memory consolidation: unexpected tool '{}', skipping", call.name)
+            call = next(
+                (
+                    tc
+                    for tc in response.tool_calls
+                    if tc.name == "save_memory"
+                    and isinstance(tc.arguments, dict)
+                    and ("history_entry" in tc.arguments or "memory_update" in tc.arguments)
+                ),
+                None,
+            )
+            if call is None:
+                logger.warning(
+                    "Memory consolidation: no valid save_memory tool call found, skipping"
+                )
                 return False
 
             result = call.arguments
