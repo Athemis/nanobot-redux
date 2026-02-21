@@ -282,6 +282,30 @@ async def test_edit_file_returns_error_when_old_text_not_found(tmp_path: Path) -
 
 
 @pytest.mark.asyncio
+async def test_edit_file_not_found_shows_best_match_for_single_line_typo(tmp_path: Path) -> None:
+    f = tmp_path / "file.txt"
+    f.write_text("hello world\n", encoding="utf-8")
+
+    tool = EditFileTool()
+    result = await tool.execute(path=str(f), old_text="hello worlx", new_text="y")
+
+    assert "Best match" in result
+    assert "similar" in result
+
+
+@pytest.mark.asyncio
+async def test_edit_file_not_found_diff_has_no_blank_separator_lines(tmp_path: Path) -> None:
+    f = tmp_path / "file.txt"
+    f.write_text("alpha\nbeta\n", encoding="utf-8")
+
+    tool = EditFileTool()
+    result = await tool.execute(path=str(f), old_text="alpha\ngamma\n", new_text="y")
+
+    assert "\n\n--- old_text" not in result
+    assert "\n\n+++" not in result
+
+
+@pytest.mark.asyncio
 async def test_edit_file_warns_on_multiple_occurrences(tmp_path: Path) -> None:
     f = tmp_path / "file.txt"
     f.write_text("aaa", encoding="utf-8")

@@ -172,13 +172,15 @@ class EditFileTool(Tool):
     @staticmethod
     def _not_found_message(old_text: str, content: str, path: str) -> str:
         """Build a helpful error when old_text is not found."""
-        lines = content.splitlines(keepends=True)
-        old_lines = old_text.splitlines(keepends=True)
+        lines = content.splitlines()
+        old_lines = old_text.splitlines()
         window = len(old_lines)
+        old_text_block = "\n".join(old_lines)
 
         best_ratio, best_start = 0.0, 0
         for i in range(max(1, len(lines) - window + 1)):
-            ratio = difflib.SequenceMatcher(None, old_lines, lines[i : i + window]).ratio()
+            candidate_block = "\n".join(lines[i : i + window])
+            ratio = difflib.SequenceMatcher(None, old_text_block, candidate_block).ratio()
             if ratio > best_ratio:
                 best_ratio, best_start = ratio, i
 
