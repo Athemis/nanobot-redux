@@ -373,31 +373,18 @@ async def test_bus_progress_stops_after_message_tool_replies_in_turn(tmp_path) -
     assert all("read_file" not in h for h in hints)
 
 
-async def test_retry_does_not_add_interim_text_to_context(tmp_path) -> None:
-    """Interim text before retry must NOT be added to message history.
-
-    Adding it prefills the assistant role which some providers reject.
-    The model gets a clean second chance with the original context.
-    """
+async def test_interim_text_does_not_trigger_retry(tmp_path) -> None:
+    """Interim text returns directly without implicit retry."""
     from nanobot.providers.base import LLMResponse
 
     loop = _make_loop(tmp_path)
 
-    tool_call = MagicMock()
-    tool_call.id = "tc1"
-    tool_call.name = "read_file"
-    tool_call.arguments = {"path": "/tmp/test"}
-
     interim_response = LLMResponse(content="Let me think about this.", tool_calls=[])
-    tool_response = LLMResponse(content="", tool_calls=[tool_call])
-    final_response = LLMResponse(content="Done!", tool_calls=[])
-
     call_messages: list[list] = []
 
-    async def _chat(messages, **kwargs):
+    async def _chat(messages: list[dict[str, Any]], **kwargs: Any) -> LLMResponse:
         call_messages.append(list(messages))
-        responses = [interim_response, tool_response, final_response]
-        return responses[len(call_messages) - 1]
+        return interim_response
 
     loop.provider.chat = _chat
     loop.tools.execute = AsyncMock(return_value="file content")
@@ -406,11 +393,8 @@ async def test_retry_does_not_add_interim_text_to_context(tmp_path) -> None:
     messages = [{"role": "user", "content": "read the file"}]
     content, _ = await loop._run_agent_loop(messages)
 
-    # Second call (retry) must receive the SAME messages as the first call
-    assert call_messages[1] == call_messages[0], (
-        "Retry must not inject interim assistant message into context"
-    )
-    assert content == "Done!"
+    assert len(call_messages) == 1
+    assert content == "Let me think about this."
 
 
 async def test_bus_progress_sets_progress_metadata(tmp_path) -> None:
