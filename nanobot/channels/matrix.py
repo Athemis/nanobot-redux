@@ -620,7 +620,7 @@ class MatrixChannel(BaseChannel):
         try:
             if (
                 (not self.config.show_progress_tool_calls)
-                and (msg.metadata or {}).get("_progress")
+                and is_progress
                 and (msg.metadata or {}).get("_progress_kind") == "tool_hint"
             ):
                 return
