@@ -64,6 +64,7 @@ Changes integrated after the initial fork:
 | [#902](https://github.com/HKUDS/nanobot/pull/902) partial (`73530d5`) | Session | Legacy session key fallback: replace first underscore only | low | 2026-02-20 | `pytest tests/test_session_manager.py --no-cov` |
 | [#905](https://github.com/HKUDS/nanobot/pull/905) spirit (`b286457`) | Registry | OpenRouter: default_prompt_caching_enabled=True | low | 2026-02-20 | `pytest tests/test_onboard_openrouter_defaults.py --no-cov` |
 | [#908](https://github.com/HKUDS/nanobot/pull/908) (`7279ff0`) | CLI / Agent loop | Route interactive CLI through message bus; subagent replies delivered; thinking spinner in run_once | low | 2026-02-20 | `pytest tests/test_commands.py tests/test_on_progress.py --no-cov` |
+| [#921](https://github.com/HKUDS/nanobot/pull/921) (`33396a5` + `e0edb90` + `4f5cb7d`) | File tools | Improve `edit_file` mismatch diagnostics by returning best-match unified diffs when `old_text` is missing; include upstream cleanup commits that move `difflib` import top-level and simplify best-match loop while preserving behavior. | low | 2026-02-21 | `PYTHONPATH=<worktree> pytest -q tests/test_filesystem_delete_tool.py --no-cov` + `ruff check nanobot/agent/tools/filesystem.py` |
 
 ### Template for New Adoptions
 
