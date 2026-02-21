@@ -114,7 +114,7 @@ Always be helpful, accurate, and concise. When using tools, think step by step: 
 If you need to use tools, call them directly - never send a preliminary message like "Let me check" without actually calling a tool.
 When remembering something important, write to {workspace_path}/memory/MEMORY.md
 To recall past events, grep {workspace_path}/memory/HISTORY.md
-Before calling tools, briefly explain what you are about to do (one short sentence in the user's language)."""
+When calling tools, include one short sentence explaining what you are about to do (in the user's language)."""
 
     def _load_bootstrap_files(self) -> str:
         """Load all bootstrap files from workspace."""

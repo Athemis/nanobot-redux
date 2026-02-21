@@ -382,7 +382,7 @@ async def test_interim_text_does_not_trigger_retry(tmp_path) -> None:
     interim_response = LLMResponse(content="Let me think about this.", tool_calls=[])
     call_messages: list[list] = []
 
-    async def _chat(messages, **kwargs):
+    async def _chat(messages: list[dict[str, Any]], **kwargs: Any) -> LLMResponse:
         call_messages.append(list(messages))
         return interim_response
 

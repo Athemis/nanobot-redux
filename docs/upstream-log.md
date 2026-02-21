@@ -64,7 +64,7 @@ Changes integrated after the initial fork:
 | [#902](https://github.com/HKUDS/nanobot/pull/902) partial (`73530d5`) | Session | Legacy session key fallback: replace first underscore only | low | 2026-02-20 | `pytest tests/test_session_manager.py --no-cov` |
 | [#905](https://github.com/HKUDS/nanobot/pull/905) spirit (`b286457`) | Registry | OpenRouter: default_prompt_caching_enabled=True | low | 2026-02-20 | `pytest tests/test_onboard_openrouter_defaults.py --no-cov` |
 | [#908](https://github.com/HKUDS/nanobot/pull/908) (`7279ff0`) | CLI / Agent loop | Route interactive CLI through message bus; subagent replies delivered; thinking spinner in run_once | low | 2026-02-20 | `pytest tests/test_commands.py tests/test_on_progress.py --no-cov` |
-| [#928](https://github.com/HKUDS/nanobot/pull/928) (`aeb07d3`) | Agent loop / context | Remove interim text retry path and use an explicit system-prompt guard so tool usage is direct instead of issuing a preliminary text-only turn. This supersedes the #887 fallback path for this fork. | medium | 2026-02-21 | `PYTHONPATH=<worktree> pytest -q tests/test_on_progress.py --no-cov` + `ruff check nanobot/agent/loop.py nanobot/agent/context.py tests/test_on_progress.py` |
+| [#928](https://github.com/HKUDS/nanobot/pull/928) (`aeb07d3`) | Agent loop / context | Remove interim text retry path and use an explicit system-prompt guard so tool usage is direct instead of issuing a preliminary text-only turn. This supersedes upstream PR #887 retry fallback behavior for this fork. | medium | 2026-02-21 | `PYTHONPATH=$PWD pytest -q tests/test_on_progress.py --no-cov` + `ruff check nanobot/agent/loop.py nanobot/agent/context.py tests/test_on_progress.py` |
 
 ### Template for New Adoptions
 
