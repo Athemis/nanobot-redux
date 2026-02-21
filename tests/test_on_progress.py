@@ -135,6 +135,40 @@ async def test_run_agent_loop_uses_tool_hint_when_no_content(tmp_path):
     assert progress_calls[0] == 'web_search("test")'
 
 
+async def test_run_agent_loop_formats_message_tool_hint_with_function_notation(tmp_path) -> None:
+    """message tool progress uses upstream function-style hint notation."""
+    from nanobot.providers.base import LLMResponse
+
+    loop = _make_loop(tmp_path)
+
+    message_call = MagicMock()
+    message_call.id = "tc1"
+    message_call.name = "message"
+    message_call.arguments = {"content": "Hier ist die test.txt als Anhang."}
+
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(content="", tool_calls=[message_call]),
+            LLMResponse(content="Done!", tool_calls=[]),
+        ]
+    )
+    loop.tools.execute = AsyncMock(return_value="Message sent")
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    progress_calls: list[str] = []
+
+    async def capture_progress(text: str) -> None:
+        progress_calls.append(text)
+
+    content, _ = await loop._run_agent_loop(
+        [{"role": "user", "content": "send file"}],
+        on_progress=capture_progress,
+    )
+
+    assert content == "Done!"
+    assert progress_calls == ['message("Hier ist die test.txt als Anhang.")']
+
+
 async def test_run_agent_loop_no_progress_without_callback(tmp_path):
     """Agent loop works correctly when on_progress is None (default)."""
     from nanobot.providers.base import LLMResponse
