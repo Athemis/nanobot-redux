@@ -107,15 +107,10 @@ class AgentLoop:
 
     def _register_default_tools(self) -> None:
         """Register the default set of tools."""
-        # File tools (workspace for relative paths, restrict if configured)
         allowed_dir = self.workspace if self.restrict_to_workspace else None
-        self.tools.register(ReadFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(EditFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(DeleteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(ListDirTool(workspace=self.workspace, allowed_dir=allowed_dir))
+        for tool_cls in (ReadFileTool, WriteFileTool, EditFileTool, DeleteFileTool, ListDirTool):
+            self.tools.register(tool_cls(workspace=self.workspace, allowed_dir=allowed_dir))
 
-        # Shell tool
         self.tools.register(
             ExecTool(
                 working_dir=str(self.workspace),
@@ -123,20 +118,10 @@ class AgentLoop:
                 restrict_to_workspace=self.restrict_to_workspace,
             )
         )
-
-        # Web tools
         self.tools.register(WebSearchTool(config=self.web_search_config))
         self.tools.register(WebFetchTool())
-
-        # Message tool
-        message_tool = MessageTool(send_callback=self.bus.publish_outbound)
-        self.tools.register(message_tool)
-
-        # Spawn tool (for subagents)
-        spawn_tool = SpawnTool(manager=self.subagents)
-        self.tools.register(spawn_tool)
-
-        # Cron tool (for scheduling)
+        self.tools.register(MessageTool(send_callback=self.bus.publish_outbound))
+        self.tools.register(SpawnTool(manager=self.subagents))
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))
 
@@ -358,9 +343,38 @@ class AgentLoop:
         Returns:
             The response message, or None if no response needed.
         """
-        # System messages route back via chat_id ("channel:chat_id")
         if msg.channel == "system":
-            return await self._process_system_message(msg)
+            if ":" in msg.chat_id:
+                origin_channel, origin_chat_id = msg.chat_id.split(":", 1)
+            else:
+                origin_channel, origin_chat_id = "cli", msg.chat_id
+            logger.info("Processing system message from {}", msg.sender_id)
+            key = f"{origin_channel}:{origin_chat_id}"
+            session = self.sessions.get_or_create(key)
+            self._set_tool_context(origin_channel, origin_chat_id)
+            initial_messages = self.context.build_messages(
+                history=session.get_history(max_messages=self.memory_window),
+                current_message=msg.content,
+                channel=origin_channel,
+                chat_id=origin_chat_id,
+            )
+            final_content, _ = await self._run_agent_loop(
+                initial_messages,
+                prompt_cache_key=key,
+            )
+
+            if final_content is None:
+                final_content = "Background task completed."
+
+            session.add_message("user", f"[System: {msg.sender_id}] {msg.content}")
+            session.add_message("assistant", final_content)
+            self.sessions.save(session)
+
+            return OutboundMessage(
+                channel=origin_channel,
+                chat_id=origin_chat_id,
+                content=final_content,
+            )
 
         preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
         logger.info(f"Processing message from {msg.channel}:{msg.sender_id}: {preview}")
@@ -488,200 +502,16 @@ class AgentLoop:
             metadata=msg.metadata or {},  # Pass through for channel-specific metadata
         )
 
-    async def _process_system_message(self, msg: InboundMessage) -> OutboundMessage | None:
-        """
-        Process a system message (e.g., subagent announce).
-
-        The chat_id field contains "original_channel:original_chat_id" to route
-        the response back to the correct destination.
-        """
-        logger.info("Processing system message from {}", msg.sender_id)
-
-        # Parse origin from chat_id (format: "channel:chat_id")
-        if ":" in msg.chat_id:
-            parts = msg.chat_id.split(":", 1)
-            origin_channel = parts[0]
-            origin_chat_id = parts[1]
-        else:
-            # Fallback
-            origin_channel = "cli"
-            origin_chat_id = msg.chat_id
-
-        session_key = f"{origin_channel}:{origin_chat_id}"
-        session = self.sessions.get_or_create(session_key)
-        self._set_tool_context(origin_channel, origin_chat_id)
-        initial_messages = self.context.build_messages(
-            history=session.get_history(max_messages=self.memory_window),
-            current_message=msg.content,
-            channel=origin_channel,
-            chat_id=origin_chat_id,
-        )
-        final_content, _ = await self._run_agent_loop(
-            initial_messages,
-            prompt_cache_key=session_key,
-        )
-
-        if final_content is None:
-            final_content = "Background task completed."
-
-        session.add_message("user", f"[System: {msg.sender_id}] {msg.content}")
-        session.add_message("assistant", final_content)
-        self.sessions.save(session)
-
-        return OutboundMessage(
-            channel=origin_channel, chat_id=origin_chat_id, content=final_content
-        )
-
     async def _consolidate_memory(self, session: Session, archive_all: bool = False) -> bool:
-        """Consolidate old messages into MEMORY.md + HISTORY.md.
-
-        Args:
-            archive_all: If True, clear all messages and reset session (for /new command).
-                       If False, only write to files without modifying session.
-        """
-        memory = self.context.memory
-        snapshot_len = len(session.messages)
-        if archive_all:
-            old_messages = session.messages
-            keep_count = 0
-            logger.info(
-                "Memory consolidation (archive_all): {} total messages archived",
-                len(session.messages),
-            )
-        else:
-            keep_count = self.memory_window // 2
-            if len(session.messages) <= keep_count:
-                logger.debug(
-                    "Session {}: No consolidation needed (messages={}, keep={})",
-                    session.key,
-                    len(session.messages),
-                    keep_count,
-                )
-                return True
-
-            messages_to_process = len(session.messages) - session.last_consolidated
-            if messages_to_process <= 0:
-                logger.debug(
-                    "Session {}: No new messages to consolidate (last_consolidated={}, total={})",
-                    session.key,
-                    session.last_consolidated,
-                    len(session.messages),
-                )
-                return True
-
-            snapshot_len = len(session.messages)
-            end_index = snapshot_len - keep_count
-            old_messages = session.messages[session.last_consolidated : end_index]
-            if not old_messages:
-                return True
-            logger.info(
-                "Memory consolidation started: {} total, {} new to consolidate, {} keep",
-                len(session.messages),
-                len(old_messages),
-                keep_count,
-            )
-
-        lines = []
-        for m in old_messages:
-            if not m.get("content"):
-                continue
-            tools = f" [tools: {', '.join(m['tools_used'])}]" if m.get("tools_used") else ""
-            lines.append(
-                f"[{m.get('timestamp', '?')[:16]}] {m['role'].upper()}{tools}: {m['content']}"
-            )
-        conversation = "\n".join(lines)
-        current_memory = memory.read_long_term()
-
-        prompt = f"""Process this conversation and call the save_memory tool with your consolidation.
-
-## Current Long-term Memory
-{current_memory or "(empty)"}
-
-## Conversation to Process
-{conversation}"""
-
-        save_memory_tool = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "save_memory",
-                    "description": "Save the memory consolidation result to persistent storage.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "history_entry": {
-                                "type": "string",
-                                "description": "A paragraph (2-5 sentences) summarizing key events/decisions/topics. Start with a timestamp like [YYYY-MM-DD HH:MM]. Include enough detail to be useful when found by grep search later.",
-                            },
-                            "memory_update": {
-                                "type": "string",
-                                "description": "The full updated long-term memory content as a markdown string. Include all existing facts plus any new facts: user location, preferences, personal info, habits, project context, technical decisions, tools/services used. If nothing new, return the existing content unchanged.",
-                            },
-                        },
-                        "required": ["history_entry", "memory_update"],
-                    },
-                },
-            }
-        ]
-
-        try:
-            response = await self.provider.chat(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a memory consolidation agent. Call the save_memory tool with your consolidation of the conversation.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                tools=save_memory_tool,
-                model=self.model,
-                prompt_cache_key=session.key,
-            )
-            if not response.has_tool_calls:
-                logger.warning("Memory consolidation: LLM did not call save_memory tool, skipping")
-                return False
-
-            call = next(
-                (
-                    tc
-                    for tc in response.tool_calls
-                    if tc.name == "save_memory"
-                    and isinstance(tc.arguments, dict)
-                    and ("history_entry" in tc.arguments or "memory_update" in tc.arguments)
-                ),
-                None,
-            )
-            if call is None:
-                logger.warning(
-                    "Memory consolidation: no valid save_memory tool call found, skipping"
-                )
-                return False
-
-            result = call.arguments
-
-            if entry := result.get("history_entry"):
-                if not isinstance(entry, str):
-                    entry = json.dumps(entry, ensure_ascii=False)
-                memory.append_history(entry)
-            if update := result.get("memory_update"):
-                if not isinstance(update, str):
-                    update = json.dumps(update, ensure_ascii=False)
-                if update != current_memory:
-                    memory.write_long_term(update)
-
-            if archive_all:
-                session.last_consolidated = 0
-            else:
-                session.last_consolidated = snapshot_len - keep_count
-            logger.info(
-                "Memory consolidation done: {} messages, last_consolidated={}",
-                len(session.messages),
-                session.last_consolidated,
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Memory consolidation failed: {e}")
-            return False
+        """Consolidate old messages into MEMORY.md + HISTORY.md."""
+        return await self.context.memory.consolidate(
+            session,
+            self.provider,
+            self.model,
+            archive_all=archive_all,
+            memory_window=self.memory_window,
+            prompt_cache_key=session.key,
+        )
 
     async def process_direct(
         self,

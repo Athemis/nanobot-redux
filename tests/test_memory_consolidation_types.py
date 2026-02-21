@@ -114,9 +114,9 @@ class TestConsolidationSchemaGuardrails:
 
     def test_prompt_includes_string_requirement(self) -> None:
         """The consolidation implementation should enforce schema via tool calling."""
-        import nanobot.agent.loop as _loop_module
+        import nanobot.agent.memory as _memory_module
 
-        source = inspect.getsource(_loop_module)
+        source = inspect.getsource(_memory_module)
         expected_keywords = [
             "save_memory",
             "required",
