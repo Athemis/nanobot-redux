@@ -64,6 +64,7 @@ Changes integrated after the initial fork:
 | [#902](https://github.com/HKUDS/nanobot/pull/902) partial (`73530d5`) | Session | Legacy session key fallback: replace first underscore only | low | 2026-02-20 | `pytest tests/test_session_manager.py --no-cov` |
 | [#905](https://github.com/HKUDS/nanobot/pull/905) spirit (`b286457`) | Registry | OpenRouter: default_prompt_caching_enabled=True | low | 2026-02-20 | `pytest tests/test_onboard_openrouter_defaults.py --no-cov` |
 | [#908](https://github.com/HKUDS/nanobot/pull/908) (`7279ff0`) | CLI / Agent loop | Route interactive CLI through message bus; subagent replies delivered; thinking spinner in run_once | low | 2026-02-20 | `pytest tests/test_commands.py tests/test_on_progress.py --no-cov` |
+| [#930](https://github.com/HKUDS/nanobot/pull/930) partial (`ab026c5`) | Agent loop | Adopt low-risk loop-slimming part by simplifying `_register_default_tools` with a class loop + direct registrations. Excluded larger behavior-coupled refactors (memory extraction to `MemoryStore.consolidate` and system-message path merge) to preserve fork-specific consolidation guards and routing semantics. | low | 2026-02-21 | `PYTHONPATH=$PWD pytest -q tests/test_on_progress.py tests/test_consolidate_offset.py --no-cov` + `ruff check nanobot/agent/loop.py` |
 
 ### Template for New Adoptions
 

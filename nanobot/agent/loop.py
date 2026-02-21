@@ -108,15 +108,10 @@ class AgentLoop:
 
     def _register_default_tools(self) -> None:
         """Register the default set of tools."""
-        # File tools (workspace for relative paths, restrict if configured)
         allowed_dir = self.workspace if self.restrict_to_workspace else None
-        self.tools.register(ReadFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(EditFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(DeleteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-        self.tools.register(ListDirTool(workspace=self.workspace, allowed_dir=allowed_dir))
+        for tool_cls in (ReadFileTool, WriteFileTool, EditFileTool, DeleteFileTool, ListDirTool):
+            self.tools.register(tool_cls(workspace=self.workspace, allowed_dir=allowed_dir))
 
-        # Shell tool
         self.tools.register(
             ExecTool(
                 working_dir=str(self.workspace),
@@ -124,20 +119,10 @@ class AgentLoop:
                 restrict_to_workspace=self.restrict_to_workspace,
             )
         )
-
-        # Web tools
         self.tools.register(WebSearchTool(config=self.web_search_config))
         self.tools.register(WebFetchTool())
-
-        # Message tool
-        message_tool = MessageTool(send_callback=self.bus.publish_outbound)
-        self.tools.register(message_tool)
-
-        # Spawn tool (for subagents)
-        spawn_tool = SpawnTool(manager=self.subagents)
-        self.tools.register(spawn_tool)
-
-        # Cron tool (for scheduling)
+        self.tools.register(MessageTool(send_callback=self.bus.publish_outbound))
+        self.tools.register(SpawnTool(manager=self.subagents))
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))
 
