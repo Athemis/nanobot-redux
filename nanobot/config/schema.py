@@ -67,8 +67,8 @@ class MatrixConfig(Base):
     group_policy: Literal["open", "mention", "allowlist"] = "open"
     group_allow_from: list[str] = Field(default_factory=list)
     allow_room_mentions: bool = False
-    # Optional: suppress progress-only tool-hint messages (e.g. exec("ls")) in Matrix.
-    filter_progress_tool_hints: bool = False
+    # Controls whether Matrix displays tool-call progress hints.
+    show_progress_tool_calls: bool = True
 
 
 class ChannelsConfig(Base):

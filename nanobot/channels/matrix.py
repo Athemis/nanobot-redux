@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import mimetypes
-import re
 from pathlib import Path
 from typing import Any, TypeAlias
 
@@ -619,9 +618,9 @@ class MatrixChannel(BaseChannel):
 
         try:
             if (
-                self.config.filter_progress_tool_hints
+                (not self.config.show_progress_tool_calls)
                 and (msg.metadata or {}).get("_progress")
-                and self._is_progress_tool_hint(text)
+                and (msg.metadata or {}).get("_progress_kind") == "tool_hint"
             ):
                 return
 
@@ -863,17 +862,6 @@ class MatrixChannel(BaseChannel):
             "m.in_reply_to": {"event_id": reply_to},
             "is_falling_back": True,
         }
-
-    @staticmethod
-    def _is_progress_tool_hint(text: str) -> bool:
-        """Return True when progress text consists of tool-hint tokens only."""
-        stripped = text.strip()
-        if not stripped:
-            return False
-        parts = [part.strip() for part in stripped.split(",")]
-        if any(not part for part in parts):
-            return False
-        return all(re.fullmatch(r'\w+(?:\(".*"\))?', part) for part in parts)
 
     def _event_attachment_type(self, event: MatrixMediaEvent) -> str:
         """Map Matrix event payload/type to a stable attachment kind."""

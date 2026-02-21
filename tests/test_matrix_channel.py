@@ -845,8 +845,8 @@ async def test_send_clears_typing_after_send() -> None:
 
 
 @pytest.mark.asyncio
-async def test_send_filters_progress_tool_hint_when_enabled() -> None:
-    channel = MatrixChannel(_make_config(filter_progress_tool_hints=True), MessageBus())
+async def test_send_filters_progress_tool_hint_when_show_progress_tool_calls_disabled() -> None:
+    channel = MatrixChannel(_make_config(show_progress_tool_calls=False), MessageBus())
     client = _FakeAsyncClient("", "", "", None)
     channel.client = client
 
@@ -854,8 +854,8 @@ async def test_send_filters_progress_tool_hint_when_enabled() -> None:
         OutboundMessage(
             channel="matrix",
             chat_id="!room:matrix.org",
-            content='exec("ls")',
-            metadata={"_progress": True},
+            content="tool call in progress",
+            metadata={"_progress": True, "_progress_kind": "tool_hint"},
         )
     )
 
@@ -864,8 +864,8 @@ async def test_send_filters_progress_tool_hint_when_enabled() -> None:
 
 
 @pytest.mark.asyncio
-async def test_send_keeps_progress_tool_hint_when_filter_disabled() -> None:
-    channel = MatrixChannel(_make_config(filter_progress_tool_hints=False), MessageBus())
+async def test_send_keeps_progress_tool_hint_when_show_progress_tool_calls_enabled() -> None:
+    channel = MatrixChannel(_make_config(show_progress_tool_calls=True), MessageBus())
     client = _FakeAsyncClient("", "", "", None)
     channel.client = client
 
@@ -874,7 +874,26 @@ async def test_send_keeps_progress_tool_hint_when_filter_disabled() -> None:
             channel="matrix",
             chat_id="!room:matrix.org",
             content='exec("ls")',
-            metadata={"_progress": True},
+            metadata={"_progress": True, "_progress_kind": "tool_hint"},
+        )
+    )
+
+    assert len(client.room_send_calls) == 1
+    assert client.room_send_calls[0]["content"]["body"] == 'exec("ls")'
+
+
+@pytest.mark.asyncio
+async def test_send_keeps_reasoning_progress_when_tool_calls_disabled() -> None:
+    channel = MatrixChannel(_make_config(show_progress_tool_calls=False), MessageBus())
+    client = _FakeAsyncClient("", "", "", None)
+    channel.client = client
+
+    await channel.send(
+        OutboundMessage(
+            channel="matrix",
+            chat_id="!room:matrix.org",
+            content='exec("ls")',
+            metadata={"_progress": True, "_progress_kind": "reasoning"},
         )
     )
 

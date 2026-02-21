@@ -188,7 +188,7 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
       "groupPolicy": "open",
       "groupAllowFrom": [],
       "allowRoomMentions": false,
-      "filterProgressToolHints": false,
+      "showProgressToolCalls": true,
       "maxMediaBytes": 20971520
     }
   }
@@ -199,7 +199,8 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
 > `groupPolicy`: `open`, `mention`, or `allowlist`.
 > `groupAllowFrom`: Room allowlist used when `groupPolicy` is `allowlist`.
 > `allowRoomMentions`: If `true`, accepts `@room` (`m.mentions.room`) in mention mode.
-> `filterProgressToolHints`: If `true`, suppresses Matrix progress-only tool hints (e.g. `exec("ls")`) while keeping normal progress text.
+> `showProgressToolCalls`: If `false`, hides Matrix progress tool-call hints while keeping normal progress text.
+> Set this in `~/.nanobot/config.json` under `channels.matrix`, e.g. `"showProgressToolCalls": false`.
 > `e2eeEnabled`: Enables Matrix E2EE support (default `true`); set `false` only for plaintext-only setups.
 > `maxMediaBytes`: Max attachment size in bytes (default `20MB`) for inbound and outbound media handling; set to `0` to block all inbound and outbound attachment uploads.
 
