@@ -64,7 +64,7 @@ Changes integrated after the initial fork:
 | [#902](https://github.com/HKUDS/nanobot/pull/902) partial (`73530d5`) | Session | Legacy session key fallback: replace first underscore only | low | 2026-02-20 | `pytest tests/test_session_manager.py --no-cov` |
 | [#905](https://github.com/HKUDS/nanobot/pull/905) spirit (`b286457`) | Registry | OpenRouter: default_prompt_caching_enabled=True | low | 2026-02-20 | `pytest tests/test_onboard_openrouter_defaults.py --no-cov` |
 | [#908](https://github.com/HKUDS/nanobot/pull/908) (`7279ff0`) | CLI / Agent loop | Route interactive CLI through message bus; subagent replies delivered; thinking spinner in run_once | low | 2026-02-20 | `pytest tests/test_commands.py tests/test_on_progress.py --no-cov` |
-| [#926](https://github.com/HKUDS/nanobot/pull/926) spirit (`c4bee64`) | Agent loop | CLI-only empty fallback sentinel policy already implemented in fork (`fix(agent): skip empty fallback outbound for non-cli channels`), matching upstream behavior intent without additional code changes. | low | 2026-02-21 | `pytest -q tests/test_on_progress.py::test_run_skips_empty_sentinel_for_non_cli_channels --no-cov` |
+| [#926](https://github.com/HKUDS/nanobot/pull/926) equivalent (`c4bee64`) | Agent loop | Behavior already landed in fork via [#87](https://github.com/Athemis/nanobot-redux/pull/87) (`fix(matrix): suppress empty non-cli fallback messages`), so no extra code cherry-pick is needed. | low | 2026-02-21 | `pytest -q tests/test_on_progress.py::test_run_skips_empty_sentinel_for_non_cli_channels --no-cov` |
 
 ### Template for New Adoptions
 
