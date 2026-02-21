@@ -69,8 +69,6 @@ class MatrixConfig(Base):
     allow_room_mentions: bool = False
     # Controls whether Matrix displays tool-call progress hints.
     show_progress_tool_calls: bool = True
-    # Optional: suppress progress-only tool-hint messages (e.g. exec("ls")) in Matrix.
-    filter_progress_tool_hints: bool = False
 
 
 class ChannelsConfig(Base):

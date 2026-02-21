@@ -618,7 +618,7 @@ class MatrixChannel(BaseChannel):
 
         try:
             if (
-                (self.config.filter_progress_tool_hints or not self.config.show_progress_tool_calls)
+                (not self.config.show_progress_tool_calls)
                 and (msg.metadata or {}).get("_progress")
                 and (msg.metadata or {}).get("_progress_kind") == "tool_hint"
             ):

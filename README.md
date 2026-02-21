@@ -189,7 +189,6 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
       "groupAllowFrom": [],
       "allowRoomMentions": false,
       "showProgressToolCalls": true,
-      "filterProgressToolHints": false,
       "maxMediaBytes": 20971520
     }
   }
@@ -201,7 +200,6 @@ Uses Matrix sync via `matrix-nio` (inbound media + outbound file attachments).
 > `groupAllowFrom`: Room allowlist used when `groupPolicy` is `allowlist`.
 > `allowRoomMentions`: If `true`, accepts `@room` (`m.mentions.room`) in mention mode.
 > `showProgressToolCalls`: If `false`, hides Matrix progress tool-call hints while keeping normal progress text.
-> `filterProgressToolHints`: Legacy-compatible switch to suppress Matrix progress tool-call hints.
 > `e2eeEnabled`: Enables Matrix E2EE support (default `true`); set `false` only for plaintext-only setups.
 > `maxMediaBytes`: Max attachment size in bytes (default `20MB`) for inbound and outbound media handling; set to `0` to block all inbound and outbound attachment uploads.
 
