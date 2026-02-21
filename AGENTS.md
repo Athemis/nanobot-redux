@@ -158,7 +158,8 @@ Keep the **"What This Fork Adds"** section current:
 - Evaluate candidates against `docs/redux-manifest.md` criteria: testability, practical need, risk, compatibility.
 - Prefer selective cherry-picks over broad merges.
 - Use `git cherry-pick` so the source commit stays traceable in git history.
-- When upstream diffs conflict or need adaptation, use `git cherry-pick -n <sha>`, resolve, then commit.
+- For clean adoptions, prefer `git cherry-pick -x <sha>` so the upstream commit reference is recorded in the commit message.
+- When upstream diffs conflict or need adaptation, use `git cherry-pick -n <sha>`, resolve, then commit with a manual `(cherry picked from commit <sha>)` trailer to preserve traceability.
 - When preparing a release, use `docs/release-template.md`.
 
 ## Security
