@@ -1,5 +1,6 @@
 """Tests for the on_progress callback in the agent loop."""
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -135,7 +136,9 @@ async def test_run_agent_loop_uses_tool_hint_when_no_content(tmp_path):
     assert progress_calls[0] == 'web_search("test")'
 
 
-async def test_run_agent_loop_formats_message_tool_hint_with_function_notation(tmp_path) -> None:
+async def test_run_agent_loop_formats_message_tool_hint_with_function_notation(
+    tmp_path: Path,
+) -> None:
     """message tool progress uses upstream function-style hint notation."""
     from nanobot.providers.base import LLMResponse
 
