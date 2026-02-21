@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Add failing tests for structured progress kinds and Matrix filtering
+## Task 1: Add failing tests for structured progress kinds and Matrix filtering
 
 **Files:**
 - Modify: `tests/test_on_progress.py`
@@ -28,10 +28,10 @@ def test_send_keeps_reasoning_progress_when_filter_enabled(...):
 
 **Step 2: Run tests to verify RED**
 
-Run: `/home/alex/git/nanobot-redux/.venv/bin/python -m pytest --no-cov -q tests/test_on_progress.py::test_bus_progress_sets_progress_metadata tests/test_matrix_channel.py::test_send_filters_progress_tool_hint_when_enabled tests/test_matrix_channel.py::test_send_keeps_reasoning_progress_when_filter_enabled`
+Run: `python -m pytest --no-cov -q tests/test_on_progress.py::test_bus_progress_sets_progress_metadata tests/test_matrix_channel.py::test_send_filters_progress_tool_hint_when_enabled tests/test_matrix_channel.py::test_send_keeps_reasoning_progress_when_filter_enabled`
 Expected: FAIL because `_progress_kind` is not produced/used yet.
 
-### Task 2: Implement metadata-based progress typing and Matrix config behavior
+## Task 2: Implement metadata-based progress typing and Matrix config behavior
 
 **Files:**
 - Modify: `nanobot/agent/loop.py`
@@ -57,7 +57,7 @@ show_progress_tool_calls: bool = True
 
 Map behavior so hidden tool-call hints are only Matrix-specific.
 
-### Task 3: Verify, document, commit, and open PR
+## Task 3: Verify, document, commit, and open PR
 
 **Files:**
 - Modify: `README.md`
@@ -65,10 +65,10 @@ Map behavior so hidden tool-call hints are only Matrix-specific.
 
 **Step 1: Run verification**
 
-Run: `/home/alex/git/nanobot-redux/.venv/bin/python -m ruff check nanobot/agent/loop.py nanobot/channels/matrix.py nanobot/config/schema.py tests/test_on_progress.py tests/test_matrix_channel.py`
+Run: `python -m ruff check nanobot/agent/loop.py nanobot/channels/matrix.py nanobot/config/schema.py tests/test_on_progress.py tests/test_matrix_channel.py`
 Expected: PASS
 
-Run: `/home/alex/git/nanobot-redux/.venv/bin/python -m pytest --no-cov -q tests/test_on_progress.py tests/test_matrix_channel.py`
+Run: `python -m pytest --no-cov -q tests/test_on_progress.py tests/test_matrix_channel.py`
 Expected: PASS
 
 **Step 2: Commit**
