@@ -47,6 +47,7 @@ Changes specific to this fork, not in upstream:
 - Live progress for gateway users: Matrix and Email users receive intermediate progress hints during agent execution (upstream-style `tool("arg")` formatting), with `metadata` (e.g. Matrix thread IDs) forwarded so replies land in the correct thread ([b41409e](https://github.com/Athemis/nanobot-redux/commit/b41409e))
 - Memory consolidation snapshot safety: messages that arrive while consolidation is waiting on the LLM are no longer silently skipped by `last_consolidated` watermark drift ([#63](https://github.com/Athemis/nanobot-redux/issues/63))
 - Matrix attachment reply hygiene: when the message tool already replies (for example with file attachments), non-CLI channels no longer receive an extra empty fallback message; CLI keeps the sentinel event for interactive turn completion.
+- `delete_file` diagnostics now include resolved-path context on failures (not found, not-a-file, allowed-dir blocks), making path/symlink issues much faster to debug ([dcac95f](https://github.com/Athemis/nanobot-redux/commit/dcac95ff1c9bb9f270aa17a5dd9e9f5f5f597766)).
 
 ## Key Features of nanobot:
 
