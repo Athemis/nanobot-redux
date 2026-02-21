@@ -1,3 +1,5 @@
+import pytest
+
 from nanobot.agent.context import ContextBuilder
 
 
@@ -44,31 +46,31 @@ def test_add_assistant_message_keeps_non_empty_content_and_reasoning(tmp_path) -
     assert updated[-1]["reasoning_content"] == "chain-of-thought-summary"
 
 
-def test_add_assistant_message_sets_reasoning_content_when_empty_string(tmp_path) -> None:
+@pytest.mark.parametrize(
+    "reasoning_content, expected_present, expected_value",
+    [
+        ("", True, ""),
+        (None, False, None),
+    ],
+)
+def test_add_assistant_message_reasoning_content_boundary(
+    tmp_path,
+    reasoning_content: str | None,
+    expected_present: bool,
+    expected_value: str | None,
+) -> None:
     builder = ContextBuilder(tmp_path)
     messages: list[dict[str, object]] = []
 
     updated = builder.add_assistant_message(
         messages,
         content="done",
-        reasoning_content="",
+        reasoning_content=reasoning_content,
     )
 
     assert updated[-1]["role"] == "assistant"
     assert updated[-1]["content"] == "done"
-    assert updated[-1]["reasoning_content"] == ""
-
-
-def test_add_assistant_message_omits_reasoning_content_when_none(tmp_path) -> None:
-    builder = ContextBuilder(tmp_path)
-    messages: list[dict[str, object]] = []
-
-    updated = builder.add_assistant_message(
-        messages,
-        content="done",
-        reasoning_content=None,
-    )
-
-    assert updated[-1]["role"] == "assistant"
-    assert updated[-1]["content"] == "done"
-    assert "reasoning_content" not in updated[-1]
+    if expected_present:
+        assert updated[-1]["reasoning_content"] == expected_value
+    else:
+        assert "reasoning_content" not in updated[-1]
