@@ -109,7 +109,7 @@ class TestMemoryConsolidationTypeHandling:
         assert "facts" in memory_content
 
 
-class TestPromptOptimization:
+class TestConsolidationSchemaGuardrails:
     """Test that consolidation prompt/schema guardrails are present."""
 
     def test_prompt_includes_string_requirement(self) -> None:
