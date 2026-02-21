@@ -192,17 +192,6 @@ class AgentLoop:
             return ""
         return ", ".join(tc.name for tc in tool_calls)
 
-    def _is_raw_tool_hint(self, text: str) -> bool:
-        """Return True when text is a comma-separated list of known tool names."""
-        stripped = text.strip()
-        if not stripped:
-            return False
-        names = [name.strip() for name in stripped.split(",")]
-        if any(not name for name in names):
-            return False
-        known = set(self.tools.tool_names)
-        return bool(known) and all(name in known for name in names)
-
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
@@ -468,8 +457,6 @@ class AgentLoop:
                     target = (msg.channel, msg.chat_id)
                     if message_tool.sent_in_turn_target == target:
                         return
-            if msg.channel in {"matrix", "email"} and self._is_raw_tool_hint(content):
-                return
             meta = dict(msg.metadata or {})
             meta["_progress"] = True
             await self.bus.publish_outbound(
