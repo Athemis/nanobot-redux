@@ -860,7 +860,7 @@ async def test_send_filters_progress_tool_hint_when_show_progress_tool_calls_dis
     )
 
     assert client.room_send_calls == []
-    assert client.typing_calls[-1] == ("!room:matrix.org", False, TYPING_NOTICE_TIMEOUT_MS)
+    assert client.typing_calls == []
 
 
 @pytest.mark.asyncio
@@ -1184,6 +1184,29 @@ async def test_send_stops_typing_keepalive_task() -> None:
 
     assert "!room:matrix.org" not in channel._typing_tasks
     assert client.typing_calls[-1] == ("!room:matrix.org", False, TYPING_NOTICE_TIMEOUT_MS)
+
+
+@pytest.mark.asyncio
+async def test_send_progress_keeps_typing_keepalive_running() -> None:
+    channel = MatrixChannel(_make_config(), MessageBus())
+    client = _FakeAsyncClient("", "", "", None)
+    channel.client = client
+    channel._running = True
+
+    await channel._start_typing_keepalive("!room:matrix.org")
+    assert "!room:matrix.org" in channel._typing_tasks
+
+    await channel.send(
+        OutboundMessage(
+            channel="matrix",
+            chat_id="!room:matrix.org",
+            content="working...",
+            metadata={"_progress": True, "_progress_kind": "reasoning"},
+        )
+    )
+
+    assert "!room:matrix.org" in channel._typing_tasks
+    assert client.typing_calls[-1] == ("!room:matrix.org", True, TYPING_NOTICE_TIMEOUT_MS)
 
 
 @pytest.mark.asyncio
