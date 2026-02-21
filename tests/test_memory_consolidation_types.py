@@ -109,18 +109,19 @@ class TestMemoryConsolidationTypeHandling:
         assert "facts" in memory_content
 
 
-class TestPromptOptimization:
-    """Test that prompt optimization helps prevent the issue."""
+class TestConsolidationSchemaGuardrails:
+    """Test that consolidation prompt/schema guardrails are present."""
 
     def test_prompt_includes_string_requirement(self) -> None:
-        """The consolidation prompt in loop.py should explicitly require string values."""
+        """The consolidation implementation should enforce schema via tool calling."""
         import nanobot.agent.loop as _loop_module
 
         source = inspect.getsource(_loop_module)
         expected_keywords = [
-            "MUST be strings",
-            "not objects or arrays",
-            "Example:",
+            "save_memory",
+            "required",
+            '"history_entry"',
+            '"memory_update"',
         ]
 
         for keyword in expected_keywords:
