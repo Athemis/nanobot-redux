@@ -122,6 +122,9 @@ Use `from typing import TYPE_CHECKING` and guard import-only dependencies behind
 
 - Sign commits with GPG (`git commit -S`).
 - Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Scoped forms: `feat(matrix):`.
+- Start every new PR from a fresh branch created off `main` (or `origin/main`), not from an older PR branch.
+- Follow the existing branch naming convention using Conventional Commit type prefixes (for example `feat/...`, `fix/...`, `docs/...`, `chore/...`).
+- Keep PR commits small and focused; split documentation-only changes into separate commits from code changes to simplify later upstream cherry-picks.
 - Imperative mood, concise titles (< 72 chars).
 - Before merging: `ruff check .` and `pytest` must pass.
 - Update fork documentation in the same PR — see **Fork Documentation** section below.
