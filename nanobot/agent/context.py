@@ -230,7 +230,7 @@ When calling tools, include one short sentence explaining what you are about to 
             msg["tool_calls"] = tool_calls
 
         # Include reasoning content when provided (required by some thinking models).
-        if reasoning_content:
+        if reasoning_content is not None:
             msg["reasoning_content"] = reasoning_content
 
         messages.append(msg)
