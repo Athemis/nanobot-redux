@@ -263,21 +263,49 @@ class DeleteFileTool(Tool):
                 in_alias = file_path.is_relative_to(allowed_alias)
                 in_resolved = file_path.is_relative_to(allowed_resolved)
                 if not (in_alias or in_resolved):
-                    return f"Error: Path {path} is outside allowed directory {self._allowed_dir}"
+                    return self._outside_allowed_error(
+                        path,
+                        file_path,
+                        self._allowed_dir,
+                        allowed_resolved=allowed_resolved,
+                    )
 
                 # Block escape via symlinked parent directories inside allowed_dir.
                 parent_resolved = file_path.parent.resolve()
                 if not parent_resolved.is_relative_to(allowed_resolved):
-                    return f"Error: Path {path} is outside allowed directory {self._allowed_dir}"
+                    return self._outside_allowed_error(
+                        path,
+                        file_path,
+                        self._allowed_dir,
+                        allowed_resolved=allowed_resolved,
+                        parent_resolved=parent_resolved,
+                    )
 
             if not file_path.exists():
                 # Broken symlinks have exists() == False but are still valid unlink targets.
                 if not file_path.is_symlink():
-                    return f"Error: File not found: {path}"
+                    return f"Error: File not found: {path} (resolved={file_path})"
             if file_path.is_dir() and not file_path.is_symlink():
-                return f"Error: Not a file: {path}"
+                return f"Error: Not a file: {path} (resolved={file_path}, type=directory)"
 
             file_path.unlink()
             return f"Successfully deleted {path}"
         except Exception as e:
             return f"Error deleting file: {str(e)}"
+
+    @staticmethod
+    def _outside_allowed_error(
+        path: str,
+        file_path: Path,
+        allowed_dir: Path,
+        *,
+        allowed_resolved: Path,
+        parent_resolved: Path | None = None,
+    ) -> str:
+        msg = (
+            f"Error: Path {path} is outside allowed directory {allowed_dir} "
+            f"(resolved={file_path}, allowed_resolved={allowed_resolved}"
+        )
+        if parent_resolved is not None:
+            msg += f", parent_resolved={parent_resolved}"
+        return f"{msg})"

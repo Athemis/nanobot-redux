@@ -31,7 +31,8 @@ async def test_delete_file_not_found(tmp_path: Path) -> None:
     tool = DeleteFileTool()
     result = await tool.execute(path=str(missing))
 
-    assert result == f"Error: File not found: {missing}"
+    assert f"Error: File not found: {missing}" in result
+    assert "resolved=" in result
 
 
 @pytest.mark.asyncio
@@ -42,7 +43,9 @@ async def test_delete_file_rejects_directory(tmp_path: Path) -> None:
     tool = DeleteFileTool()
     result = await tool.execute(path=str(dir_path))
 
-    assert result == f"Error: Not a file: {dir_path}"
+    assert f"Error: Not a file: {dir_path}" in result
+    assert "resolved=" in result
+    assert "type=directory" in result
 
 
 @pytest.mark.asyncio
@@ -70,7 +73,9 @@ async def test_delete_file_blocks_path_outside_allowed_dir(tmp_path: Path) -> No
     tool = DeleteFileTool(allowed_dir=allowed_dir)
     result = await tool.execute(path=str(outside_file))
 
-    assert result == f"Error: Path {outside_file} is outside allowed directory {allowed_dir}"
+    assert f"Error: Path {outside_file} is outside allowed directory {allowed_dir}" in result
+    assert "resolved=" in result
+    assert "allowed_resolved=" in result
     assert outside_file.exists()
 
 
@@ -116,7 +121,9 @@ async def test_delete_file_blocks_symlinked_parent_escape(tmp_path: Path) -> Non
     escaped_path = escaped_parent / "outside.txt"
     result = await tool.execute(path=str(escaped_path))
 
-    assert result == f"Error: Path {escaped_path} is outside allowed directory {allowed_dir}"
+    assert f"Error: Path {escaped_path} is outside allowed directory {allowed_dir}" in result
+    assert "parent_resolved=" in result
+    assert "allowed_resolved=" in result
     assert outside_file.exists()
 
 
