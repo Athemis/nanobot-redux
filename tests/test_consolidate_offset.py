@@ -8,7 +8,7 @@ import pytest
 
 from nanobot.agent.loop import AgentLoop
 from nanobot.bus.queue import MessageBus
-from nanobot.providers.base import LLMResponse
+from nanobot.providers.base import LLMResponse, ToolCallRequest
 from nanobot.session.manager import Session, SessionManager
 
 # Test constants
@@ -509,8 +509,17 @@ async def test_consolidation_processes_messages_when_keep_count_zero(tmp_path: P
 
     loop.provider.chat = AsyncMock(
         return_value=LLMResponse(
-            content='{"history_entry":"[2026-02-20 12:00] summarized","memory_update":""}',
-            tool_calls=[],
+            content=None,
+            tool_calls=[
+                ToolCallRequest(
+                    id="tc1",
+                    name="save_memory",
+                    arguments={
+                        "history_entry": "[2026-02-20 12:00] summarized",
+                        "memory_update": "",
+                    },
+                )
+            ],
         )
     )
 
@@ -523,6 +532,80 @@ async def test_consolidation_processes_messages_when_keep_count_zero(tmp_path: P
 
     assert loop.provider.chat.await_count == 1
     assert session.last_consolidated == len(session.messages)
+
+
+@pytest.mark.asyncio
+async def test_consolidation_requires_save_memory_tool_call(tmp_path: Path) -> None:
+    """Consolidation should fail when provider does not emit save_memory tool call."""
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(
+        bus=bus,
+        provider=provider,
+        workspace=tmp_path,
+        model="test-model",
+        memory_window=1,
+    )
+
+    loop.provider.chat = AsyncMock(
+        return_value=LLMResponse(
+            content='{"history_entry":"[2026-02-20 12:00] summarized","memory_update":""}',
+            tool_calls=[],
+        )
+    )
+
+    session = loop.sessions.get_or_create("cli:test-no-tool")
+    for i in range(3):
+        session.add_message("user", f"msg{i}")
+    loop.sessions.save(session)
+
+    ok = await loop._consolidate_memory(session)
+
+    assert ok is False
+    assert session.last_consolidated == 0
+
+
+@pytest.mark.asyncio
+async def test_consolidation_tool_args_are_stringified(tmp_path: Path) -> None:
+    """Tool-call args for history/memory should be normalized to strings."""
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(
+        bus=bus,
+        provider=provider,
+        workspace=tmp_path,
+        model="test-model",
+        memory_window=1,
+    )
+
+    loop.provider.chat = AsyncMock(
+        return_value=LLMResponse(
+            content=None,
+            tool_calls=[
+                ToolCallRequest(
+                    id="tc2",
+                    name="save_memory",
+                    arguments={
+                        "history_entry": {"summary": "dict payload"},
+                        "memory_update": ["item1", "item2"],
+                    },
+                )
+            ],
+        )
+    )
+
+    session = loop.sessions.get_or_create("cli:test-stringify")
+    for i in range(3):
+        session.add_message("user", f"msg{i}")
+    loop.sessions.save(session)
+
+    ok = await loop._consolidate_memory(session)
+
+    assert ok is True
+    assert "dict payload" in loop.context.memory.history_file.read_text(encoding="utf-8")
+    assert '["item1", "item2"]' == loop.context.memory.read_long_term()
 
 
 class TestConsolidationDeduplicationGuard:
@@ -933,11 +1016,17 @@ class TestSnapshotWatermark:
 
         provider.chat = AsyncMock(
             return_value=LLMResponse(
-                content=(
-                    '{"history_entry": "[2026-02-20 00:00] Consolidated test messages", '
-                    '"memory_update": "- Test memory entry"}'
-                ),
-                tool_calls=[],
+                content=None,
+                tool_calls=[
+                    ToolCallRequest(
+                        id="tc-watermark",
+                        name="save_memory",
+                        arguments={
+                            "history_entry": "[2026-02-20 00:00] Consolidated test messages",
+                            "memory_update": "- Test memory entry",
+                        },
+                    )
+                ],
             )
         )
         loop.tools.get_definitions = MagicMock(return_value=[])
