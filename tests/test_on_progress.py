@@ -477,6 +477,10 @@ async def test_bus_progress_sets_progress_metadata(tmp_path) -> None:
         assert m.metadata.get("_progress") is True
         assert m.metadata.get("extra") == "data"
 
+    kinds_by_content = {m.content: m.metadata.get("_progress_kind") for m in outbound}
+    assert kinds_by_content.get("Running shell.") == "reasoning"
+    assert kinds_by_content.get('shell("ls")') == "tool_hint"
+
 
 async def test_run_always_publishes_outbound_for_none_response(tmp_path) -> None:
     """run() publishes empty OutboundMessage with metadata when response is None."""

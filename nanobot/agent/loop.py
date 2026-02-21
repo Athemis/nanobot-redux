@@ -187,6 +187,7 @@ class AgentLoop:
         initial_messages: list[dict],
         prompt_cache_key: str | None = None,
         on_progress: Callable[[str], Awaitable[None]] | None = None,
+        on_progress_kind: Callable[[str, str], Awaitable[None]] | None = None,
     ) -> tuple[str | None, list[str]]:
         """
         Run the agent iteration loop.
@@ -216,11 +217,19 @@ class AgentLoop:
             )
 
             if response.has_tool_calls:
-                if on_progress:
+                if on_progress or on_progress_kind:
                     clean = self._strip_think(response.content or "")
                     if clean:
-                        await on_progress(clean)
-                    await on_progress(self._tool_hint(response.tool_calls))
+                        if on_progress:
+                            await on_progress(clean)
+                        if on_progress_kind:
+                            await on_progress_kind(clean, "reasoning")
+
+                    hint = self._tool_hint(response.tool_calls)
+                    if on_progress:
+                        await on_progress(hint)
+                    if on_progress_kind:
+                        await on_progress_kind(hint, "tool_hint")
 
                 tool_call_dicts = [
                     {
@@ -455,6 +464,9 @@ class AgentLoop:
         )
 
         async def _bus_progress(content: str) -> None:
+            await _bus_progress_kind(content, "reasoning")
+
+        async def _bus_progress_kind(content: str, kind: str) -> None:
             if message_tool := self.tools.get("message"):
                 if isinstance(message_tool, MessageTool):
                     target = (msg.channel, msg.chat_id)
@@ -462,6 +474,7 @@ class AgentLoop:
                         return
             meta = dict(msg.metadata or {})
             meta["_progress"] = True
+            meta["_progress_kind"] = kind
             await self.bus.publish_outbound(
                 OutboundMessage(
                     channel=msg.channel,
@@ -475,6 +488,7 @@ class AgentLoop:
             initial_messages,
             prompt_cache_key=key,
             on_progress=on_progress or _bus_progress,
+            on_progress_kind=None if on_progress else _bus_progress_kind,
         )
 
         if final_content is None:
