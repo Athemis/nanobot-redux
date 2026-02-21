@@ -75,6 +75,7 @@ Skills with available="false" need dependencies installed first - you can try in
         """Get the core identity section."""
         import time as _time
         from datetime import datetime
+
         now = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
         tz = _time.strftime("%Z") or "UTC"
         workspace_path = str(self.workspace.expanduser().resolve())
@@ -110,6 +111,7 @@ For normal conversation text, respond directly without calling the message tool.
 Do not claim that attachments are impossible if a channel supports file send and you can provide local paths.
 
 Always be helpful, accurate, and concise. When using tools, think step by step: what you know, what you need, and why you chose this tool.
+If you need to use tools, call them directly - never send a preliminary message like "Let me check" without actually calling a tool.
 When remembering something important, write to {workspace_path}/memory/MEMORY.md
 To recall past events, grep {workspace_path}/memory/HISTORY.md
 Before calling tools, briefly explain what you are about to do (one short sentence in the user's language)."""
@@ -185,11 +187,7 @@ Before calling tools, briefly explain what you are about to do (one short senten
         return images + [{"type": "text", "text": text}]
 
     def add_tool_result(
-        self,
-        messages: list[dict[str, Any]],
-        tool_call_id: str,
-        tool_name: str,
-        result: str
+        self, messages: list[dict[str, Any]], tool_call_id: str, tool_name: str, result: str
     ) -> list[dict[str, Any]]:
         """
         Add a tool result to the message list.
@@ -203,12 +201,9 @@ Before calling tools, briefly explain what you are about to do (one short senten
         Returns:
             Updated message list.
         """
-        messages.append({
-            "role": "tool",
-            "tool_call_id": tool_call_id,
-            "name": tool_name,
-            "content": result
-        })
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call_id, "name": tool_name, "content": result}
+        )
         return messages
 
     def add_assistant_message(
