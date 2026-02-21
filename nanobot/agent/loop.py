@@ -187,10 +187,16 @@ class AgentLoop:
 
     @staticmethod
     def _tool_hint(tool_calls: list[ToolCallRequest]) -> str:
-        """Return bare comma-separated tool names, or '' when the list is empty."""
-        if not tool_calls:
-            return ""
-        return ", ".join(tc.name for tc in tool_calls)
+        """Format tool calls as concise hints, e.g. web_search("query")."""
+
+        def _fmt(tc: ToolCallRequest) -> str:
+            args = tc.arguments if isinstance(tc.arguments, dict) else None
+            val = next(iter(args.values()), None) if args else None
+            if not isinstance(val, str):
+                return tc.name
+            return f'{tc.name}("{val[:40]}...")' if len(val) > 40 else f'{tc.name}("{val}")'
+
+        return ", ".join(_fmt(tc) for tc in tool_calls)
 
     async def _run_agent_loop(
         self,

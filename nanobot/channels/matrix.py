@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import mimetypes
+import re
 from pathlib import Path
 from typing import Any, TypeAlias
 
@@ -500,7 +501,9 @@ class MatrixChannel(BaseChannel):
     ) -> str | None:
         """Upload one local file to Matrix and send it as a media message."""
         if not self.client:
-            return MATRIX_ATTACHMENT_UPLOAD_FAILED_TEMPLATE.format(path.name or MATRIX_DEFAULT_ATTACHMENT_NAME)
+            return MATRIX_ATTACHMENT_UPLOAD_FAILED_TEMPLATE.format(
+                path.name or MATRIX_DEFAULT_ATTACHMENT_NAME
+            )
 
         resolved = path.expanduser().resolve(strict=False)
         filename = safe_filename(resolved.name) or MATRIX_DEFAULT_ATTACHMENT_NAME
@@ -615,6 +618,13 @@ class MatrixChannel(BaseChannel):
         relates_to = self._build_thread_relates_to(msg.metadata)
 
         try:
+            if (
+                self.config.filter_progress_tool_hints
+                and (msg.metadata or {}).get("_progress")
+                and self._is_progress_tool_hint(text)
+            ):
+                return
+
             failures: list[str] = []
 
             if candidates:
@@ -854,6 +864,17 @@ class MatrixChannel(BaseChannel):
             "is_falling_back": True,
         }
 
+    @staticmethod
+    def _is_progress_tool_hint(text: str) -> bool:
+        """Return True when progress text consists of tool-hint tokens only."""
+        stripped = text.strip()
+        if not stripped:
+            return False
+        parts = [part.strip() for part in stripped.split(",")]
+        if any(not part for part in parts):
+            return False
+        return all(re.fullmatch(r'\w+(?:\(".*"\))?', part) for part in parts)
+
     def _event_attachment_type(self, event: MatrixMediaEvent) -> str:
         """Map Matrix event payload/type to a stable attachment kind."""
         msgtype = self._event_source_content(event).get("msgtype")
@@ -1025,10 +1046,7 @@ class MatrixChannel(BaseChannel):
 
         limit_bytes = await self._effective_media_limit_bytes()
         declared_size = self._event_declared_size_bytes(event)
-        if (
-            declared_size is not None
-            and declared_size > limit_bytes
-        ):
+        if declared_size is not None and declared_size > limit_bytes:
             logger.warning(
                 "Matrix attachment skipped in room {}: declared size {} exceeds limit {}",
                 room.room_id,
