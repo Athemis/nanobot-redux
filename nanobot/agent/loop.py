@@ -192,6 +192,17 @@ class AgentLoop:
             return ""
         return ", ".join(tc.name for tc in tool_calls)
 
+    def _is_raw_tool_hint(self, text: str) -> bool:
+        """Return True when text is a comma-separated list of known tool names."""
+        stripped = text.strip()
+        if not stripped:
+            return False
+        names = [name.strip() for name in stripped.split(",")]
+        if any(not name for name in names):
+            return False
+        known = set(self.tools.tool_names)
+        return bool(known) and all(name in known for name in names)
+
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
@@ -297,15 +308,19 @@ class AgentLoop:
                 msg = await asyncio.wait_for(self.bus.consume_inbound(), timeout=1.0)
                 try:
                     response = await self._process_message(msg)
-                    await self.bus.publish_outbound(
-                        response
-                        or OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content="",
-                            metadata=msg.metadata or {},
+                    if response is not None:
+                        await self.bus.publish_outbound(response)
+                    elif msg.channel == "cli":
+                        # CLI interactive mode waits for an outbound event to mark
+                        # turn completion when the message tool already replied.
+                        await self.bus.publish_outbound(
+                            OutboundMessage(
+                                channel=msg.channel,
+                                chat_id=msg.chat_id,
+                                content="",
+                                metadata=msg.metadata or {},
+                            )
                         )
-                    )
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     await self.bus.publish_outbound(
@@ -323,7 +338,7 @@ class AgentLoop:
         if self._mcp_stack:
             try:
                 await self._mcp_stack.aclose()
-            except (RuntimeError, BaseExceptionGroup):
+            except RuntimeError, BaseExceptionGroup:
                 pass  # MCP SDK cancel scope cleanup is noisy but harmless
             self._mcp_stack = None
 
@@ -453,6 +468,8 @@ class AgentLoop:
                     target = (msg.channel, msg.chat_id)
                     if message_tool.sent_in_turn_target == target:
                         return
+            if msg.channel in {"matrix", "email"} and self._is_raw_tool_hint(content):
+                return
             meta = dict(msg.metadata or {})
             meta["_progress"] = True
             await self.bus.publish_outbound(

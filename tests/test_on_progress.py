@@ -446,6 +446,45 @@ async def test_bus_progress_sets_progress_metadata(tmp_path) -> None:
         assert m.metadata.get("extra") == "data"
 
 
+async def test_process_message_suppresses_tool_name_hints_for_matrix(tmp_path) -> None:
+    """Matrix progress should not emit raw tool names like 'exec'."""
+    from nanobot.bus.events import InboundMessage
+    from nanobot.bus.queue import MessageBus
+    from nanobot.providers.base import LLMResponse
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    tool_call = MagicMock()
+    tool_call.id = "tc3"
+    tool_call.name = "exec"
+    tool_call.arguments = {"command": "ls"}
+
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(content="", tool_calls=[tool_call]),
+            LLMResponse(content="Done!", tool_calls=[]),
+        ]
+    )
+    loop.tools.execute = AsyncMock(return_value="ok")
+    loop.tools.get_definitions = MagicMock(return_value=[])
+
+    msg = InboundMessage(
+        channel="matrix",
+        sender_id="u1",
+        chat_id="r1",
+        content="list files",
+    )
+
+    result = await loop._process_message(msg)
+
+    assert result is not None
+    assert result.content == "Done!"
+    assert bus.outbound.empty(), "Matrix should not receive raw tool-name progress hints"
+
+
 async def test_run_always_publishes_outbound_for_none_response(tmp_path) -> None:
     """run() publishes empty OutboundMessage with metadata when response is None."""
     import asyncio
@@ -488,3 +527,38 @@ async def test_run_always_publishes_outbound_for_none_response(tmp_path) -> None
     assert msg.chat_id == "session1"
     assert msg.content == ""  # empty sentinel message
     assert msg.metadata == {"thread_root_event_id": "$root"}
+
+
+async def test_run_skips_empty_sentinel_for_non_cli_channels(tmp_path) -> None:
+    """run() does not publish empty fallback messages for non-CLI channels."""
+    import asyncio
+
+    from nanobot.bus.events import InboundMessage
+    from nanobot.bus.queue import MessageBus
+
+    bus = MessageBus()
+    provider = MagicMock()
+    provider.get_default_model.return_value = "test-model"
+    loop = AgentLoop(bus=bus, provider=provider, workspace=tmp_path, model="test-model")
+
+    loop._process_message = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    loop._connect_mcp = AsyncMock()  # type: ignore[method-assign]
+
+    inbound = InboundMessage(
+        channel="matrix",
+        sender_id="user",
+        chat_id="!room:matrix.org",
+        content="hello",
+        metadata={"thread_root_event_id": "$root"},
+    )
+    await bus.publish_inbound(inbound)
+
+    async def _run_and_stop() -> None:
+        task = asyncio.create_task(loop.run())
+        await asyncio.sleep(0.15)
+        loop.stop()
+        await asyncio.gather(task, return_exceptions=True)
+
+    await _run_and_stop()
+
+    assert bus.outbound.empty()
